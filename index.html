@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Drawing Visualizer - VR Edition</title>
+  <meta name="description" content="Professional VR Engineering Drawing Visualization System">
+  
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+
+    /* --- UI OVERLAY STYLES --- */
+    #intro-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(45deg, #2B2B88 0%, #2B2B88 25%, #CF2027 25%, #CF2027 50%, #B78A2D 50%, #B78A2D 75%, #5CCAE8 75%, #5CCAE8 100%);
+      background-size: 100px 100px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 10000; transition: opacity 0.8s ease-out;
+    }
+    
+    #intro-overlay::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.85); z-index: -1;
+    }
+
+    #intro-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .logo-container {
+      margin-bottom: 40px; padding: 30px; background: white;
+      border: 8px solid #2B2B88; border-radius: 20px;
+      box-shadow: 0 0 0 4px #CF2027, 0 0 0 8px #B78A2D, 0 20px 50px rgba(0,0,0,0.3);
+      animation: logoEntry 1s ease-out;
+    }
+
+    @keyframes logoEntry {
+      0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    #bits-logo { width: 300px; height: auto; display: block; }
+
+    .title-container {
+      text-align: center; margin: 30px 0; padding: 30px 50px; background: white;
+      border: 6px solid #2B2B88; border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      animation: titleSlideIn 1s ease-out 0.3s both;
+    }
+
+    @keyframes titleSlideIn {
+      0% { opacity: 0; transform: translateY(-50px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .intro-title {
+      font-size: 3.5em; font-weight: 900; color: #2B2B88; text-transform: uppercase;
+      letter-spacing: 4px; margin: 10px 0; text-shadow: 3px 3px 0 #CF2027, 6px 6px 0 #B78A2D;
+    }
+
+    .intro-subtitle {
+      font-size: 1.8em; font-weight: 700; color: #CF2027; text-transform: uppercase;
+      letter-spacing: 3px; margin-top: 15px; border-top: 4px solid #5CCAE8; padding-top: 15px;
+    }
+
+    .start-button {
+      padding: 25px 80px; font-size: 1.5em; font-weight: 900; color: white;
+      background: #CF2027; border: 6px solid #2B2B88; border-radius: 15px;
+      cursor: pointer; text-transform: uppercase; letter-spacing: 3px;
+      box-shadow: 0 0 0 3px #B78A2D, 0 15px 40px rgba(0,0,0,0.4);
+      animation: buttonPop 1s ease-out 0.6s both; transition: all 0.2s ease; margin-top: 40px;
+    }
+
+    @keyframes buttonPop {
+      0% { opacity: 0; transform: scale(0.5); }
+      70% { transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .start-button:hover {
+      background: #2B2B88; border-color: #CF2027; transform: scale(1.05);
+      box-shadow: 0 0 0 3px #5CCAE8, 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    .corner-block { position: absolute; width: 100px; height: 100px; border: 5px solid; }
+    .corner-block.top-left { top: 20px; left: 20px; border-color: #2B2B88 transparent transparent #2B2B88; border-radius: 10px 0 0 0; }
+    .corner-block.top-right { top: 20px; right: 20px; border-color: #CF2027 #CF2027 transparent transparent; border-radius: 0 10px 0 0; }
+    .corner-block.bottom-left { bottom: 20px; left: 20px; border-color: transparent transparent #B78A2D #B78A2D; border-radius: 0 0 0 10px; }
+    .corner-block.bottom-right { bottom: 20px; right: 20px; border-color: transparent #5CCAE8 #5CCAE8 transparent; border-radius: 0 0 10px 0; }
+
+    /* LOADING SCREEN */
+    #loading-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #CF2027 0%, #B78A2D 50%, #5CCAE8 100%);
+      display: none; justify-content: center; align-items: center; flex-direction: column;
+      z-index: 9999; transition: opacity 0.8s ease-out;
+    }
+
+    #loading-screen.active { display: flex; }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+
+    #loading-container {
+      background: white; padding: 40px 60px; border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      border: 6px solid #2B2B88;
+      min-width: 400px;
+    }
+
+    #loading-text {
+      font-size: 1.8em; font-weight: 900; color: #2B2B88; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 20px; text-align: center;
+    }
+
+    #loading-bar-container {
+      width: 100%; height: 30px; background: #E0E0E0;
+      border-radius: 15px; overflow: hidden; position: relative;
+      border: 3px solid #2B2B88;
+    }
+
+    #loading-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #CF2027 0%, #B78A2D 50%, #5CCAE8 100%);
+      transition: width 0.3s ease;
+      position: relative;
+    }
+
+    #loading-percentage {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 1em; font-weight: 900; color: #2B2B88;
+      text-shadow: 1px 1px 2px white;
+      z-index: 1;
+    }
+
+    #vr-scene { display: none; opacity: 0; transition: opacity 1s ease-in; }
+    #vr-scene.active { display: block; opacity: 1; }
+  </style>
+</head>
+
+<body>
+  <!-- INTRO OVERLAY -->
+  <div id="intro-overlay">
+    <div class="corner-block top-left"></div>
+    <div class="corner-block top-right"></div>
+    <div class="corner-block bottom-left"></div>
+    <div class="corner-block bottom-right"></div>
+    
+    <div class="logo-container">
+      <img id="bits-logo" src="https://i.ibb.co/6cSQR6Tt/1200px-BITS-Pilani-Logo-svg.png" alt="BITS Pilani">
+    </div>
+    
+    <div class="title-container">
+      <h1 class="intro-title">Engineering Drawing<br>Visualizer</h1>
+      <p class="intro-subtitle">Virtual Reality Edition</p>
+    </div>
+    
+    <button class="start-button" id="start-btn">Start Experience</button>
+  </div>
+
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen">
+    <div id="loading-container">
+      <p id="loading-text">Loading Environment...</p>
+      <div id="loading-bar-container">
+        <div id="loading-bar"></div>
+        <div id="loading-percentage">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VR SCENE -->
+  <a-scene id="vr-scene" loading-screen="enabled: false" vr-mode-ui="enabled: true">
+    <a-assets timeout="8000">
+      <img id="wall-texture" src="https://cdn.architextures.org/textures/23/10/plain-blue-sheer-twinbru-textiles-1yeo48.jpg" crossorigin="anonymous">
+      <img id="carpet-texture" src="https://cdn.architextures.org/textures/23/7/plain-green-texture-none-twinbru-textiles-9cbkkg.jpg" crossorigin="anonymous">
+      <img id="ceiling-texture" src="https://cdn.architextures.org/textures/23/7/plain-pink-texture-none-twinbru-textiles-yvcpnl.jpg" crossorigin="anonymous">
+      <img id="outside-image" src="https://i.ibb.co/Hpt3MvQS/2151498065.jpg" crossorigin="anonymous">
+      
+      <!-- Plant Model -->
+      <a-asset-item id="plant-model" src="https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Avocado/glTF/Avocado.gltf"></a-asset-item>
+    </a-assets>
+
+    <a-sky color="#E8F4F8"></a-sky>
+    
+    <!-- LIGHTING -->
+    <a-entity light="type: ambient; intensity: 0.8; color: #FFFFFF"></a-entity>
+    <a-entity light="type: directional; intensity: 1.0; color: #FFFFFF" position="0 10 0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.5; color: #FFFFFF" position="5 8 5"></a-entity>
+    <a-entity light="type: directional; intensity: 0.5; color: #FFFFFF" position="-5 8 -5"></a-entity>
+
+    <!-- FLOOR -->
+    <a-plane 
+      position="0 0 0" 
+      rotation="-90 0 0" 
+      width="20" 
+      height="20" 
+      color="#8B7355"
+      roughness="0.9"
+      src="#carpet-texture"
+      repeat="4 4"
+      shadow="receive: true">
+    </a-plane>
+
+    <!-- WALLS -->
+    <a-plane position="0 3 -10" rotation="0 0 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
+    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
+    <!-- RIGHT WALL -->
+    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
+
+    <!-- FLAT CEILING -->
+    <a-plane 
+      position="0 6 0" 
+      rotation="90 0 0" 
+      width="20" 
+      height="20" 
+      src="#ceiling-texture"
+      repeat="4 4"
+      shadow="receive: true">
+    </a-plane>
+
+    <!-- WINDOW WITH OUTSIDE IMAGE - FIXED TO PREVENT OVERLAP -->
+    <a-entity position="10.2 3 -3" rotation="0 -90 0">
+      <!-- Outside Image as Window Background - Moved slightly forward -->
+      <a-plane 
+        position="0 0 0" 
+        width="4" 
+        height="3" 
+        src="#outside-image"
+        material="shader: flat; side: double; depthTest: true">
+      </a-plane>
+      
+      <!-- Transparent Glass Overlay -->
+      <a-plane 
+        position="0 0 0.08" 
+        width="3.8" 
+        height="2.8" 
+        material="color: #87CEEB; transparent: true; opacity: 0.15; side: double; depthTest: true">
+      </a-plane>
+      
+      <!-- Window Frame -->
+      <a-box position="0 1.5 0.1" width="4.0" height="0.15" depth="0.2" color="#654321"></a-box>
+      <a-box position="0 -1.5 0.1" width="4.0" height="0.15" depth="0.2" color="#654321"></a-box>
+      <a-box position="-2.0 0 0.1" width="0.15" height="3.0" depth="0.2" color="#654321"></a-box>
+      <a-box position="2.0 0 0.1" width="0.15" height="3.0" depth="0.2" color="#654321"></a-box>
+      
+      <!-- Window Panes (Cross dividers) -->
+      <a-box position="0 0 0.12" width="0.1" height="2.8" depth="0.15" color="#4A3319"></a-box>
+      <a-box position="0 0 0.12" width="3.8" height="0.1" depth="0.15" color="#4A3319"></a-box>
+    </a-entity>
+
+    <!-- MENU PLANT (LEFT CORNER) -->
+    <a-entity id="menu-plant" position="-8 0 -8" class="interactive-plant">
+      <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
+      <a-entity 
+        gltf-model="#plant-model" 
+        position="0 0.6 0" 
+        scale="0.7 0.7 0.7" 
+        rotation="0 45 0"
+        shadow="cast: true">
+      </a-entity>
+      <a-text 
+        value="MENU" 
+        position="0 2.2 0"
+        align="center"
+        color="#2B2B88"
+        width="8"
+        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
+        shader="flat"
+        font-weight="bold">
+      </a-text>
+    </a-entity>
+
+    <!-- HELP PLANT (RIGHT CORNER) -->
+    <a-entity id="help-plant" position="8 0 -8" class="interactive-plant">
+      <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
+      <a-entity 
+        gltf-model="#plant-model" 
+        position="0 0.6 0" 
+        scale="0.7 0.7 0.7" 
+        rotation="0 -45 0"
+        shadow="cast: true">
+      </a-entity>
+      <a-text 
+        value="HELP" 
+        position="0 2.2 0"
+        align="center"
+        color="#CF2027"
+        width="8"
+        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
+        shader="flat"
+        font-weight="bold">
+      </a-text>
+    </a-entity>
+
+    <!-- MENU CARD (Hidden initially) -->
+    <a-entity id="menu-card" position="-8 3 -5" visible="false" card-manager>
+      <a-plane width="4" height="5" color="#FFFFFF" opacity="0.95" 
+        material="side: double">
+      </a-plane>
+      
+      <a-text 
+        value="MENU" 
+        position="0 2.2 0.05"
+        align="center"
+        color="#2B2B88"
+        width="6"
+        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
+        shader="flat">
+      </a-text>
+      
+      <a-plane id="menu-item-1" position="0 1.4 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
+        link="href: ./page1.html; title: Page 1">
+        <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
+      </a-plane>
+      
+      <a-plane id="menu-item-2" position="0 0.6 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
+        link="href: ./page2.html; title: Page 2">
+        <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
+      </a-plane>
+      
+      <a-plane id="menu-item-3" position="0 -0.2 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
+        link="href: ./page3.html; title: Page 3">
+        <a-text value="Dimensioning Guide" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
+      </a-plane>
+      
+      <a-plane id="menu-item-4" position="0 -1.0 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
+        link="href: ./page4.html; title: Page 4">
+        <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
+      </a-plane>
+      
+      <a-plane id="menu-close" position="0 -1.9 0.05" width="2" height="0.5" color="#CF2027" class="close-button">
+        <a-text value="CLOSE" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- HELP CARD (Hidden initially) -->
+    <a-entity id="help-card" position="8 3 -5" visible="false" card-manager>
+      <a-plane width="4" height="5" color="#FFFFFF" opacity="0.95"
+        material="side: double">
+      </a-plane>
+      
+      <a-text 
+        value="HELP" 
+        position="0 2.2 0.05"
+        align="center"
+        color="#CF2027"
+        width="6"
+        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
+        shader="flat">
+      </a-text>
+      
+      <a-text 
+        value="[Help content will be\nadded here]" 
+        position="0 0.5 0.05"
+        align="center"
+        color="#2B2B88"
+        width="3.5"
+        wrap-count="30">
+      </a-text>
+      
+      <a-plane id="help-close" position="0 -1.9 0.05" width="2" height="0.5" color="#CF2027" class="close-button">
+        <a-text value="CLOSE" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- INTERACTIVE ENGINEERING MODEL -->
+    <a-entity 
+      id="model-container" 
+      position="0 5 -4"
+      view-cycler
+      model-interactor>
+      
+      <a-entity id="engineering-model" scale="0.01 0.01 0.01">
+        
+        <!-- Main Body - White Stone -->
+        <a-box 
+          position="0 0 0"
+          width="1.2" 
+          height="0.8" 
+          depth="0.8"
+          color="#F5F5F5"
+          roughness="0.3"
+          metalness="0.1"
+          shadow="cast: true; receive: true">
+        </a-box>
+        
+        <!-- BLACK EDGE LINES (Main Body) -->
+        <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+        
+        <!-- Cylindrical Feature -->
+        <a-cylinder 
+          position="0 0 0.42"
+          radius="0.25"
+          height="0.08"
+          color="#F5F5F5"
+          roughness="0.3"
+          metalness="0.1"
+          shadow="cast: true">
+        </a-cylinder>
+        
+        <!-- BLACK EDGES (Cylinder) -->
+        <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-cylinder>
+        
+        <!-- Side Extension Block -->
+        <a-box 
+          position="0.7 0 0"
+          width="0.4"
+          height="0.6"
+          depth="0.6"
+          color="#F5F5F5"
+          roughness="0.3"
+          metalness="0.1"
+          shadow="cast: true">
+        </a-box>
+        
+        <!-- BLACK EDGES (Extension) -->
+        <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+        
+        <!-- Top Cylindrical Feature -->
+        <a-cylinder 
+          position="0 0.5 0"
+          radius="0.3"
+          height="0.3"
+          color="#F5F5F5"
+          roughness="0.3"
+          metalness="0.1"
+          shadow="cast: true">
+        </a-cylinder>
+        
+        <!-- BLACK EDGES (Top Cylinder) -->
+        <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-cylinder>
+        
+        <!-- Corner Detail -->
+        <a-box 
+          position="-0.5 -0.3 0.3"
+          width="0.2"
+          height="0.2"
+          depth="0.2"
+          color="#F5F5F5"
+          roughness="0.3"
+          metalness="0.1">
+        </a-box>
+        
+        <!-- BLACK EDGES (Corner) -->
+        <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+        
+        <!-- PROMINENT VERTICES (Black spheres at corners) -->
+        <a-sphere position="0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.6 -0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="-0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="-0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="-0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="-0.6 -0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
+        
+        <!-- Extension vertices -->
+        <a-sphere position="0.9 0.3 0.3" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.9 0.3 -0.3" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.9 -0.3 0.3" radius="0.04" color="#000000"></a-sphere>
+        <a-sphere position="0.9 -0.3 -0.3" radius="0.04" color="#000000"></a-sphere>
+      </a-entity>
+
+      <a-text 
+        id="view-label"
+        value="Front View" 
+        position="0 1.8 0"
+        align="center"
+        color="#2B2B88"
+        width="7"
+        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
+        shader="flat">
+      </a-text>
+    </a-entity>
+
+    <!-- CAMERA RIG WITH VR CONTROLLERS -->
+    <a-entity id="camera-rig" position="0 1.7 0" movement-controls>
+      <a-entity id="camera" camera look-controls="pointerLockEnabled: false" position="0 0 0">
+        <a-cursor 
+          color="#2B2B88" 
+          fuse="true" 
+          fuse-timeout="500" 
+          raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button">
+        </a-cursor>
+      </a-entity>
+      
+      <!-- VR CONTROLLERS FOR INTERACTION -->
+      <a-entity 
+        id="left-hand" 
+        laser-controls="hand: left" 
+        raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button; far: 10" 
+        line="color: #5CCAE8; opacity: 0.75"
+        grab-controller="hand: left">
+      </a-entity>
+      
+      <a-entity 
+        id="right-hand" 
+        laser-controls="hand: right" 
+        raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button; far: 10" 
+        line="color: #CF2027; opacity: 0.75"
+        grab-controller="hand: right">
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // Asset loading management
+    let assetsLoaded = false;
+    const sceneEl = document.querySelector('a-scene');
+
+    // Start button functionality
+    document.getElementById('start-btn').addEventListener('click', function() {
+      const introOverlay = document.getElementById('intro-overlay');
+      const loadingScreen = document.getElementById('loading-screen');
+      const vrScene = document.getElementById('vr-scene');
+      
+      introOverlay.classList.add('hidden');
+      
+      setTimeout(() => {
+        introOverlay.style.display = 'none';
+        loadingScreen.classList.add('active');
+        vrScene.style.display = 'block';
+        
+        checkAssetsLoaded();
+      }, 800);
+    });
+
+    function checkAssetsLoaded() {
+      const loadingScreen = document.getElementById('loading-screen');
+      const loadingBar = document.getElementById('loading-bar');
+      const loadingPercentage = document.getElementById('loading-percentage');
+      const vrScene = document.getElementById('vr-scene');
+      const modelContainer = document.getElementById('model-container');
+      
+      const assetItems = document.querySelectorAll('a-asset-item, a-assets img');
+      let loadedCount = 0;
+      let totalCount = assetItems.length;
+      
+      assetItems.forEach(item => {
+        if (item.hasLoaded || item.complete) {
+          loadedCount++;
+        }
+      });
+      
+      const percentage = totalCount > 0 ? Math.floor((loadedCount / totalCount) * 100) : 0;
+      loadingBar.style.width = percentage + '%';
+      loadingPercentage.textContent = percentage + '%';
+      
+      if (sceneEl.hasLoaded && loadedCount >= totalCount) {
+        loadingBar.style.width = '100%';
+        loadingPercentage.textContent = '100%';
+        
+        setTimeout(() => {
+          loadingScreen.classList.add('hidden');
+          vrScene.classList.add('active');
+          
+          setTimeout(() => {
+            modelContainer.setAttribute('animation', {
+              property: 'position',
+              from: '0 5 -4',
+              to: '0 1.5 -4',
+              dur: 2000,
+              easing: 'easeOutElastic'
+            });
+            
+            modelContainer.querySelector('#engineering-model').setAttribute('animation', {
+              property: 'scale',
+              from: '0.01 0.01 0.01',
+              to: '1.0 1.0 1.0',
+              dur: 2000,
+              easing: 'easeOutElastic'
+            });
+          }, 500);
+          
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 800);
+        }, 500);
+      } else {
+        setTimeout(checkAssetsLoaded, 100);
+      }
+    }
+
+    // --- AFRAME COMPONENTS ---
+
+    // CARD MANAGER COMPONENT
+    AFRAME.registerComponent('card-manager', {
+      init: function() {
+        const closeButton = this.el.querySelector('.close-button');
+        if (closeButton) {
+          closeButton.addEventListener('click', () => {
+            this.el.setAttribute('visible', false);
+            const modelContainer = document.getElementById('model-container');
+            modelContainer.setAttribute('visible', true);
+          });
+        }
+
+        // Handle menu item clicks
+        const menuItems = this.el.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+          item.addEventListener('click', (evt) => {
+            const href = item.getAttribute('link').split(';')[0].split(':')[1].trim();
+            // For now, just log the link - in production this would navigate
+            console.log('Would navigate to:', href);
+            // window.location.href = href; // Uncomment for actual navigation
+          });
+        });
+      }
+    });
+
+    // VIEW CYCLER COMPONENT
+    AFRAME.registerComponent('view-cycler', {
+      schema: {
+        interval: {type: 'number', default: 3000},
+        enabled: {type: 'boolean', default: true}
+      },
+      init: function() {
+        this.views = [
+          {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
+          {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
+          {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
+          {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}},
+          {name: 'Back View', rotation: {x: 0, y: 180, z: 0}}
+        ];
+        this.currentIndex = 0;
+        this.lastChange = Date.now();
+        this.model = this.el.querySelector('#engineering-model');
+        this.label = this.el.querySelector('#view-label');
+        this.isInteracting = false;
+      },
+      tick: function(time) {
+        if (!this.data.enabled || this.isInteracting) return;
+        const elapsed = Date.now() - this.lastChange;
+        if (elapsed >= this.data.interval) {
+          this.nextView();
+        }
+        
+        // Update label position based on model scale
+        const modelScale = this.model.getAttribute('scale');
+        const baseY = 1.8;
+        const scaleFactor = Math.max(modelScale.x, modelScale.y, modelScale.z);
+        const newY = baseY + (scaleFactor - 1.0) * 1.5;
+        this.label.setAttribute('position', `0 ${newY} 0`);
+      },
+      nextView: function() {
+        this.currentIndex = (this.currentIndex + 1) % this.views.length;
+        const view = this.views[this.currentIndex];
+        this.label.setAttribute('value', view.name);
+        
+        this.model.setAttribute('animation__rotate', {
+          property: 'rotation',
+          to: `${view.rotation.x} ${view.rotation.y} ${view.rotation.z}`,
+          dur: 1200,
+          easing: 'easeInOutQuad'
+        });
+        this.lastChange = Date.now();
+      },
+      stop: function() {
+        this.data.enabled = false;
+        this.isInteracting = true;
+        this.label.setAttribute('value', 'Interactive Mode');
+        this.label.setAttribute('color', '#CF2027');
+      },
+      resume: function() {
+        this.data.enabled = true;
+        this.isInteracting = false;
+        this.label.setAttribute('color', '#2B2B88');
+      }
+    });
+
+    // MODEL INTERACTOR FOR DESKTOP MOUSE
+    AFRAME.registerComponent('model-interactor', {
+      schema: {
+        minScale: {type: 'number', default: 0.5},
+        maxScale: {type: 'number', default: 3.0},
+        rotationSpeed: {type: 'number', default: 2}
+      },
+      init: function() {
+        this.grabbed = false;
+        this.model = this.el.querySelector('#engineering-model');
+        this.viewCycler = this.el.components['view-cycler'];
+        this.lastMousePos = {x: 0, y: 0};
+        this.rotation = {x: 0, y: 0, z: 0};
+        
+        this.el.addEventListener('mousedown', this.onGrabStart.bind(this));
+        document.addEventListener('mouseup', this.onGrabEnd.bind(this));
+        document.addEventListener('mousemove', this.onMouseMove.bind(this));
+        document.addEventListener('wheel', this.onWheel.bind(this));
+
+        // Setup plant click handlers
+        this.setupPlantInteractions();
+      },
+      setupPlantInteractions: function() {
+        const menuPlant = document.getElementById('menu-plant');
+        const helpPlant = document.getElementById('help-plant');
+        const menuCard = document.getElementById('menu-card');
+        const helpCard = document.getElementById('help-card');
+        const modelContainer = document.getElementById('model-container');
+
+        menuPlant.addEventListener('click', () => {
+          modelContainer.setAttribute('visible', false);
+          menuCard.setAttribute('visible', true);
+        });
+
+        helpPlant.addEventListener('click', () => {
+          modelContainer.setAttribute('visible', false);
+          helpCard.setAttribute('visible', true);
+        });
+      },
+      onGrabStart: function(evt) {
+        this.grabbed = true;
+        this.lastMousePos = {x: evt.clientX, y: evt.clientY};
+        if (this.viewCycler) this.viewCycler.stop();
+      },
+      onGrabEnd: function() {
+        this.grabbed = false;
+        setTimeout(() => { if (this.viewCycler) this.viewCycler.resume(); }, 500);
+      },
+      onMouseMove: function(evt) {
+        if (!this.grabbed) return;
+        const deltaX = evt.clientX - this.lastMousePos.x;
+        const deltaY = evt.clientY - this.lastMousePos.y;
+        
+        this.rotation.y += deltaX * this.data.rotationSpeed;
+        this.rotation.x += deltaY * this.data.rotationSpeed;
+        
+        this.model.object3D.rotation.x = THREE.MathUtils.degToRad(this.rotation.x);
+        this.model.object3D.rotation.y = THREE.MathUtils.degToRad(this.rotation.y);
+        
+        this.lastMousePos = {x: evt.clientX, y: evt.clientY};
+      },
+      onWheel: function(evt) {
+        evt.preventDefault();
+        const currentScale = this.model.getAttribute('scale');
+        let newScale = currentScale.x + (evt.deltaY > 0 ? -0.1 : 0.1);
+        newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, newScale));
+        this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+      }
+    });
+
+    // VR CONTROLLER GRAB COMPONENT
+    AFRAME.registerComponent('grab-controller', {
+      schema: {
+        hand: {type: 'string', default: 'right'}
+      },
+      init: function() {
+        this.grabbed = false;
+        this.model = null;
+        this.modelContainer = null;
+        this.viewCycler = null;
+        this.initialRotation = {x: 0, y: 0, z: 0};
+        this.controllerRotation = {x: 0, y: 0, z: 0};
+        
+        this.el.addEventListener('triggerdown', this.onTriggerDown.bind(this));
+        this.el.addEventListener('triggerup', this.onTriggerUp.bind(this));
+        this.el.addEventListener('gripdown', this.onGripDown.bind(this));
+        this.el.addEventListener('gripup', this.onGripUp.bind(this));
+      },
+      onTriggerDown: function(evt) {
+        const intersection = this.el.components.raycaster.intersectedEls;
+        if (intersection.length > 0) {
+          const target = intersection[0];
+          
+          // Handle model interaction
+          if (target.id === 'model-container') {
+            this.grabbed = true;
+            this.modelContainer = target;
+            this.model = this.modelContainer.querySelector('#engineering-model');
+            this.viewCycler = this.modelContainer.components['view-cycler'];
+            
+            if (this.viewCycler) this.viewCycler.stop();
+            
+            const modelRot = this.model.getAttribute('rotation');
+            this.initialRotation = {x: modelRot.x, y: modelRot.y, z: modelRot.z};
+          }
+          
+          // Handle plant interactions
+          if (target.id === 'menu-plant') {
+            document.getElementById('model-container').setAttribute('visible', false);
+            document.getElementById('menu-card').setAttribute('visible', true);
+          }
+          
+          if (target.id === 'help-plant') {
+            document.getElementById('model-container').setAttribute('visible', false);
+            document.getElementById('help-card').setAttribute('visible', true);
+          }
+        }
+      },
+      onTriggerUp: function() {
+        if (this.grabbed) {
+          this.grabbed = false;
+          if (this.viewCycler) {
+            setTimeout(() => this.viewCycler.resume(), 500);
+          }
+        }
+      },
+      onGripDown: function(evt) {
+        const intersection = this.el.components.raycaster.intersectedEls;
+        if (intersection.length > 0 && intersection[0].id === 'model-container') {
+          this.model = intersection[0].querySelector('#engineering-model');
+          const currentScale = this.model.getAttribute('scale');
+          const newScale = Math.min(currentScale.x + 0.2, 3.0);
+          this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+        }
+      },
+      onGripUp: function() {
+        if (this.model) {
+          const currentScale = this.model.getAttribute('scale');
+          const newScale = Math.max(currentScale.x - 0.2, 0.5);
+          this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+        }
+      },
+      tick: function() {
+        if (this.grabbed && this.model) {
+          const controllerRot = this.el.getAttribute('rotation');
+          const deltaY = (controllerRot.y - this.controllerRotation.y) * 0.5;
+          const deltaX = (controllerRot.x - this.controllerRotation.x) * 0.5;
+          
+          const currentRot = this.model.getAttribute('rotation');
+          this.model.setAttribute('rotation', {
+            x: currentRot.x + deltaX,
+            y: currentRot.y + deltaY,
+            z: currentRot.z
+          });
+          
+          this.controllerRotation = {x: controllerRot.x, y: controllerRot.y, z: controllerRot.z};
+        }
+      }
+    });
+  </script>
+</body>
+</html>
