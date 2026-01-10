@@ -219,38 +219,10 @@
       shadow="receive: true">
     </a-plane>
 
-    <!-- WINDOW WITH OUTSIDE IMAGE - FIXED TO PREVENT OVERLAP -->
-    <a-entity position="10.2 3 -3" rotation="0 -90 0">
-      <!-- Outside Image as Window Background - Moved slightly forward -->
-      <a-plane 
-        position="0 0 0" 
-        width="4" 
-        height="3" 
-        src="#outside-image"
-        material="shader: flat; side: double; depthTest: true">
-      </a-plane>
-      
-      <!-- Transparent Glass Overlay -->
-      <a-plane 
-        position="0 0 0.08" 
-        width="3.8" 
-        height="2.8" 
-        material="color: #87CEEB; transparent: true; opacity: 0.15; side: double; depthTest: true">
-      </a-plane>
-      
-      <!-- Window Frame -->
-      <a-box position="0 1.5 0.1" width="4.0" height="0.15" depth="0.2" color="#654321"></a-box>
-      <a-box position="0 -1.5 0.1" width="4.0" height="0.15" depth="0.2" color="#654321"></a-box>
-      <a-box position="-2.0 0 0.1" width="0.15" height="3.0" depth="0.2" color="#654321"></a-box>
-      <a-box position="2.0 0 0.1" width="0.15" height="3.0" depth="0.2" color="#654321"></a-box>
-      
-      <!-- Window Panes (Cross dividers) -->
-      <a-box position="0 0 0.12" width="0.1" height="2.8" depth="0.15" color="#4A3319"></a-box>
-      <a-box position="0 0 0.12" width="3.8" height="0.1" depth="0.15" color="#4A3319"></a-box>
-    </a-entity>
+
 
     <!-- MENU PLANT (LEFT CORNER) -->
-    <a-entity id="menu-plant" position="-8 0 -8" class="interactive-plant">
+    <a-entity id="menu-plant" position="-8 0 -8" class="interactive-plant" plant-clicker="target: menu">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
         gltf-model="#plant-model" 
@@ -272,7 +244,7 @@
     </a-entity>
 
     <!-- HELP PLANT (RIGHT CORNER) -->
-    <a-entity id="help-plant" position="8 0 -8" class="interactive-plant">
+    <a-entity id="help-plant" position="8 0 -8" class="interactive-plant" plant-clicker="target: help">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
         gltf-model="#plant-model" 
@@ -589,6 +561,25 @@
 
     // --- AFRAME COMPONENTS ---
 
+    // PLANT CLICKER COMPONENT - Handles both PC and VR clicks
+    AFRAME.registerComponent('plant-clicker', {
+      schema: {
+        target: {type: 'string', default: 'menu'}
+      },
+      init: function() {
+        this.el.addEventListener('click', () => {
+          const modelContainer = document.getElementById('model-container');
+          if (this.data.target === 'menu') {
+            modelContainer.setAttribute('visible', false);
+            document.getElementById('menu-card').setAttribute('visible', true);
+          } else if (this.data.target === 'help') {
+            modelContainer.setAttribute('visible', false);
+            document.getElementById('help-card').setAttribute('visible', true);
+          }
+        });
+      }
+    });
+
     // CARD MANAGER COMPONENT
     AFRAME.registerComponent('card-manager', {
       init: function() {
@@ -692,26 +683,6 @@
         document.addEventListener('mouseup', this.onGrabEnd.bind(this));
         document.addEventListener('mousemove', this.onMouseMove.bind(this));
         document.addEventListener('wheel', this.onWheel.bind(this));
-
-        // Setup plant click handlers
-        this.setupPlantInteractions();
-      },
-      setupPlantInteractions: function() {
-        const menuPlant = document.getElementById('menu-plant');
-        const helpPlant = document.getElementById('help-plant');
-        const menuCard = document.getElementById('menu-card');
-        const helpCard = document.getElementById('help-card');
-        const modelContainer = document.getElementById('model-container');
-
-        menuPlant.addEventListener('click', () => {
-          modelContainer.setAttribute('visible', false);
-          menuCard.setAttribute('visible', true);
-        });
-
-        helpPlant.addEventListener('click', () => {
-          modelContainer.setAttribute('visible', false);
-          helpCard.setAttribute('visible', true);
-        });
       },
       onGrabStart: function(evt) {
         this.grabbed = true;
@@ -778,17 +749,6 @@
             
             const modelRot = this.model.getAttribute('rotation');
             this.initialRotation = {x: modelRot.x, y: modelRot.y, z: modelRot.z};
-          }
-          
-          // Handle plant interactions
-          if (target.id === 'menu-plant') {
-            document.getElementById('model-container').setAttribute('visible', false);
-            document.getElementById('menu-card').setAttribute('visible', true);
-          }
-          
-          if (target.id === 'help-plant') {
-            document.getElementById('model-container').setAttribute('visible', false);
-            document.getElementById('help-card').setAttribute('visible', true);
           }
         }
       },
