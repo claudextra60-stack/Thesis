@@ -7,10 +7,50 @@
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  <script src="https://unpkg.com/super-hands@3.0.3/dist/super-hands.min.js"></script>
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+
+    /* Loading Screen */
+    #loading-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #2B2B88 0%, #1a1a50 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 20000; transition: opacity 0.5s ease-out;
+    }
+
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+
+    .loading-logo {
+      width: 200px; height: 200px; margin-bottom: 40px;
+      border: 8px solid #5CCAE8; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: white; box-shadow: 0 0 30px rgba(92, 202, 232, 0.5);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(92, 202, 232, 0.5); }
+      50% { transform: scale(1.05); box-shadow: 0 0 50px rgba(92, 202, 232, 0.8); }
+    }
+
+    .loading-spinner {
+      width: 80px; height: 80px; border: 8px solid rgba(255,255,255,0.1);
+      border-top-color: #CF2027; border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: white; font-size: 1.8em; font-weight: 700;
+      letter-spacing: 2px; margin-top: 30px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
 
     #intro-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -73,8 +113,16 @@
 </head>
 
 <body>
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen">
+    <div class="loading-logo">
+      <div class="loading-spinner"></div>
+    </div>
+    <div class="loading-text">LOADING EXPERIENCE</div>
+  </div>
+
   <!-- INTRO OVERLAY -->
-  <div id="intro-overlay">
+  <div id="intro-overlay" style="display: none;">
     <div class="corner-block top-left"></div>
     <div class="corner-block top-right"></div>
     <div class="corner-block bottom-left"></div>
@@ -135,68 +183,65 @@
       repeat="4 4">
     </a-plane>
 
-    <!-- EXIT BUTTON ON FRONT (opposite wall) -->
+    <!-- EXIT BUTTON ON FRONT WALL -->
     <a-entity id="exit-button" position="0 2 9.8" rotation="0 180 0" class="clickable">
       <a-plane width="2" height="0.8" color="#CF2027">
         <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
     </a-entity>
 
-    <!-- WRIST BUTTON (Toggle Control Panel) - Attached to left wrist -->
-    <a-entity id="wrist-button" position="-0.1 0 -0.05" visible="false">
-      <a-cylinder radius="0.04" height="0.015" color="#CF2027" 
-        class="clickable panel-toggle"
-        animation__pulse="property: scale; to: 1.1 1.1 1.1; dur: 500; dir: alternate; loop: true">
-        <a-text value="MENU" position="0 0.02 0" align="center" color="#FFFFFF" width="0.3" rotation="-90 0 0"></a-text>
-      </a-cylinder>
+    <!-- FLOATING PANEL BUTTON (Top-left corner of view) -->
+    <a-entity id="floating-menu-button" position="-0.4 1.5 -0.6" class="clickable">
+      <a-circle radius="0.08" color="#2B2B88" opacity="0.95">
+        <a-text value="PANEL" align="center" position="0 0 0.01" color="#FFFFFF" width="0.45"></a-text>
+      </a-circle>
     </a-entity>
 
-    <!-- CONTROL PANEL (Hidden initially, toggles with wrist button) -->
-    <a-entity id="control-panel" visible="false" position="0 0 0">
-      <a-plane position="0 0 -0.4" rotation="-45 0 0" width="0.4" height="0.5" color="#2B2B88" opacity="0.95" material="side: double">
-        <a-text value="CONTROLS" position="0 0.21 0.01" align="center" color="#FFFFFF" width="1"></a-text>
+    <!-- CONTROL PANEL (Tablet-sized, horizontal, follows camera) -->
+    <a-entity id="control-panel" visible="false" position="0 1.2 -0.7">
+      <a-plane position="0 0 0" width="1.0" height="0.6" rotation="-15 0 0" color="#2B2B88" opacity="0.95" material="side: double">
+        <a-text value="CONTROLS" position="-0.3 0.24 0.01" align="center" color="#FFFFFF" width="2"></a-text>
         
-        <!-- HELP Button -->
-        <a-plane id="panel-help" class="clickable panel-button" position="0 0.1 0.01" width="0.32" height="0.08" color="#CF2027">
-          <a-text value="HELP" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        <!-- Close button on panel -->
+        <a-plane id="panel-close" class="clickable panel-button" position="0.42 0.24 0.01" width="0.12" height="0.12" color="#CF2027">
+          <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
         </a-plane>
         
-        <!-- MENU Button -->
-        <a-plane id="panel-menu" class="clickable panel-button" position="0 0 0.01" width="0.32" height="0.08" color="#5CCAE8">
-          <a-text value="MENU" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        <!-- Three buttons in a row -->
+        <a-plane id="panel-help" class="clickable panel-button" position="-0.3 0.08 0.01" width="0.25" height="0.12" color="#CF2027">
+          <a-text value="HELP" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
-        <!-- EXIT Button -->
-        <a-plane id="panel-exit" class="clickable panel-button" position="0 -0.1 0.01" width="0.32" height="0.08" color="#B78A2D">
-          <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        <a-plane id="panel-menu" class="clickable panel-button" position="0 0.08 0.01" width="0.25" height="0.12" color="#5CCAE8">
+          <a-text value="MENU" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
-        <!-- Movement Arrows -->
-        <a-text value="MOVE" position="0 -0.19 0.01" align="center" color="#FFFFFF" width="0.7"></a-text>
-        
-        <!-- Forward Arrow -->
-        <a-plane id="move-forward" class="clickable move-button" position="0 -0.26 0.01" width="0.06" height="0.06" color="#5CCAE8">
-          <a-text value="^" align="center" position="0 0 0.01" color="#FFFFFF" width="0.5"></a-text>
+        <a-plane id="panel-exit" class="clickable panel-button" position="0.3 0.08 0.01" width="0.25" height="0.12" color="#B78A2D">
+          <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
-        <!-- Backward Arrow -->
-        <a-plane id="move-back" class="clickable move-button" position="0 -0.36 0.01" width="0.06" height="0.06" color="#5CCAE8">
-          <a-text value="v" align="center" position="0 0 0.01" color="#FFFFFF" width="0.5"></a-text>
+        <!-- Movement Controls (Smaller) -->
+        <a-text value="MOVE" position="0 -0.08 0.01" align="center" color="#FFFFFF" width="1.5"></a-text>
+        
+        <a-plane id="move-forward" class="clickable move-button" position="0 -0.18 0.01" width="0.1" height="0.1" color="#5CCAE8">
+          <a-text value="^" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
         
-        <!-- Left Arrow -->
-        <a-plane id="move-left" class="clickable move-button" position="-0.08 -0.31 0.01" width="0.06" height="0.06" color="#5CCAE8">
-          <a-text value="<" align="center" position="0 0 0.01" color="#FFFFFF" width="0.5"></a-text>
+        <a-plane id="move-back" class="clickable move-button" position="0 -0.35 0.01" width="0.1" height="0.1" color="#5CCAE8">
+          <a-text value="v" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
         
-        <!-- Right Arrow -->
-        <a-plane id="move-right" class="clickable move-button" position="0.08 -0.31 0.01" width="0.06" height="0.06" color="#5CCAE8">
-          <a-text value=">" align="center" position="0 0 0.01" color="#FFFFFF" width="0.5"></a-text>
+        <a-plane id="move-left" class="clickable move-button" position="-0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
+          <a-text value="<" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
+        </a-plane>
+        
+        <a-plane id="move-right" class="clickable move-button" position="0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
+          <a-text value=">" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
       </a-plane>
     </a-entity>
 
-    <!-- MENU PLANT (LEFT) -->
+    <!-- MENU PLANT (LEFT) - Label removed -->
     <a-entity id="menu-plant" position="-8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
@@ -205,16 +250,9 @@
         scale="0.7 0.7 0.7" 
         rotation="0 45 0">
       </a-entity>
-      <a-text 
-        value="MENU" 
-        position="0 2.2 0"
-        align="center"
-        color="#2B2B88"
-        width="8">
-      </a-text>
     </a-entity>
 
-    <!-- HELP PLANT (RIGHT) -->
+    <!-- HELP PLANT (RIGHT) - Label removed -->
     <a-entity id="help-plant" position="8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
@@ -223,13 +261,6 @@
         scale="0.7 0.7 0.7" 
         rotation="0 -45 0">
       </a-entity>
-      <a-text 
-        value="HELP" 
-        position="0 2.2 0"
-        align="center"
-        color="#CF2027"
-        width="8">
-      </a-text>
     </a-entity>
 
     <!-- MENU CARD -->
@@ -238,19 +269,19 @@
       
       <a-text value="MENU" position="0 1.7 0.05" align="center" color="#2B2B88" width="5"></a-text>
       
-      <a-plane class="menu-link" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="menu-link clickable" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="menu-link" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="menu-link clickable" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="menu-link" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="menu-link clickable" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Dimensioning" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="menu-link" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="menu-link clickable" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
@@ -266,7 +297,7 @@
       <a-text value="HELP" position="0 1.7 0.05" align="center" color="#CF2027" width="5"></a-text>
       
       <a-text 
-        value="Controls:\n\nPinch to grab model\nMove hand to rotate\nBring hands together\nto scale\n\nWalk to move around" 
+        value="Controls:\n\nPinch with index+thumb\nto grab and rotate model\n\nUse floating MENU button\nto access controls\n\nWalk to move around\n\nWASD keys on desktop" 
         position="0 0.3 0.05"
         align="center"
         color="#2B2B88"
@@ -279,13 +310,19 @@
       </a-plane>
     </a-entity>
 
-    <!-- ENGINEERING MODEL -->
+    <!-- ENGINEERING MODEL (Made grabbable and stretchable) -->
     <a-entity 
       id="model-container" 
-      position="0 1.6 -2.5"
-      grabbable>
+      position="0 1.6 -2.5">
       
-      <a-entity id="engineering-model" scale="0.4 0.4 0.4">
+      <a-entity 
+        id="engineering-model" 
+        scale="0.4 0.4 0.4" 
+        class="clickable"
+        grabbable
+        stretchable
+        draggable
+        hoverable>
         
         <!-- Main Body -->
         <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5"></a-box>
@@ -337,31 +374,87 @@
       </a-text>
     </a-entity>
 
-    <!-- CAMERA RIG WITH HAND TRACKING -->
-    <a-entity id="rig" position="0 0 0">
+    <!-- CAMERA RIG WITH HAND TRACKING AND CONTROLLER SUPPORT -->
+    <a-entity id="rig" movement-controls="fly: false; speed: 0.15;" position="0 0 0">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
         <a-cursor color="#2B2B88" fuse="true" fuse-timeout="500" 
-          raycaster="objects: .clickable, .panel-button, .move-button, .menu-link, .panel-toggle; far: 10"></a-cursor>
+          raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 10"></a-cursor>
       </a-entity>
       
-      <!-- HAND TRACKING CONTROLS -->
+      <!-- HAND TRACKING CONTROLS WITH VISIBLE RAYCASTING AND SUPER-HANDS -->
       <a-entity 
         id="left-hand" 
         hand-tracking-controls="hand: left; modelColor: #5CCAE8"
-        hand-tracking-grab-controls="grabCooldownTime: 200"
-        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link, .panel-toggle, [grabbable]; far: 5">
+        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.8; lineWidth: 5"
+        super-hands="colliderEvent: raycaster-intersection;
+                     colliderEventProperty: els;
+                     colliderEndEvent: raycaster-intersection-cleared;
+                     colliderEndEventProperty: el;">
       </a-entity>
       
       <a-entity 
         id="right-hand" 
         hand-tracking-controls="hand: right; modelColor: #CF2027"
-        hand-tracking-grab-controls="grabCooldownTime: 200"
-        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link, .panel-toggle, [grabbable]; far: 5">
+        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 10; showLine: true; lineColor: red; lineOpacity: 0.8; lineWidth: 5"
+        super-hands="colliderEvent: raycaster-intersection;
+                     colliderEventProperty: els;
+                     colliderEndEvent: raycaster-intersection-cleared;
+                     colliderEndEventProperty: el;">
       </a-entity>
     </a-entity>
   </a-scene>
 
   <script>
+    // Loading Screen Management
+    let assetsLoaded = false;
+    let imagesLoaded = false;
+    
+    // Check when BITS logo is loaded
+    const logoImg = new Image();
+    logoImg.onload = function() {
+      imagesLoaded = true;
+      checkAllLoaded();
+    };
+    logoImg.onerror = function() {
+      console.error('Logo failed to load');
+      imagesLoaded = true;
+      checkAllLoaded();
+    };
+    logoImg.src = 'https://i.ibb.co/6cSQR6Tt/1200px-BITS-Pilani-Logo-svg.png';
+
+    // Listen for A-Frame assets loaded
+    const scene = document.querySelector('a-scene');
+    if (scene) {
+      scene.addEventListener('loaded', function() {
+        assetsLoaded = true;
+        checkAllLoaded();
+      });
+    }
+
+    function checkAllLoaded() {
+      if (assetsLoaded && imagesLoaded) {
+        setTimeout(() => {
+          document.getElementById('loading-screen').classList.add('hidden');
+          setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('intro-overlay').style.display = 'flex';
+          }, 500);
+        }, 800);
+      }
+    }
+
+    // Fallback: show intro after 8 seconds even if assets don't fully load
+    setTimeout(() => {
+      if (!document.getElementById('intro-overlay').style.display || 
+          document.getElementById('intro-overlay').style.display === 'none') {
+        document.getElementById('loading-screen').classList.add('hidden');
+        setTimeout(() => {
+          document.getElementById('loading-screen').style.display = 'none';
+          document.getElementById('intro-overlay').style.display = 'flex';
+        }, 500);
+      }
+    }, 8000);
+
     let vrActive = false;
     let viewCycleInterval = null;
     let currentView = 0;
@@ -376,41 +469,50 @@
       {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}}
     ];
 
-    // Wrist button toggle
     function toggleControlPanel() {
       panelVisible = !panelVisible;
       const panel = document.getElementById('control-panel');
+      const button = document.getElementById('floating-menu-button');
+      
       panel.setAttribute('visible', panelVisible);
+      // Keep button always visible so user can toggle panel off
+      button.setAttribute('visible', true);
     }
 
-    // Update wrist button and panel position to follow left hand
-    function updateWristUI() {
-      if (!vrActive) return;
-      
-      const leftHand = document.getElementById('left-hand');
-      const wristButton = document.getElementById('wrist-button');
-      const controlPanel = document.getElementById('control-panel');
-      
-      if (!leftHand || !leftHand.object3D) return;
-      
-      // Show wrist button when hand is tracked
-      wristButton.setAttribute('visible', true);
-      
-      // Position wrist button on left wrist
-      const handPos = leftHand.object3D.position;
-      const handRot = leftHand.object3D.rotation;
-      
-      wristButton.object3D.position.copy(handPos);
-      wristButton.object3D.rotation.copy(handRot);
-      
-      // Position control panel in front of left hand when visible
-      if (panelVisible) {
-        controlPanel.object3D.position.copy(handPos);
-        controlPanel.object3D.rotation.copy(handRot);
+    // Update panel and button - Follow body position but stay fixed in orientation
+    setInterval(() => {
+      if (vrActive) {
+        const rig = document.getElementById('rig');
+        const panel = document.getElementById('control-panel');
+        const button = document.getElementById('floating-menu-button');
+        
+        const rigPos = rig.getAttribute('position');
+        
+        // Panel follows your body position but stays in fixed orientation
+        panel.object3D.position.set(
+          rigPos.x,           // Follow X (left/right movement)
+          rigPos.y + 1.2,     // Follow Y (body height) + offset
+          rigPos.z - 0.7      // Follow Z (forward/back movement) - stays in front
+        );
+        
+        // Button follows your body position
+        button.object3D.position.set(
+          rigPos.x - 0.4,     // Follow X + offset to left
+          rigPos.y + 1.5,     // Follow Y + offset up
+          rigPos.z - 0.6      // Follow Z - stays in front
+        );
+        
+        // Panel stays horizontal with fixed -15° tilt (never rotates)
+        panel.object3D.rotation.set(
+          THREE.MathUtils.degToRad(-15),
+          0,
+          0
+        );
+        
+        // Button faces forward (never rotates)
+        button.object3D.rotation.set(0, 0, 0);
       }
-    }
-
-    setInterval(updateWristUI, 50);
+    }, 50);
 
     // Start button
     document.getElementById('start-btn').addEventListener('click', function() {
@@ -428,7 +530,6 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
       viewCycleInterval = setInterval(() => {
         const now = Date.now();
-        // Check if 10 seconds have passed since last interaction
         if (!isInteracting && (now - lastInteractionTime > 10000 || lastInteractionTime === 0)) {
           currentView = (currentView + 1) % views.length;
           const view = views[currentView];
@@ -470,19 +571,33 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
     }
 
-    // Panel buttons
-    document.getElementById('wrist-button').addEventListener('click', toggleControlPanel);
-    
+    // Floating menu button
+    document.getElementById('floating-menu-button').addEventListener('click', toggleControlPanel);
+
+    // Panel close button
+    document.getElementById('panel-close').addEventListener('click', toggleControlPanel);
+
+    // Panel buttons - HELP and MENU are now toggles
     document.getElementById('panel-help').addEventListener('click', function() {
-      document.getElementById('model-container').setAttribute('visible', false);
-      document.getElementById('help-card').setAttribute('visible', true);
-      toggleControlPanel();
+      const helpCard = document.getElementById('help-card');
+      const isVisible = helpCard.getAttribute('visible');
+      helpCard.setAttribute('visible', !isVisible);
+      if (!isVisible) {
+        document.getElementById('model-container').setAttribute('visible', false);
+      } else {
+        document.getElementById('model-container').setAttribute('visible', true);
+      }
     });
 
     document.getElementById('panel-menu').addEventListener('click', function() {
-      document.getElementById('model-container').setAttribute('visible', false);
-      document.getElementById('menu-card').setAttribute('visible', true);
-      toggleControlPanel();
+      const menuCard = document.getElementById('menu-card');
+      const isVisible = menuCard.getAttribute('visible');
+      menuCard.setAttribute('visible', !isVisible);
+      if (!isVisible) {
+        document.getElementById('model-container').setAttribute('visible', false);
+      } else {
+        document.getElementById('model-container').setAttribute('visible', true);
+      }
     });
 
     document.getElementById('panel-exit').addEventListener('click', handleExit);
@@ -534,16 +649,28 @@
       rig.setAttribute('position', pos);
     });
 
-    // Menu plant click
+    // Menu plant click - now toggles
     document.getElementById('menu-plant').addEventListener('click', function() {
-      document.getElementById('model-container').setAttribute('visible', false);
-      document.getElementById('menu-card').setAttribute('visible', true);
+      const menuCard = document.getElementById('menu-card');
+      const isVisible = menuCard.getAttribute('visible');
+      menuCard.setAttribute('visible', !isVisible);
+      if (!isVisible) {
+        document.getElementById('model-container').setAttribute('visible', false);
+      } else {
+        document.getElementById('model-container').setAttribute('visible', true);
+      }
     });
 
-    // Help plant click
+    // Help plant click - now toggles
     document.getElementById('help-plant').addEventListener('click', function() {
-      document.getElementById('model-container').setAttribute('visible', false);
-      document.getElementById('help-card').setAttribute('visible', true);
+      const helpCard = document.getElementById('help-card');
+      const isVisible = helpCard.getAttribute('visible');
+      helpCard.setAttribute('visible', !isVisible);
+      if (!isVisible) {
+        document.getElementById('model-container').setAttribute('visible', false);
+      } else {
+        document.getElementById('model-container').setAttribute('visible', true);
+      }
     });
 
     // Menu close
@@ -558,21 +685,6 @@
       document.getElementById('model-container').setAttribute('visible', true);
     });
 
-    // Card background click to close
-    document.getElementById('menu-card').addEventListener('click', function(evt) {
-      if (evt.target === this.querySelector('a-plane')) {
-        document.getElementById('menu-card').setAttribute('visible', false);
-        document.getElementById('model-container').setAttribute('visible', true);
-      }
-    });
-
-    document.getElementById('help-card').addEventListener('click', function(evt) {
-      if (evt.target === this.querySelector('a-plane')) {
-        document.getElementById('help-card').setAttribute('visible', false);
-        document.getElementById('model-container').setAttribute('visible', true);
-      }
-    });
-
     // Menu links (placeholder)
     document.querySelectorAll('.menu-link').forEach(link => {
       link.addEventListener('click', function() {
@@ -580,62 +692,199 @@
       });
     });
 
-    // Model grab interaction - properly handle grabbable component
-    const modelContainer = document.getElementById('model-container');
-    const model = document.getElementById('engineering-model');
-    
-    // Listen to A-Frame's grabbable events
-    modelContainer.addEventListener('grab-start', function() {
-      stopViewCycle();
-    });
-
-    modelContainer.addEventListener('grab-end', function() {
-      resumeViewCycle();
-    });
-
-    // Also listen for hand tracking pinch events as backup
+    // Hand tracking pinch detection for button clicks
     const leftHand = document.getElementById('left-hand');
     const rightHand = document.getElementById('right-hand');
     
-    let grabbedByHand = false;
-    
-    leftHand.addEventListener('pinchstarted', function(evt) {
-      // Check if raycaster is hitting the model
-      const intersections = evt.target.components.raycaster.intersectedEls;
-      if (intersections.includes(modelContainer)) {
-        grabbedByHand = true;
+    function setupHandPinchListeners(hand) {
+      hand.addEventListener('pinchstarted', function(evt) {
+        console.log('Pinch started on', hand.id);
         stopViewCycle();
-      }
+        
+        // Get what the raycaster is pointing at
+        const raycaster = hand.components.raycaster;
+        if (raycaster && raycaster.intersectedEls && raycaster.intersectedEls.length > 0) {
+          const target = raycaster.intersectedEls[0];
+          console.log('Pinch clicking on:', target);
+          // Simulate click event
+          target.emit('click');
+        }
+      });
+      
+      hand.addEventListener('pinchended', function(evt) {
+        console.log('Pinch ended on', hand.id);
+        resumeViewCycle();
+      });
+      
+      hand.addEventListener('pinchmoved', function(evt) {
+        // Handle drag/rotation during pinch
+        if (isPinching) {
+          const model = document.getElementById('engineering-model');
+          const handWorldPos = new THREE.Vector3();
+          hand.object3D.getWorldPosition(handWorldPos);
+          
+          // Rotate model based on hand movement
+          if (previousHandPos) {
+            const deltaX = (handWorldPos.x - previousHandPos.x) * 100;
+            const deltaY = (handWorldPos.y - previousHandPos.y) * 100;
+            
+            const currentRot = model.getAttribute('rotation');
+            model.setAttribute('rotation', {
+              x: currentRot.x - deltaY,
+              y: currentRot.y + deltaX,
+              z: currentRot.z
+            });
+          }
+          previousHandPos = handWorldPos.clone();
+        }
+      });
+    }
+    
+    let previousHandPos = null;
+    let isPinchingHand = false;
+    
+    setupHandPinchListeners(leftHand);
+    setupHandPinchListeners(rightHand);
+
+    // Model interaction handlers
+    const model = document.getElementById('engineering-model');
+    let isPinching = false;
+
+    // Enhanced model grabbing with pinch
+    model.addEventListener('mouseenter', function() {
+      console.log('Hovering over model');
     });
     
-    leftHand.addEventListener('pinchended', function() {
-      if (grabbedByHand) {
-        grabbedByHand = false;
+    model.addEventListener('grab-start', function(evt) {
+      console.log('Grab started on model');
+      stopViewCycle();
+      isPinching = true;
+    });
+    
+    model.addEventListener('grab-end', function(evt) {
+      console.log('Grab ended on model');
+      resumeViewCycle();
+      isPinching = false;
+      previousHandPos = null;
+    });
+
+    // Mouse drag for desktop testing - only when holding right mouse button
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    model.addEventListener('mousedown', function(evt) {
+      // Only drag with right mouse button (button 2) or middle button (button 1)
+      if (evt.button === 2 || evt.button === 1) {
+        evt.preventDefault();
+        isDragging = true;
+        stopViewCycle();
+        previousMousePosition = {
+          x: evt.clientX,
+          y: evt.clientY
+        };
+      }
+    });
+
+    // Prevent context menu on right click
+    model.addEventListener('contextmenu', function(evt) {
+      evt.preventDefault();
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (isDragging) {
+        isDragging = false;
         resumeViewCycle();
       }
     });
-    
-    rightHand.addEventListener('pinchstarted', function(evt) {
-      const intersections = evt.target.components.raycaster.intersectedEls;
-      if (intersections.includes(modelContainer)) {
-        grabbedByHand = true;
-        stopViewCycle();
+
+    document.addEventListener('mousemove', function(evt) {
+      if (isDragging && vrActive) {
+        const deltaX = evt.clientX - previousMousePosition.x;
+        const deltaY = evt.clientY - previousMousePosition.y;
+        
+        const currentRotation = model.getAttribute('rotation');
+        model.setAttribute('rotation', {
+          x: currentRotation.x - deltaY * 0.5,
+          y: currentRotation.y + deltaX * 0.5,
+          z: currentRotation.z
+        });
+        
+        previousMousePosition = {
+          x: evt.clientX,
+          y: evt.clientY
+        };
       }
     });
-    
-    rightHand.addEventListener('pinchended', function() {
-      if (grabbedByHand) {
-        grabbedByHand = false;
-        resumeViewCycle();
+
+    // Hand tracking interaction - simplified with super-hands
+    function checkHandInteraction() {
+      if (!vrActive) return;
+      
+      const leftHandEl = document.getElementById('left-hand');
+      const rightHandEl = document.getElementById('right-hand');
+      
+      if (!leftHandEl || !rightHandEl) return;
+      
+      // Check if either hand is pinching
+      const leftHandComp = leftHandEl.components['hand-tracking-controls'];
+      const rightHandComp = rightHandEl.components['hand-tracking-controls'];
+      
+      if (!leftHandComp && !rightHandComp) return;
+      
+      const leftPinching = leftHandComp && leftHandComp.isPinched;
+      const rightPinching = rightHandComp && rightHandComp.isPinched;
+      
+      if (leftPinching || rightPinching) {
+        if (!isPinching) {
+          isPinching = true;
+          stopViewCycle();
+        }
+      } else {
+        if (isPinching) {
+          isPinching = false;
+          previousHandPos = null;
+          resumeViewCycle();
+        }
       }
-    });
+    }
+
+    setInterval(checkHandInteraction, 50);
 
     // WASD movement for desktop/testing
     const rig = document.getElementById('rig');
     const speed = 0.1;
     const keys = {};
 
-    document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+    document.addEventListener('keydown', (e) => { 
+      keys[e.key.toLowerCase()] = true; 
+      
+      // Keyboard shortcuts for desktop testing
+      if (e.key.toLowerCase() === 'm') {
+        // Toggle Menu Card
+        const menuCard = document.getElementById('menu-card');
+        const isVisible = menuCard.getAttribute('visible');
+        menuCard.setAttribute('visible', !isVisible);
+        document.getElementById('model-container').setAttribute('visible', isVisible);
+      }
+      
+      if (e.key.toLowerCase() === 'h') {
+        // Toggle Help Card
+        const helpCard = document.getElementById('help-card');
+        const isVisible = helpCard.getAttribute('visible');
+        helpCard.setAttribute('visible', !isVisible);
+        document.getElementById('model-container').setAttribute('visible', isVisible);
+      }
+      
+      if (e.key.toLowerCase() === 'c') {
+        // Toggle Control Panel
+        toggleControlPanel();
+      }
+      
+      if (e.key.toLowerCase() === 'e') {
+        // Exit to intro screen
+        handleExit();
+      }
+    });
     document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
     setInterval(() => {
