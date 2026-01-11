@@ -135,10 +135,55 @@
       repeat="4 4">
     </a-plane>
 
-    <!-- EXIT BUTTON ON BACK WALL -->
-    <a-entity id="exit-button" position="0 2 -9.8" class="clickable">
+    <!-- EXIT BUTTON ON FRONT (opposite wall) -->
+    <a-entity id="exit-button" position="0 2 9.8" rotation="0 180 0" class="clickable">
       <a-plane width="2" height="0.8" color="#CF2027">
         <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- CONTROL PANEL (Hidden initially, toggles with clap) -->
+    <a-entity id="control-panel" visible="false" position="0 0 0">
+      <a-plane position="0 1.4 -0.5" width="0.8" height="1.2" color="#2B2B88" opacity="0.9" material="side: double">
+        <a-text value="CONTROLS" position="0 0.5 0.01" align="center" color="#FFFFFF" width="2"></a-text>
+        
+        <!-- HELP Button -->
+        <a-plane id="panel-help" class="clickable panel-button" position="0 0.25 0.01" width="0.65" height="0.2" color="#CF2027">
+          <a-text value="HELP" align="center" position="0 0 0.01" color="#FFFFFF" width="2"></a-text>
+        </a-plane>
+        
+        <!-- MENU Button -->
+        <a-plane id="panel-menu" class="clickable panel-button" position="0 0 0.01" width="0.65" height="0.2" color="#5CCAE8">
+          <a-text value="MENU" align="center" position="0 0 0.01" color="#FFFFFF" width="2"></a-text>
+        </a-plane>
+        
+        <!-- EXIT Button -->
+        <a-plane id="panel-exit" class="clickable panel-button" position="0 -0.25 0.01" width="0.65" height="0.2" color="#B78A2D">
+          <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="2"></a-text>
+        </a-plane>
+        
+        <!-- Movement Arrows -->
+        <a-text value="MOVE" position="0 -0.55 0.01" align="center" color="#FFFFFF" width="1.5"></a-text>
+        
+        <!-- Forward Arrow -->
+        <a-plane id="move-forward" class="clickable move-button" position="0 -0.75 0.01" width="0.15" height="0.15" color="#5CCAE8">
+          <a-text value="^" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        </a-plane>
+        
+        <!-- Backward Arrow -->
+        <a-plane id="move-back" class="clickable move-button" position="0 -1.0 0.01" width="0.15" height="0.15" color="#5CCAE8">
+          <a-text value="v" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        </a-plane>
+        
+        <!-- Left Arrow -->
+        <a-plane id="move-left" class="clickable move-button" position="-0.18 -0.87 0.01" width="0.15" height="0.15" color="#5CCAE8">
+          <a-text value="<" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        </a-plane>
+        
+        <!-- Right Arrow -->
+        <a-plane id="move-right" class="clickable move-button" position="0.18 -0.87 0.01" width="0.15" height="0.15" color="#5CCAE8">
+          <a-text value=">" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
+        </a-plane>
       </a-plane>
     </a-entity>
 
@@ -229,7 +274,7 @@
     <a-entity 
       id="model-container" 
       position="0 1.6 -2.5"
-      class="grabbable">
+      grabbable>
       
       <a-entity id="engineering-model" scale="0.4 0.4 0.4">
         
@@ -287,22 +332,22 @@
     <a-entity id="rig" position="0 0 0">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
         <a-cursor color="#2B2B88" fuse="true" fuse-timeout="500" 
-          raycaster="objects: .clickable, .grabbable, .menu-link"></a-cursor>
+          raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 10"></a-cursor>
       </a-entity>
       
       <!-- HAND TRACKING CONTROLS -->
       <a-entity 
         id="left-hand" 
         hand-tracking-controls="hand: left; modelColor: #5CCAE8"
-        hand-tracking-grab-controls
-        raycaster="objects: .clickable, .grabbable, .menu-link; far: 5">
+        hand-tracking-grab-controls="grabCooldownTime: 200"
+        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 5">
       </a-entity>
       
       <a-entity 
         id="right-hand" 
         hand-tracking-controls="hand: right; modelColor: #CF2027"
-        hand-tracking-grab-controls
-        raycaster="objects: .clickable, .grabbable, .menu-link; far: 5">
+        hand-tracking-grab-controls="grabCooldownTime: 200"
+        raycaster="objects: .clickable, .panel-button, .move-button, .menu-link; far: 5">
       </a-entity>
     </a-entity>
   </a-scene>
@@ -312,6 +357,10 @@
     let viewCycleInterval = null;
     let currentView = 0;
     let isInteracting = false;
+    let lastInteractionTime = 0;
+    let panelVisible = false;
+    let lastClapTime = 0;
+    const clapCooldown = 1000; // 1 second between claps
 
     const views = [
       {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
@@ -319,6 +368,100 @@
       {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
       {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}}
     ];
+
+    // Clap detection
+    let leftHandPos = null;
+    let rightHandPos = null;
+
+    function detectClap() {
+      const leftHand = document.getElementById('left-hand');
+      const rightHand = document.getElementById('right-hand');
+      
+      if (!leftHand || !rightHand) return;
+
+      const leftPos = leftHand.object3D.position;
+      const rightPos = rightHand.object3D.position;
+      
+      if (!leftHandPos) {
+        leftHandPos = leftPos.clone();
+        rightHandPos = rightPos.clone();
+        return;
+      }
+
+      const distance = leftPos.distanceTo(rightPos);
+      const prevDistance = leftHandPos.distanceTo(rightHandPos);
+      
+      // Clap detected: hands were far, now close
+      if (prevDistance > 0.3 && distance < 0.15) {
+        const now = Date.now();
+        if (now - lastClapTime > clapCooldown) {
+          toggleControlPanel();
+          lastClapTime = now;
+        }
+      }
+      
+      leftHandPos = leftPos.clone();
+      rightHandPos = rightPos.clone();
+    }
+
+    function toggleControlPanel() {
+      panelVisible = !panelVisible;
+      const panel = document.getElementById('control-panel');
+      panel.setAttribute('visible', panelVisible);
+      
+      // Position panel in front of camera
+      const camera = document.getElementById('camera');
+      const cameraPos = camera.object3D.position;
+      const rig = document.getElementById('rig');
+      const rigPos = rig.getAttribute('position');
+      
+      panel.object3D.position.set(
+        rigPos.x + cameraPos.x,
+        rigPos.y + cameraPos.y,
+        rigPos.z + cameraPos.z
+      );
+      
+      // Make panel face camera
+      panel.object3D.lookAt(
+        cameraPos.x + rigPos.x,
+        cameraPos.y + rigPos.y,
+        cameraPos.z + rigPos.z - 1
+      );
+    }
+
+    // Update panel position to follow camera
+    setInterval(() => {
+      if (panelVisible && vrActive) {
+        const panel = document.getElementById('control-panel');
+        const camera = document.getElementById('camera');
+        const rig = document.getElementById('rig');
+        const rigPos = rig.getAttribute('position');
+        const cameraRot = camera.getAttribute('rotation');
+        
+        // Convert camera rotation to radians
+        const pitch = THREE.MathUtils.degToRad(cameraRot.x);
+        const yaw = THREE.MathUtils.degToRad(cameraRot.y);
+        
+        // Position panel 0.5m in front of camera
+        const offsetX = Math.sin(yaw) * Math.cos(pitch) * -0.5;
+        const offsetY = Math.sin(pitch) * -0.5;
+        const offsetZ = Math.cos(yaw) * Math.cos(pitch) * -0.5;
+        
+        panel.object3D.position.set(
+          rigPos.x + offsetX,
+          rigPos.y + 1.4 + offsetY,
+          rigPos.z + offsetZ
+        );
+        
+        // Face camera
+        const camWorldPos = camera.object3D.getWorldPosition(new THREE.Vector3());
+        panel.object3D.lookAt(camWorldPos);
+      }
+      
+      if (vrActive) {
+        detectClap();
+      }
+    }, 50);
 
     // Start button
     document.getElementById('start-btn').addEventListener('click', function() {
@@ -335,7 +478,9 @@
     function startViewCycle() {
       if (viewCycleInterval) clearInterval(viewCycleInterval);
       viewCycleInterval = setInterval(() => {
-        if (!isInteracting) {
+        const now = Date.now();
+        // Check if 10 seconds have passed since last interaction
+        if (!isInteracting && (now - lastInteractionTime > 10000 || lastInteractionTime === 0)) {
           currentView = (currentView + 1) % views.length;
           const view = views[currentView];
           const model = document.getElementById('engineering-model');
@@ -353,27 +498,89 @@
     }
 
     function stopViewCycle() {
-      if (viewCycleInterval) {
-        clearInterval(viewCycleInterval);
-        viewCycleInterval = null;
-      }
       isInteracting = true;
+      lastInteractionTime = Date.now();
       document.getElementById('view-label').setAttribute('value', 'Interactive Mode');
+      document.getElementById('view-label').setAttribute('color', '#CF2027');
     }
 
     function resumeViewCycle() {
       isInteracting = false;
+      lastInteractionTime = Date.now();
       document.getElementById('view-label').setAttribute('color', '#2B2B88');
-      startViewCycle();
     }
 
     // Exit button
-    document.getElementById('exit-button').addEventListener('click', function() {
+    document.getElementById('exit-button').addEventListener('click', handleExit);
+    
+    function handleExit() {
       document.getElementById('vr-scene').style.display = 'none';
       document.getElementById('intro-overlay').style.display = 'flex';
       document.getElementById('intro-overlay').classList.remove('hidden');
       vrActive = false;
       if (viewCycleInterval) clearInterval(viewCycleInterval);
+    }
+
+    // Panel buttons
+    document.getElementById('panel-help').addEventListener('click', function() {
+      document.getElementById('model-container').setAttribute('visible', false);
+      document.getElementById('help-card').setAttribute('visible', true);
+      toggleControlPanel();
+    });
+
+    document.getElementById('panel-menu').addEventListener('click', function() {
+      document.getElementById('model-container').setAttribute('visible', false);
+      document.getElementById('menu-card').setAttribute('visible', true);
+      toggleControlPanel();
+    });
+
+    document.getElementById('panel-exit').addEventListener('click', handleExit);
+
+    // Movement buttons
+    const moveSpeed = 0.5;
+    
+    document.getElementById('move-forward').addEventListener('click', function() {
+      const rig = document.getElementById('rig');
+      const camera = document.getElementById('camera');
+      const pos = rig.getAttribute('position');
+      const rot = camera.getAttribute('rotation').y * Math.PI / 180;
+      
+      pos.x -= Math.sin(rot) * moveSpeed;
+      pos.z -= Math.cos(rot) * moveSpeed;
+      rig.setAttribute('position', pos);
+    });
+
+    document.getElementById('move-back').addEventListener('click', function() {
+      const rig = document.getElementById('rig');
+      const camera = document.getElementById('camera');
+      const pos = rig.getAttribute('position');
+      const rot = camera.getAttribute('rotation').y * Math.PI / 180;
+      
+      pos.x += Math.sin(rot) * moveSpeed;
+      pos.z += Math.cos(rot) * moveSpeed;
+      rig.setAttribute('position', pos);
+    });
+
+    document.getElementById('move-left').addEventListener('click', function() {
+      const rig = document.getElementById('rig');
+      const camera = document.getElementById('camera');
+      const pos = rig.getAttribute('position');
+      const rot = camera.getAttribute('rotation').y * Math.PI / 180;
+      
+      pos.x -= Math.cos(rot) * moveSpeed;
+      pos.z += Math.sin(rot) * moveSpeed;
+      rig.setAttribute('position', pos);
+    });
+
+    document.getElementById('move-right').addEventListener('click', function() {
+      const rig = document.getElementById('rig');
+      const camera = document.getElementById('camera');
+      const pos = rig.getAttribute('position');
+      const rot = camera.getAttribute('rotation').y * Math.PI / 180;
+      
+      pos.x += Math.cos(rot) * moveSpeed;
+      pos.z -= Math.sin(rot) * moveSpeed;
+      rig.setAttribute('position', pos);
     });
 
     // Menu plant click
@@ -422,16 +629,36 @@
       });
     });
 
-    // Model grab interaction
+    // Model grab interaction - handle pinch events
     const modelContainer = document.getElementById('model-container');
     const model = document.getElementById('engineering-model');
     
-    modelContainer.addEventListener('pinchstarted', function() {
+    modelContainer.addEventListener('grabstarted', function() {
       stopViewCycle();
     });
 
-    modelContainer.addEventListener('pinchended', function() {
-      setTimeout(() => resumeViewCycle(), 500);
+    modelContainer.addEventListener('grabended', function() {
+      resumeViewCycle();
+    });
+
+    // Listen for pinch events on hands
+    const leftHand = document.getElementById('left-hand');
+    const rightHand = document.getElementById('right-hand');
+    
+    leftHand.addEventListener('pinchstarted', function() {
+      stopViewCycle();
+    });
+    
+    leftHand.addEventListener('pinchended', function() {
+      resumeViewCycle();
+    });
+    
+    rightHand.addEventListener('pinchstarted', function() {
+      stopViewCycle();
+    });
+    
+    rightHand.addEventListener('pinchended', function() {
+      resumeViewCycle();
     });
 
     // WASD movement for desktop/testing
