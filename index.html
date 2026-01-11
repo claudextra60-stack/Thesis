@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engineering Drawing Visualizer - VR Edition</title>
-  <meta name="description" content="Professional VR Engineering Drawing Visualization System">
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
@@ -13,7 +12,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
 
-    /* --- UI OVERLAY STYLES --- */
     #intro-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(45deg, #2B2B88 0%, #2B2B88 25%, #CF2027 25%, #CF2027 50%, #B78A2D 50%, #B78A2D 75%, #5CCAE8 75%, #5CCAE8 100%);
@@ -33,12 +31,6 @@
       margin-bottom: 40px; padding: 30px; background: white;
       border: 8px solid #2B2B88; border-radius: 20px;
       box-shadow: 0 0 0 4px #CF2027, 0 0 0 8px #B78A2D, 0 20px 50px rgba(0,0,0,0.3);
-      animation: logoEntry 1s ease-out;
-    }
-
-    @keyframes logoEntry {
-      0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
-      100% { opacity: 1; transform: scale(1) rotate(0deg); }
     }
 
     #bits-logo { width: 300px; height: auto; display: block; }
@@ -47,12 +39,6 @@
       text-align: center; margin: 30px 0; padding: 30px 50px; background: white;
       border: 6px solid #2B2B88; border-radius: 15px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      animation: titleSlideIn 1s ease-out 0.3s both;
-    }
-
-    @keyframes titleSlideIn {
-      0% { opacity: 0; transform: translateY(-50px); }
-      100% { opacity: 1; transform: translateY(0); }
     }
 
     .intro-title {
@@ -70,13 +56,7 @@
       background: #CF2027; border: 6px solid #2B2B88; border-radius: 15px;
       cursor: pointer; text-transform: uppercase; letter-spacing: 3px;
       box-shadow: 0 0 0 3px #B78A2D, 0 15px 40px rgba(0,0,0,0.4);
-      animation: buttonPop 1s ease-out 0.6s both; transition: all 0.2s ease; margin-top: 40px;
-    }
-
-    @keyframes buttonPop {
-      0% { opacity: 0; transform: scale(0.5); }
-      70% { transform: scale(1.1); }
-      100% { opacity: 1; transform: scale(1); }
+      transition: all 0.2s ease; margin-top: 40px;
     }
 
     .start-button:hover {
@@ -89,52 +69,6 @@
     .corner-block.top-right { top: 20px; right: 20px; border-color: #CF2027 #CF2027 transparent transparent; border-radius: 0 10px 0 0; }
     .corner-block.bottom-left { bottom: 20px; left: 20px; border-color: transparent transparent #B78A2D #B78A2D; border-radius: 0 0 0 10px; }
     .corner-block.bottom-right { bottom: 20px; right: 20px; border-color: transparent #5CCAE8 #5CCAE8 transparent; border-radius: 0 0 10px 0; }
-
-    /* LOADING SCREEN */
-    #loading-screen {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, #CF2027 0%, #B78A2D 50%, #5CCAE8 100%);
-      display: none; justify-content: center; align-items: center; flex-direction: column;
-      z-index: 9999; transition: opacity 0.8s ease-out;
-    }
-
-    #loading-screen.active { display: flex; }
-    #loading-screen.hidden { opacity: 0; pointer-events: none; }
-
-    #loading-container {
-      background: white; padding: 40px 60px; border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      border: 6px solid #2B2B88;
-      min-width: 400px;
-    }
-
-    #loading-text {
-      font-size: 1.8em; font-weight: 900; color: #2B2B88; text-transform: uppercase;
-      letter-spacing: 2px; margin-bottom: 20px; text-align: center;
-    }
-
-    #loading-bar-container {
-      width: 100%; height: 30px; background: #E0E0E0;
-      border-radius: 15px; overflow: hidden; position: relative;
-      border: 3px solid #2B2B88;
-    }
-
-    #loading-bar {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, #CF2027 0%, #B78A2D 50%, #5CCAE8 100%);
-      transition: width 0.3s ease;
-      position: relative;
-    }
-
-    #loading-percentage {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      font-size: 1em; font-weight: 900; color: #2B2B88;
-      text-shadow: 1px 1px 2px white;
-      z-index: 1;
-    }
-
-    #vr-scene { display: none; opacity: 0; transition: opacity 1s ease-in; }
-    #vr-scene.active { display: block; opacity: 1; }
   </style>
 </head>
 
@@ -158,26 +92,14 @@
     <button class="start-button" id="start-btn">Start Experience</button>
   </div>
 
-  <!-- LOADING SCREEN -->
-  <div id="loading-screen">
-    <div id="loading-container">
-      <p id="loading-text">Loading Environment...</p>
-      <div id="loading-bar-container">
-        <div id="loading-bar"></div>
-        <div id="loading-percentage">0%</div>
-      </div>
-    </div>
-  </div>
-
   <!-- VR SCENE -->
-  <a-scene id="vr-scene" loading-screen="enabled: false" vr-mode-ui="enabled: true">
+  <a-scene id="vr-scene" style="display: none;"
+    webxr="requiredFeatures: hand-tracking; optionalFeatures: local-floor, bounded-floor;">
+    
     <a-assets timeout="8000">
       <img id="wall-texture" src="https://cdn.architextures.org/textures/23/10/plain-blue-sheer-twinbru-textiles-1yeo48.jpg" crossorigin="anonymous">
       <img id="carpet-texture" src="https://cdn.architextures.org/textures/23/7/plain-green-texture-none-twinbru-textiles-9cbkkg.jpg" crossorigin="anonymous">
       <img id="ceiling-texture" src="https://cdn.architextures.org/textures/23/7/plain-pink-texture-none-twinbru-textiles-yvcpnl.jpg" crossorigin="anonymous">
-      <img id="outside-image" src="https://i.ibb.co/Hpt3MvQS/2151498065.jpg" crossorigin="anonymous">
-      
-      <!-- Plant Model -->
       <a-asset-item id="plant-model" src="https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Avocado/glTF/Avocado.gltf"></a-asset-item>
     </a-assets>
 
@@ -186,8 +108,6 @@
     <!-- LIGHTING -->
     <a-entity light="type: ambient; intensity: 0.8; color: #FFFFFF"></a-entity>
     <a-entity light="type: directional; intensity: 1.0; color: #FFFFFF" position="0 10 0"></a-entity>
-    <a-entity light="type: directional; intensity: 0.5; color: #FFFFFF" position="5 8 5"></a-entity>
-    <a-entity light="type: directional; intensity: 0.5; color: #FFFFFF" position="-5 8 -5"></a-entity>
 
     <!-- FLOOR -->
     <a-plane 
@@ -196,233 +116,149 @@
       width="20" 
       height="20" 
       color="#8B7355"
-      roughness="0.9"
       src="#carpet-texture"
-      repeat="4 4"
-      shadow="receive: true">
+      repeat="4 4">
     </a-plane>
 
     <!-- WALLS -->
     <a-plane position="0 3 -10" rotation="0 0 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
     <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
-    <!-- RIGHT WALL -->
     <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
 
-    <!-- FLAT CEILING -->
+    <!-- CEILING -->
     <a-plane 
       position="0 6 0" 
       rotation="90 0 0" 
       width="20" 
       height="20" 
       src="#ceiling-texture"
-      repeat="4 4"
-      shadow="receive: true">
+      repeat="4 4">
     </a-plane>
 
+    <!-- EXIT BUTTON ON BACK WALL -->
+    <a-entity id="exit-button" position="0 2 -9.8" class="clickable">
+      <a-plane width="2" height="0.8" color="#CF2027">
+        <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+    </a-entity>
 
-
-    <!-- MENU PLANT (LEFT CORNER) -->
-    <a-entity id="menu-plant" position="-8 0 -8" class="interactive-plant" plant-clicker="target: menu">
+    <!-- MENU PLANT (LEFT) -->
+    <a-entity id="menu-plant" position="-8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
         gltf-model="#plant-model" 
         position="0 0.6 0" 
         scale="0.7 0.7 0.7" 
-        rotation="0 45 0"
-        shadow="cast: true">
+        rotation="0 45 0">
       </a-entity>
       <a-text 
         value="MENU" 
         position="0 2.2 0"
         align="center"
         color="#2B2B88"
-        width="8"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-        shader="flat"
-        font-weight="bold">
+        width="8">
       </a-text>
     </a-entity>
 
-    <!-- HELP PLANT (RIGHT CORNER) -->
-    <a-entity id="help-plant" position="8 0 -8" class="interactive-plant" plant-clicker="target: help">
+    <!-- HELP PLANT (RIGHT) -->
+    <a-entity id="help-plant" position="8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
       <a-entity 
         gltf-model="#plant-model" 
         position="0 0.6 0" 
         scale="0.7 0.7 0.7" 
-        rotation="0 -45 0"
-        shadow="cast: true">
+        rotation="0 -45 0">
       </a-entity>
       <a-text 
         value="HELP" 
         position="0 2.2 0"
         align="center"
         color="#CF2027"
-        width="8"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-        shader="flat"
-        font-weight="bold">
+        width="8">
       </a-text>
     </a-entity>
 
-    <!-- MENU CARD (Hidden initially) -->
-    <a-entity id="menu-card" position="-8 3 -5" visible="false" card-manager>
-      <a-plane width="4" height="5" color="#FFFFFF" opacity="0.95" 
-        material="side: double">
+    <!-- MENU CARD -->
+    <a-entity id="menu-card" position="-3 1.6 -5" visible="false">
+      <a-plane width="3" height="4" color="#FFFFFF" opacity="0.95" material="side: double"></a-plane>
+      
+      <a-text value="MENU" position="0 1.7 0.05" align="center" color="#2B2B88" width="5"></a-text>
+      
+      <a-plane class="menu-link" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
+        <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
+      <a-plane class="menu-link" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
+        <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+      
+      <a-plane class="menu-link" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
+        <a-text value="Dimensioning" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+      
+      <a-plane class="menu-link" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
+        <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      </a-plane>
+      
+      <a-plane id="menu-close" class="clickable" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
+        <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- HELP CARD -->
+    <a-entity id="help-card" position="3 1.6 -5" visible="false">
+      <a-plane width="3" height="4" color="#FFFFFF" opacity="0.95" material="side: double"></a-plane>
+      
+      <a-text value="HELP" position="0 1.7 0.05" align="center" color="#CF2027" width="5"></a-text>
+      
       <a-text 
-        value="MENU" 
-        position="0 2.2 0.05"
+        value="Controls:\n\nPinch to grab model\nMove hand to rotate\nBring hands together\nto scale\n\nWalk to move around" 
+        position="0 0.3 0.05"
         align="center"
         color="#2B2B88"
-        width="6"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-        shader="flat">
+        width="2.5"
+        wrap-count="25">
       </a-text>
       
-      <a-plane id="menu-item-1" position="0 1.4 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
-        link="href: ./page1.html; title: Page 1">
-        <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
-      </a-plane>
-      
-      <a-plane id="menu-item-2" position="0 0.6 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
-        link="href: ./page2.html; title: Page 2">
-        <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
-      </a-plane>
-      
-      <a-plane id="menu-item-3" position="0 -0.2 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
-        link="href: ./page3.html; title: Page 3">
-        <a-text value="Dimensioning Guide" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
-      </a-plane>
-      
-      <a-plane id="menu-item-4" position="0 -1.0 0.05" width="3.5" height="0.6" color="#5CCAE8" class="menu-item"
-        link="href: ./page4.html; title: Page 4">
-        <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="5"></a-text>
-      </a-plane>
-      
-      <a-plane id="menu-close" position="0 -1.9 0.05" width="2" height="0.5" color="#CF2027" class="close-button">
-        <a-text value="CLOSE" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+      <a-plane id="help-close" class="clickable" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
+        <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
       </a-plane>
     </a-entity>
 
-    <!-- HELP CARD (Hidden initially) -->
-    <a-entity id="help-card" position="8 3 -5" visible="false" card-manager>
-      <a-plane width="4" height="5" color="#FFFFFF" opacity="0.95"
-        material="side: double">
-      </a-plane>
-      
-      <a-text 
-        value="HELP" 
-        position="0 2.2 0.05"
-        align="center"
-        color="#CF2027"
-        width="6"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-        shader="flat">
-      </a-text>
-      
-      <a-text 
-        value="[Help content will be\nadded here]" 
-        position="0 0.5 0.05"
-        align="center"
-        color="#2B2B88"
-        width="3.5"
-        wrap-count="30">
-      </a-text>
-      
-      <a-plane id="help-close" position="0 -1.9 0.05" width="2" height="0.5" color="#CF2027" class="close-button">
-        <a-text value="CLOSE" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
-      </a-plane>
-    </a-entity>
-
-    <!-- INTERACTIVE ENGINEERING MODEL -->
+    <!-- ENGINEERING MODEL -->
     <a-entity 
       id="model-container" 
-      position="0 5 -4"
-      view-cycler
-      model-interactor>
+      position="0 1.6 -2.5"
+      class="grabbable">
       
-      <a-entity id="engineering-model" scale="0.01 0.01 0.01">
+      <a-entity id="engineering-model" scale="0.4 0.4 0.4">
         
-        <!-- Main Body - White Stone -->
-        <a-box 
-          position="0 0 0"
-          width="1.2" 
-          height="0.8" 
-          depth="0.8"
-          color="#F5F5F5"
-          roughness="0.3"
-          metalness="0.1"
-          shadow="cast: true; receive: true">
-        </a-box>
-        
-        <!-- BLACK EDGE LINES (Main Body) -->
+        <!-- Main Body -->
+        <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5"></a-box>
         <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
         <!-- Cylindrical Feature -->
-        <a-cylinder 
-          position="0 0 0.42"
-          radius="0.25"
-          height="0.08"
-          color="#F5F5F5"
-          roughness="0.3"
-          metalness="0.1"
-          shadow="cast: true">
-        </a-cylinder>
-        
-        <!-- BLACK EDGES (Cylinder) -->
+        <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5"></a-cylinder>
         <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-cylinder>
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
-        <!-- Side Extension Block -->
-        <a-box 
-          position="0.7 0 0"
-          width="0.4"
-          height="0.6"
-          depth="0.6"
-          color="#F5F5F5"
-          roughness="0.3"
-          metalness="0.1"
-          shadow="cast: true">
-        </a-box>
-        
-        <!-- BLACK EDGES (Extension) -->
+        <!-- Side Extension -->
+        <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5"></a-box>
         <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Top Cylindrical Feature -->
-        <a-cylinder 
-          position="0 0.5 0"
-          radius="0.3"
-          height="0.3"
-          color="#F5F5F5"
-          roughness="0.3"
-          metalness="0.1"
-          shadow="cast: true">
-        </a-cylinder>
-        
-        <!-- BLACK EDGES (Top Cylinder) -->
+        <!-- Top Cylinder -->
+        <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5"></a-cylinder>
         <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-cylinder>
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
         <!-- Corner Detail -->
-        <a-box 
-          position="-0.5 -0.3 0.3"
-          width="0.2"
-          height="0.2"
-          depth="0.2"
-          color="#F5F5F5"
-          roughness="0.3"
-          metalness="0.1">
-        </a-box>
-        
-        <!-- BLACK EDGES (Corner) -->
+        <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5"></a-box>
         <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3; opacity: 1"></a-box>
+          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- PROMINENT VERTICES (Black spheres at corners) -->
+        <!-- Vertices -->
         <a-sphere position="0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
@@ -431,8 +267,6 @@
         <a-sphere position="-0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="-0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="-0.6 -0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
-        
-        <!-- Extension vertices -->
         <a-sphere position="0.9 0.3 0.3" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.9 0.3 -0.3" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.9 -0.3 0.3" radius="0.04" color="#000000"></a-sphere>
@@ -442,357 +276,197 @@
       <a-text 
         id="view-label"
         value="Front View" 
-        position="0 1.8 0"
+        position="0 1.2 0"
         align="center"
         color="#2B2B88"
-        width="7"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-        shader="flat">
+        width="5">
       </a-text>
     </a-entity>
 
-    <!-- CAMERA RIG WITH VR CONTROLLERS -->
-    <a-entity id="camera-rig" position="0 1.7 0" movement-controls>
-      <a-entity id="camera" camera look-controls="pointerLockEnabled: false" position="0 0 0">
-        <a-cursor 
-          color="#2B2B88" 
-          fuse="true" 
-          fuse-timeout="500" 
-          raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button">
-        </a-cursor>
+    <!-- CAMERA RIG WITH HAND TRACKING -->
+    <a-entity id="rig" position="0 0 0">
+      <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+        <a-cursor color="#2B2B88" fuse="true" fuse-timeout="500" 
+          raycaster="objects: .clickable, .grabbable, .menu-link"></a-cursor>
       </a-entity>
       
-      <!-- VR CONTROLLERS FOR INTERACTION -->
+      <!-- HAND TRACKING CONTROLS -->
       <a-entity 
         id="left-hand" 
-        laser-controls="hand: left" 
-        raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button; far: 10" 
-        line="color: #5CCAE8; opacity: 0.75"
-        grab-controller="hand: left">
+        hand-tracking-controls="hand: left; modelColor: #5CCAE8"
+        hand-tracking-grab-controls
+        raycaster="objects: .clickable, .grabbable, .menu-link; far: 5">
       </a-entity>
       
       <a-entity 
         id="right-hand" 
-        laser-controls="hand: right" 
-        raycaster="objects: #model-container, .interactive-plant, .menu-item, .close-button; far: 10" 
-        line="color: #CF2027; opacity: 0.75"
-        grab-controller="hand: right">
+        hand-tracking-controls="hand: right; modelColor: #CF2027"
+        hand-tracking-grab-controls
+        raycaster="objects: .clickable, .grabbable, .menu-link; far: 5">
       </a-entity>
     </a-entity>
   </a-scene>
 
   <script>
-    // Asset loading management
-    let assetsLoaded = false;
-    const sceneEl = document.querySelector('a-scene');
+    let vrActive = false;
+    let viewCycleInterval = null;
+    let currentView = 0;
+    let isInteracting = false;
 
-    // Start button functionality
+    const views = [
+      {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
+      {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
+      {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
+      {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}}
+    ];
+
+    // Start button
     document.getElementById('start-btn').addEventListener('click', function() {
-      const introOverlay = document.getElementById('intro-overlay');
-      const loadingScreen = document.getElementById('loading-screen');
-      const vrScene = document.getElementById('vr-scene');
-      
-      introOverlay.classList.add('hidden');
-      
+      document.getElementById('intro-overlay').classList.add('hidden');
       setTimeout(() => {
-        introOverlay.style.display = 'none';
-        loadingScreen.classList.add('active');
-        vrScene.style.display = 'block';
-        
-        checkAssetsLoaded();
+        document.getElementById('intro-overlay').style.display = 'none';
+        document.getElementById('vr-scene').style.display = 'block';
+        vrActive = true;
+        startViewCycle();
       }, 800);
     });
 
-    function checkAssetsLoaded() {
-      const loadingScreen = document.getElementById('loading-screen');
-      const loadingBar = document.getElementById('loading-bar');
-      const loadingPercentage = document.getElementById('loading-percentage');
-      const vrScene = document.getElementById('vr-scene');
-      const modelContainer = document.getElementById('model-container');
-      
-      const assetItems = document.querySelectorAll('a-asset-item, a-assets img');
-      let loadedCount = 0;
-      let totalCount = assetItems.length;
-      
-      assetItems.forEach(item => {
-        if (item.hasLoaded || item.complete) {
-          loadedCount++;
+    // View cycling
+    function startViewCycle() {
+      if (viewCycleInterval) clearInterval(viewCycleInterval);
+      viewCycleInterval = setInterval(() => {
+        if (!isInteracting) {
+          currentView = (currentView + 1) % views.length;
+          const view = views[currentView];
+          const model = document.getElementById('engineering-model');
+          const label = document.getElementById('view-label');
+          
+          label.setAttribute('value', view.name);
+          model.setAttribute('animation', {
+            property: 'rotation',
+            to: `${view.rotation.x} ${view.rotation.y} ${view.rotation.z}`,
+            dur: 1200,
+            easing: 'easeInOutQuad'
+          });
         }
-      });
-      
-      const percentage = totalCount > 0 ? Math.floor((loadedCount / totalCount) * 100) : 0;
-      loadingBar.style.width = percentage + '%';
-      loadingPercentage.textContent = percentage + '%';
-      
-      if (sceneEl.hasLoaded && loadedCount >= totalCount) {
-        loadingBar.style.width = '100%';
-        loadingPercentage.textContent = '100%';
-        
-        setTimeout(() => {
-          loadingScreen.classList.add('hidden');
-          vrScene.classList.add('active');
-          
-          setTimeout(() => {
-            modelContainer.setAttribute('animation', {
-              property: 'position',
-              from: '0 5 -4',
-              to: '0 1.5 -4',
-              dur: 2000,
-              easing: 'easeOutElastic'
-            });
-            
-            modelContainer.querySelector('#engineering-model').setAttribute('animation', {
-              property: 'scale',
-              from: '0.01 0.01 0.01',
-              to: '1.0 1.0 1.0',
-              dur: 2000,
-              easing: 'easeOutElastic'
-            });
-          }, 500);
-          
-          setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 800);
-        }, 500);
-      } else {
-        setTimeout(checkAssetsLoaded, 100);
-      }
+      }, 3000);
     }
 
-    // --- AFRAME COMPONENTS ---
+    function stopViewCycle() {
+      if (viewCycleInterval) {
+        clearInterval(viewCycleInterval);
+        viewCycleInterval = null;
+      }
+      isInteracting = true;
+      document.getElementById('view-label').setAttribute('value', 'Interactive Mode');
+    }
 
-    // PLANT CLICKER COMPONENT - Handles both PC and VR clicks
-    AFRAME.registerComponent('plant-clicker', {
-      schema: {
-        target: {type: 'string', default: 'menu'}
-      },
-      init: function() {
-        this.el.addEventListener('click', () => {
-          const modelContainer = document.getElementById('model-container');
-          if (this.data.target === 'menu') {
-            modelContainer.setAttribute('visible', false);
-            document.getElementById('menu-card').setAttribute('visible', true);
-          } else if (this.data.target === 'help') {
-            modelContainer.setAttribute('visible', false);
-            document.getElementById('help-card').setAttribute('visible', true);
-          }
-        });
+    function resumeViewCycle() {
+      isInteracting = false;
+      document.getElementById('view-label').setAttribute('color', '#2B2B88');
+      startViewCycle();
+    }
+
+    // Exit button
+    document.getElementById('exit-button').addEventListener('click', function() {
+      document.getElementById('vr-scene').style.display = 'none';
+      document.getElementById('intro-overlay').style.display = 'flex';
+      document.getElementById('intro-overlay').classList.remove('hidden');
+      vrActive = false;
+      if (viewCycleInterval) clearInterval(viewCycleInterval);
+    });
+
+    // Menu plant click
+    document.getElementById('menu-plant').addEventListener('click', function() {
+      document.getElementById('model-container').setAttribute('visible', false);
+      document.getElementById('menu-card').setAttribute('visible', true);
+    });
+
+    // Help plant click
+    document.getElementById('help-plant').addEventListener('click', function() {
+      document.getElementById('model-container').setAttribute('visible', false);
+      document.getElementById('help-card').setAttribute('visible', true);
+    });
+
+    // Menu close
+    document.getElementById('menu-close').addEventListener('click', function() {
+      document.getElementById('menu-card').setAttribute('visible', false);
+      document.getElementById('model-container').setAttribute('visible', true);
+    });
+
+    // Help close
+    document.getElementById('help-close').addEventListener('click', function() {
+      document.getElementById('help-card').setAttribute('visible', false);
+      document.getElementById('model-container').setAttribute('visible', true);
+    });
+
+    // Card background click to close
+    document.getElementById('menu-card').addEventListener('click', function(evt) {
+      if (evt.target === this.querySelector('a-plane')) {
+        document.getElementById('menu-card').setAttribute('visible', false);
+        document.getElementById('model-container').setAttribute('visible', true);
       }
     });
 
-    // CARD MANAGER COMPONENT
-    AFRAME.registerComponent('card-manager', {
-      init: function() {
-        const closeButton = this.el.querySelector('.close-button');
-        if (closeButton) {
-          closeButton.addEventListener('click', () => {
-            this.el.setAttribute('visible', false);
-            const modelContainer = document.getElementById('model-container');
-            modelContainer.setAttribute('visible', true);
-          });
-        }
-
-        // Handle menu item clicks
-        const menuItems = this.el.querySelectorAll('.menu-item');
-        menuItems.forEach(item => {
-          item.addEventListener('click', (evt) => {
-            const href = item.getAttribute('link').split(';')[0].split(':')[1].trim();
-            // For now, just log the link - in production this would navigate
-            console.log('Would navigate to:', href);
-            // window.location.href = href; // Uncomment for actual navigation
-          });
-        });
+    document.getElementById('help-card').addEventListener('click', function(evt) {
+      if (evt.target === this.querySelector('a-plane')) {
+        document.getElementById('help-card').setAttribute('visible', false);
+        document.getElementById('model-container').setAttribute('visible', true);
       }
     });
 
-    // VIEW CYCLER COMPONENT
-    AFRAME.registerComponent('view-cycler', {
-      schema: {
-        interval: {type: 'number', default: 3000},
-        enabled: {type: 'boolean', default: true}
-      },
-      init: function() {
-        this.views = [
-          {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
-          {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
-          {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
-          {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}},
-          {name: 'Back View', rotation: {x: 0, y: 180, z: 0}}
-        ];
-        this.currentIndex = 0;
-        this.lastChange = Date.now();
-        this.model = this.el.querySelector('#engineering-model');
-        this.label = this.el.querySelector('#view-label');
-        this.isInteracting = false;
-      },
-      tick: function(time) {
-        if (!this.data.enabled || this.isInteracting) return;
-        const elapsed = Date.now() - this.lastChange;
-        if (elapsed >= this.data.interval) {
-          this.nextView();
-        }
-        
-        // Update label position based on model scale
-        const modelScale = this.model.getAttribute('scale');
-        const baseY = 1.8;
-        const scaleFactor = Math.max(modelScale.x, modelScale.y, modelScale.z);
-        const newY = baseY + (scaleFactor - 1.0) * 1.5;
-        this.label.setAttribute('position', `0 ${newY} 0`);
-      },
-      nextView: function() {
-        this.currentIndex = (this.currentIndex + 1) % this.views.length;
-        const view = this.views[this.currentIndex];
-        this.label.setAttribute('value', view.name);
-        
-        this.model.setAttribute('animation__rotate', {
-          property: 'rotation',
-          to: `${view.rotation.x} ${view.rotation.y} ${view.rotation.z}`,
-          dur: 1200,
-          easing: 'easeInOutQuad'
-        });
-        this.lastChange = Date.now();
-      },
-      stop: function() {
-        this.data.enabled = false;
-        this.isInteracting = true;
-        this.label.setAttribute('value', 'Interactive Mode');
-        this.label.setAttribute('color', '#CF2027');
-      },
-      resume: function() {
-        this.data.enabled = true;
-        this.isInteracting = false;
-        this.label.setAttribute('color', '#2B2B88');
-      }
+    // Menu links (placeholder)
+    document.querySelectorAll('.menu-link').forEach(link => {
+      link.addEventListener('click', function() {
+        console.log('Menu item clicked:', this.querySelector('a-text').getAttribute('value'));
+      });
     });
 
-    // MODEL INTERACTOR FOR DESKTOP MOUSE
-    AFRAME.registerComponent('model-interactor', {
-      schema: {
-        minScale: {type: 'number', default: 0.5},
-        maxScale: {type: 'number', default: 3.0},
-        rotationSpeed: {type: 'number', default: 2}
-      },
-      init: function() {
-        this.grabbed = false;
-        this.model = this.el.querySelector('#engineering-model');
-        this.viewCycler = this.el.components['view-cycler'];
-        this.lastMousePos = {x: 0, y: 0};
-        this.rotation = {x: 0, y: 0, z: 0};
-        
-        this.el.addEventListener('mousedown', this.onGrabStart.bind(this));
-        document.addEventListener('mouseup', this.onGrabEnd.bind(this));
-        document.addEventListener('mousemove', this.onMouseMove.bind(this));
-        document.addEventListener('wheel', this.onWheel.bind(this));
-      },
-      onGrabStart: function(evt) {
-        this.grabbed = true;
-        this.lastMousePos = {x: evt.clientX, y: evt.clientY};
-        if (this.viewCycler) this.viewCycler.stop();
-      },
-      onGrabEnd: function() {
-        this.grabbed = false;
-        setTimeout(() => { if (this.viewCycler) this.viewCycler.resume(); }, 500);
-      },
-      onMouseMove: function(evt) {
-        if (!this.grabbed) return;
-        const deltaX = evt.clientX - this.lastMousePos.x;
-        const deltaY = evt.clientY - this.lastMousePos.y;
-        
-        this.rotation.y += deltaX * this.data.rotationSpeed;
-        this.rotation.x += deltaY * this.data.rotationSpeed;
-        
-        this.model.object3D.rotation.x = THREE.MathUtils.degToRad(this.rotation.x);
-        this.model.object3D.rotation.y = THREE.MathUtils.degToRad(this.rotation.y);
-        
-        this.lastMousePos = {x: evt.clientX, y: evt.clientY};
-      },
-      onWheel: function(evt) {
-        evt.preventDefault();
-        const currentScale = this.model.getAttribute('scale');
-        let newScale = currentScale.x + (evt.deltaY > 0 ? -0.1 : 0.1);
-        newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, newScale));
-        this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-      }
+    // Model grab interaction
+    const modelContainer = document.getElementById('model-container');
+    const model = document.getElementById('engineering-model');
+    
+    modelContainer.addEventListener('pinchstarted', function() {
+      stopViewCycle();
     });
 
-    // VR CONTROLLER GRAB COMPONENT
-    AFRAME.registerComponent('grab-controller', {
-      schema: {
-        hand: {type: 'string', default: 'right'}
-      },
-      init: function() {
-        this.grabbed = false;
-        this.model = null;
-        this.modelContainer = null;
-        this.viewCycler = null;
-        this.initialRotation = {x: 0, y: 0, z: 0};
-        this.controllerRotation = {x: 0, y: 0, z: 0};
-        
-        this.el.addEventListener('triggerdown', this.onTriggerDown.bind(this));
-        this.el.addEventListener('triggerup', this.onTriggerUp.bind(this));
-        this.el.addEventListener('gripdown', this.onGripDown.bind(this));
-        this.el.addEventListener('gripup', this.onGripUp.bind(this));
-      },
-      onTriggerDown: function(evt) {
-        const intersection = this.el.components.raycaster.intersectedEls;
-        if (intersection.length > 0) {
-          const target = intersection[0];
-          
-          // Handle model interaction
-          if (target.id === 'model-container') {
-            this.grabbed = true;
-            this.modelContainer = target;
-            this.model = this.modelContainer.querySelector('#engineering-model');
-            this.viewCycler = this.modelContainer.components['view-cycler'];
-            
-            if (this.viewCycler) this.viewCycler.stop();
-            
-            const modelRot = this.model.getAttribute('rotation');
-            this.initialRotation = {x: modelRot.x, y: modelRot.y, z: modelRot.z};
-          }
-        }
-      },
-      onTriggerUp: function() {
-        if (this.grabbed) {
-          this.grabbed = false;
-          if (this.viewCycler) {
-            setTimeout(() => this.viewCycler.resume(), 500);
-          }
-        }
-      },
-      onGripDown: function(evt) {
-        const intersection = this.el.components.raycaster.intersectedEls;
-        if (intersection.length > 0 && intersection[0].id === 'model-container') {
-          this.model = intersection[0].querySelector('#engineering-model');
-          const currentScale = this.model.getAttribute('scale');
-          const newScale = Math.min(currentScale.x + 0.2, 3.0);
-          this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-        }
-      },
-      onGripUp: function() {
-        if (this.model) {
-          const currentScale = this.model.getAttribute('scale');
-          const newScale = Math.max(currentScale.x - 0.2, 0.5);
-          this.model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-        }
-      },
-      tick: function() {
-        if (this.grabbed && this.model) {
-          const controllerRot = this.el.getAttribute('rotation');
-          const deltaY = (controllerRot.y - this.controllerRotation.y) * 0.5;
-          const deltaX = (controllerRot.x - this.controllerRotation.x) * 0.5;
-          
-          const currentRot = this.model.getAttribute('rotation');
-          this.model.setAttribute('rotation', {
-            x: currentRot.x + deltaX,
-            y: currentRot.y + deltaY,
-            z: currentRot.z
-          });
-          
-          this.controllerRotation = {x: controllerRot.x, y: controllerRot.y, z: controllerRot.z};
-        }
-      }
+    modelContainer.addEventListener('pinchended', function() {
+      setTimeout(() => resumeViewCycle(), 500);
     });
+
+    // WASD movement for desktop/testing
+    const rig = document.getElementById('rig');
+    const speed = 0.1;
+    const keys = {};
+
+    document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+    document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+    setInterval(() => {
+      if (!vrActive) return;
+      const pos = rig.getAttribute('position');
+      const camera = document.getElementById('camera');
+      const rotation = camera.getAttribute('rotation').y * Math.PI / 180;
+
+      if (keys['w']) {
+        pos.x -= Math.sin(rotation) * speed;
+        pos.z -= Math.cos(rotation) * speed;
+      }
+      if (keys['s']) {
+        pos.x += Math.sin(rotation) * speed;
+        pos.z += Math.cos(rotation) * speed;
+      }
+      if (keys['a']) {
+        pos.x -= Math.cos(rotation) * speed;
+        pos.z += Math.sin(rotation) * speed;
+      }
+      if (keys['d']) {
+        pos.x += Math.cos(rotation) * speed;
+        pos.z -= Math.sin(rotation) * speed;
+      }
+
+      rig.setAttribute('position', pos);
+    }, 16);
   </script>
 </body>
 </html>
