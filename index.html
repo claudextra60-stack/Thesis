@@ -11,7 +11,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
 
-    /* Loading Screen */
     #loading-screen {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2B2B88 0%, #1a1a50 100%);
@@ -111,7 +110,6 @@
 </head>
 
 <body>
-  <!-- LOADING SCREEN -->
   <div id="loading-screen">
     <div class="loading-logo">
       <div class="loading-spinner"></div>
@@ -119,7 +117,6 @@
     <div class="loading-text">LOADING EXPERIENCE</div>
   </div>
 
-  <!-- INTRO OVERLAY -->
   <div id="intro-overlay" style="display: none;">
     <div class="corner-block top-left"></div>
     <div class="corner-block top-right"></div>
@@ -138,7 +135,6 @@
     <button class="start-button" id="start-btn">Start Experience</button>
   </div>
 
-  <!-- VR SCENE -->
   <a-scene id="vr-scene" style="display: none;">
     
     <a-assets timeout="8000">
@@ -150,11 +146,9 @@
 
     <a-sky color="#E8F4F8"></a-sky>
     
-    <!-- LIGHTING -->
     <a-entity light="type: ambient; intensity: 0.8; color: #FFFFFF"></a-entity>
     <a-entity light="type: directional; intensity: 1.0; color: #FFFFFF" position="0 10 0"></a-entity>
 
-    <!-- FLOOR -->
     <a-plane 
       position="0 0 0" 
       rotation="-90 0 0" 
@@ -165,12 +159,10 @@
       repeat="4 4">
     </a-plane>
 
-    <!-- WALLS -->
     <a-plane position="0 3 -10" rotation="0 0 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
     <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
     <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
 
-    <!-- CEILING -->
     <a-plane 
       position="0 6 0" 
       rotation="90 0 0" 
@@ -180,15 +172,15 @@
       repeat="4 4">
     </a-plane>
 
-    <!-- EXIT BUTTON ON FRONT WALL -->
-    <a-entity id="exit-button" position="0 2 9.8" rotation="0 180 0" class="interactive">
+    <!-- EXIT BUTTON -->
+    <a-entity id="exit-button" position="0 2 9.8" rotation="0 180 0" class="clickable">
       <a-plane width="2" height="0.8" color="#CF2027">
         <a-text value="EXIT VR" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
     </a-entity>
 
     <!-- FLOATING PANEL BUTTON -->
-    <a-entity id="floating-menu-button" position="-0.4 1.5 -0.6" class="interactive">
+    <a-entity id="floating-menu-button" position="-0.4 1.5 -0.6" class="clickable">
       <a-circle radius="0.08" color="#2B2B88" opacity="0.95">
         <a-text value="PANEL" align="center" position="0 0 0.01" color="#FFFFFF" width="0.45"></a-text>
       </a-circle>
@@ -199,62 +191,52 @@
       <a-plane position="0 0 0" width="1.0" height="0.6" rotation="-15 0 0" color="#2B2B88" opacity="0.95" material="side: double">
         <a-text value="CONTROLS" position="-0.3 0.24 0.01" align="center" color="#FFFFFF" width="2"></a-text>
         
-        <a-plane id="panel-close" class="interactive" position="0.42 0.24 0.01" width="0.12" height="0.12" color="#CF2027">
+        <a-plane id="panel-close" class="clickable" position="0.42 0.24 0.01" width="0.12" height="0.12" color="#CF2027">
           <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
         </a-plane>
         
-        <a-plane id="panel-help" class="interactive" position="-0.3 0.08 0.01" width="0.25" height="0.12" color="#CF2027">
+        <a-plane id="panel-help" class="clickable" position="-0.3 0.08 0.01" width="0.25" height="0.12" color="#CF2027">
           <a-text value="HELP" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
-        <a-plane id="panel-menu" class="interactive" position="0 0.08 0.01" width="0.25" height="0.12" color="#5CCAE8">
+        <a-plane id="panel-menu" class="clickable" position="0 0.08 0.01" width="0.25" height="0.12" color="#5CCAE8">
           <a-text value="MENU" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
-        <a-plane id="panel-exit" class="interactive" position="0.3 0.08 0.01" width="0.25" height="0.12" color="#B78A2D">
+        <a-plane id="panel-exit" class="clickable" position="0.3 0.08 0.01" width="0.25" height="0.12" color="#B78A2D">
           <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
         </a-plane>
         
         <a-text value="MOVE" position="0 -0.08 0.01" align="center" color="#FFFFFF" width="1.5"></a-text>
         
-        <a-plane id="move-forward" class="interactive" position="0 -0.18 0.01" width="0.1" height="0.1" color="#5CCAE8">
+        <a-plane id="move-forward" class="clickable" position="0 -0.18 0.01" width="0.1" height="0.1" color="#5CCAE8">
           <a-text value="^" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
         
-        <a-plane id="move-back" class="interactive" position="0 -0.35 0.01" width="0.1" height="0.1" color="#5CCAE8">
+        <a-plane id="move-back" class="clickable" position="0 -0.35 0.01" width="0.1" height="0.1" color="#5CCAE8">
           <a-text value="v" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
         
-        <a-plane id="move-left" class="interactive" position="-0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
+        <a-plane id="move-left" class="clickable" position="-0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
           <a-text value="<" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
         
-        <a-plane id="move-right" class="interactive" position="0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
+        <a-plane id="move-right" class="clickable" position="0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
           <a-text value=">" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
         </a-plane>
       </a-plane>
     </a-entity>
 
-    <!-- MENU PLANT (LEFT) -->
-    <a-entity id="menu-plant" position="-8 0 -8" class="interactive">
+    <!-- MENU PLANT -->
+    <a-entity id="menu-plant" position="-8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
-      <a-entity 
-        gltf-model="#plant-model" 
-        position="0 0.6 0" 
-        scale="0.7 0.7 0.7" 
-        rotation="0 45 0">
-      </a-entity>
+      <a-entity gltf-model="#plant-model" position="0 0.6 0" scale="0.7 0.7 0.7" rotation="0 45 0"></a-entity>
     </a-entity>
 
-    <!-- HELP PLANT (RIGHT) -->
-    <a-entity id="help-plant" position="8 0 -8" class="interactive">
+    <!-- HELP PLANT -->
+    <a-entity id="help-plant" position="8 0 -8" class="clickable">
       <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
-      <a-entity 
-        gltf-model="#plant-model" 
-        position="0 0.6 0" 
-        scale="0.7 0.7 0.7" 
-        rotation="0 -45 0">
-      </a-entity>
+      <a-entity gltf-model="#plant-model" position="0 0.6 0" scale="0.7 0.7 0.7" rotation="0 -45 0"></a-entity>
     </a-entity>
 
     <!-- MENU CARD -->
@@ -263,23 +245,23 @@
       
       <a-text value="MENU" position="0 1.7 0.05" align="center" color="#2B2B88" width="5"></a-text>
       
-      <a-plane class="interactive" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="clickable" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="interactive" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="clickable" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="interactive" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="clickable" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Dimensioning" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane class="interactive" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
+      <a-plane class="clickable" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
         <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
       </a-plane>
       
-      <a-plane id="menu-close" class="interactive" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
+      <a-plane id="menu-close" class="clickable" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
         <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
       </a-plane>
     </a-entity>
@@ -291,55 +273,44 @@
       <a-text value="HELP" position="0 1.7 0.05" align="center" color="#CF2027" width="5"></a-text>
       
       <a-text 
-        value="Controls:\n\nPinch with index+thumb\nto select buttons\n\nGrab model with pinch\nand move to rotate\n\nWalk to move around\n\nWASD keys on desktop\n\nLeft palm pinch:\nExit to menu" 
-        position="0 0.3 0.05"
+        value="Controls:\n\nPoint at buttons with\nyour index finger\n\nPinch thumb+index\nto click\n\nGrab model and move\nhand to rotate\n\nWalk to move around\n\nWASD on desktop\n\nLeft palm menu:\nExit VR" 
+        position="0 0.2 0.05"
         align="center"
         color="#2B2B88"
         width="2.5"
         wrap-count="25">
       </a-text>
       
-      <a-plane id="help-close" class="interactive" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
+      <a-plane id="help-close" class="clickable" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
         <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
       </a-plane>
     </a-entity>
 
     <!-- ENGINEERING MODEL -->
-    <a-entity 
-      id="model-container" 
-      position="0 1.6 -2.5">
+    <a-entity id="model-container" position="0 1.6 -2.5">
       
-      <a-entity 
-        id="engineering-model" 
-        scale="0.4 0.4 0.4" 
-        class="grabbable">
+      <a-entity id="engineering-model" scale="0.4 0.4 0.4" class="grabbable">
         
-        <!-- Main Body -->
         <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5"></a-box>
         <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Cylindrical Feature -->
         <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5"></a-cylinder>
         <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
-        <!-- Side Extension -->
         <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5"></a-box>
         <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Top Cylinder -->
         <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5"></a-cylinder>
         <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
-        <!-- Corner Detail -->
         <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5"></a-box>
         <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Vertices -->
         <a-sphere position="0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
@@ -364,28 +335,94 @@
       </a-text>
     </a-entity>
 
-    <!-- CAMERA RIG WITH CONTROLLERS -->
+    <!-- CAMERA RIG WITH HAND TRACKING -->
     <a-entity id="rig" movement-controls="fly: false; speed: 0.15;" position="0 0 0">
-      <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
-      
-      <!-- LEFT CONTROLLER with laser -->
-      <a-entity 
-        id="left-controller" 
-        laser-controls="hand: left" 
-        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: cyan; lineOpacity: 0.75">
+      <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+        <a-cursor color="#2B2B88" fuse="true" fuse-timeout="1500" raycaster="objects: .clickable"></a-cursor>
       </a-entity>
       
-      <!-- RIGHT CONTROLLER with laser -->
+      <!-- LEFT HAND with mesh style -->
       <a-entity 
-        id="right-controller" 
-        laser-controls="hand: right" 
-        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: red; lineOpacity: 0.75">
+        id="left-hand" 
+        hand-tracking-controls="hand: left; modelStyle: mesh; modelColor: #5CCAE8"
+        sphere-collider="objects: .clickable, .grabbable">
+      </a-entity>
+      
+      <!-- RIGHT HAND with mesh style -->
+      <a-entity 
+        id="right-hand" 
+        hand-tracking-controls="hand: right; modelStyle: mesh; modelColor: #CF2027"
+        sphere-collider="objects: .clickable, .grabbable">
       </a-entity>
     </a-entity>
   </a-scene>
 
   <script>
-    // Loading Screen Management
+    // Register sphere-collider component for hand interaction detection
+    AFRAME.registerComponent('sphere-collider', {
+      schema: {
+        objects: {default: ''},
+        radius: {default: 0.05}
+      },
+
+      init: function () {
+        this.objects = null;
+        this.els = [];
+        this.collisions = [];
+
+        this.el.addEventListener('model-loaded', () => {
+          const hand = this.el.components['hand-tracking-controls'];
+          if (hand) {
+            const indexTip = hand.indexTipPosition;
+          }
+        });
+      },
+
+      update: function () {
+        if (this.data.objects) {
+          this.objects = Array.prototype.slice.call(
+            this.el.sceneEl.querySelectorAll(this.data.objects)
+          );
+        }
+      },
+
+      tick: (function () {
+        const indexTipPosition = new THREE.Vector3();
+        
+        return function () {
+          const hand = this.el.components['hand-tracking-controls'];
+          if (!hand || !hand.indexTipPosition) return;
+
+          this.el.object3D.getWorldPosition(indexTipPosition);
+          indexTipPosition.copy(hand.indexTipPosition);
+
+          if (!this.objects) return;
+
+          // Check distance to each clickable object
+          for (let i = 0; i < this.objects.length; i++) {
+            const object = this.objects[i].object3D;
+            const objectPosition = new THREE.Vector3();
+            object.getWorldPosition(objectPosition);
+
+            const distance = indexTipPosition.distanceTo(objectPosition);
+
+            if (distance < this.data.radius) {
+              if (this.collisions.indexOf(this.objects[i]) === -1) {
+                this.collisions.push(this.objects[i]);
+                this.els.push(this.objects[i]);
+              }
+            } else {
+              const index = this.collisions.indexOf(this.objects[i]);
+              if (index !== -1) {
+                this.collisions.splice(index, 1);
+              }
+            }
+          }
+        };
+      })()
+    });
+
+    // Loading screen
     let assetsLoaded = false;
     let imagesLoaded = false;
     
@@ -449,8 +486,7 @@
 
     function toggleControlPanel() {
       panelVisible = !panelVisible;
-      const panel = document.getElementById('control-panel');
-      panel.setAttribute('visible', panelVisible);
+      document.getElementById('control-panel').setAttribute('visible', panelVisible);
     }
 
     // Update panel position
@@ -478,6 +514,7 @@
         document.getElementById('vr-scene').style.display = 'block';
         vrActive = true;
         startViewCycle();
+        setupHandInteraction();
       }, 800);
     });
 
@@ -524,21 +561,134 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
     }
 
-    // Wait for scene to load before attaching event listeners
-    scene.addEventListener('loaded', function() {
-      console.log('Scene loaded, attaching event listeners');
+    // Hand interaction setup
+    function setupHandInteraction() {
+      const leftHand = document.getElementById('left-hand');
+      const rightHand = document.getElementById('right-hand');
 
-      // Controller event listeners for buttons
-      const leftController = document.getElementById('left-controller');
-      const rightController = document.getElementById('right-controller');
+      if (!leftHand || !rightHand) {
+        console.error('Hands not found');
+        return;
+      }
+
+      // Track pinch state
+      let leftPinching = false;
+      let rightPinching = false;
+      let grabbingModel = false;
+      let activeHand = null;
+      let initialHandPos = new THREE.Vector3();
+      let initialModelRot = new THREE.Euler();
+
+      // Listen for pinch events on both hands
+      leftHand.addEventListener('pinchstarted', function(evt) {
+        leftPinching = true;
+        handlePinchStart(leftHand);
+      });
+
+      leftHand.addEventListener('pinchended', function(evt) {
+        leftPinching = false;
+        handlePinchEnd(leftHand);
+      });
+
+      rightHand.addEventListener('pinchstarted', function(evt) {
+        rightPinching = true;
+        handlePinchStart(rightHand);
+      });
+
+      rightHand.addEventListener('pinchended', function(evt) {
+        rightPinching = false;
+        handlePinchEnd(rightHand);
+      });
+
+      function handlePinchStart(hand) {
+        console.log('Pinch started on', hand.id);
+        
+        // Get the hand's index finger tip position
+        const handComponent = hand.components['hand-tracking-controls'];
+        if (!handComponent || !handComponent.indexTipPosition) return;
+
+        const indexTip = handComponent.indexTipPosition.clone();
+        
+        // Check what we're pinching
+        const clickables = document.querySelectorAll('.clickable');
+        const grabbables = document.querySelectorAll('.grabbable');
+        
+        let closestClickable = null;
+        let closestDist = 0.15; // Max distance to trigger
+
+        // Check clickable objects
+        clickables.forEach(el => {
+          const pos = new THREE.Vector3();
+          el.object3D.getWorldPosition(pos);
+          const dist = indexTip.distanceTo(pos);
+          
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestClickable = el;
+          }
+        });
+
+        if (closestClickable) {
+          console.log('Clicking on:', closestClickable.id);
+          closestClickable.emit('click');
+          return;
+        }
+
+        // Check grabbable objects (model)
+        grabbables.forEach(el => {
+          const pos = new THREE.Vector3();
+          el.object3D.getWorldPosition(pos);
+          const dist = indexTip.distanceTo(pos);
+          
+          if (dist < 0.5) { // Larger range for grabbing model
+            console.log('Grabbing model');
+            grabbingModel = true;
+            activeHand = hand;
+            stopViewCycle();
+            initialHandPos.copy(indexTip);
+            initialModelRot.copy(el.object3D.rotation);
+          }
+        });
+      }
+
+      function handlePinchEnd(hand) {
+        console.log('Pinch ended on', hand.id);
+        
+        if (grabbingModel && activeHand === hand) {
+          grabbingModel = false;
+          activeHand = null;
+          resumeViewCycle();
+        }
+      }
+
+      // Update model rotation while grabbing
+      scene.addEventListener('render', function() {
+        if (grabbingModel && activeHand) {
+          const handComponent = activeHand.components['hand-tracking-controls'];
+          if (!handComponent || !handComponent.indexTipPosition) return;
+
+          const currentPos = handComponent.indexTipPosition.clone();
+          const delta = new THREE.Vector3().subVectors(currentPos, initialHandPos);
+          
+          const model = document.getElementById('engineering-model');
+          if (model) {
+            const newRotation = model.object3D.rotation;
+            newRotation.y = initialModelRot.y + delta.x * 5;
+            newRotation.x = initialModelRot.x - delta.y * 5;
+          }
+        }
+      });
+    }
+
+    // Button click handlers (set up after scene loads)
+    scene.addEventListener('loaded', function() {
+      console.log('Scene loaded');
 
       // Exit button
-      const exitButton = document.getElementById('exit-button');
-      exitButton.addEventListener('click', handleExit);
+      document.getElementById('exit-button').addEventListener('click', handleExit);
 
       // Floating menu button
-      const floatingMenuButton = document.getElementById('floating-menu-button');
-      floatingMenuButton.addEventListener('click', toggleControlPanel);
+      document.getElementById('floating-menu-button').addEventListener('click', toggleControlPanel);
 
       // Panel buttons
       document.getElementById('panel-close').addEventListener('click', toggleControlPanel);
@@ -632,62 +782,6 @@
       document.getElementById('help-close').addEventListener('click', function() {
         document.getElementById('help-card').setAttribute('visible', false);
         document.getElementById('model-container').setAttribute('visible', true);
-      });
-
-      // Model interaction - grab and rotate
-      const model = document.getElementById('engineering-model');
-      let isGrabbing = false;
-      let grabHand = null;
-      let initialHandRotation = null;
-      let initialModelRotation = null;
-
-      // Controller grip events for grabbing model
-      [leftController, rightController].forEach(controller => {
-        controller.addEventListener('triggerdown', function(evt) {
-          const raycaster = controller.components.raycaster;
-          if (raycaster && raycaster.intersectedEls && raycaster.intersectedEls.length > 0) {
-            const target = raycaster.intersectedEls[0];
-            
-            // Check if we're pointing at the model
-            if (target.id === 'engineering-model' || target.closest('#engineering-model')) {
-              isGrabbing = true;
-              grabHand = controller;
-              stopViewCycle();
-              
-              // Store initial rotations
-              initialHandRotation = new THREE.Euler().copy(controller.object3D.rotation);
-              initialModelRotation = new THREE.Euler().copy(model.object3D.rotation);
-              
-              console.log('Started grabbing model with', controller.id);
-            }
-          }
-        });
-
-        controller.addEventListener('triggerup', function(evt) {
-          if (isGrabbing && grabHand === controller) {
-            isGrabbing = false;
-            grabHand = null;
-            initialHandRotation = null;
-            initialModelRotation = null;
-            resumeViewCycle();
-            console.log('Stopped grabbing model');
-          }
-        });
-      });
-
-      // Update model rotation while grabbing
-      scene.addEventListener('render', function() {
-        if (isGrabbing && grabHand && initialHandRotation && initialModelRotation) {
-          const currentHandRotation = grabHand.object3D.rotation;
-          
-          // Calculate rotation delta
-          const deltaY = (currentHandRotation.y - initialHandRotation.y) * THREE.MathUtils.RAD2DEG;
-          const deltaX = (currentHandRotation.x - initialHandRotation.x) * THREE.MathUtils.RAD2DEG;
-          
-          // Apply to model
-          model.object3D.rotation.y = initialModelRotation.y + (deltaY * 0.01);
-          model.object3D.rotation.x = initialModelRotation.x - (deltaX * 0.01);
-        }
       });
     });
 
