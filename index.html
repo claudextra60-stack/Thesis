@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing VR - Controller Fixed</title>
+  <title>Engineering Drawing VR - Enhanced</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -38,60 +38,50 @@
   </style>
 
   <script>
-    // Custom component for controller-based model grabbing and rotation
-    AFRAME.registerComponent('grabbable-model', {
+    // Global state for Left Grip (Clutch mechanism)
+    window.isLeftGripHeld = false;
+
+    // Component to handle the specific "Hold Left Grip + Move Right Controller" rotation
+    AFRAME.registerComponent('remote-rotate-model', {
       init: function () {
-        this.grabbing = false;
-        this.grabbingController = null;
-        this.initialModelRotation = new THREE.Euler();
-        this.initialControllerRotation = new THREE.Euler();
-        this.initialControllerPosition = new THREE.Vector3();
-        this.initialModelPosition = new THREE.Vector3();
-      },
-
-      startGrab: function (controller) {
-        if (this.grabbing) return;
-        
-        this.grabbing = true;
-        this.grabbingController = controller;
-        
-        // Store initial rotations
-        this.initialModelRotation.copy(this.el.object3D.rotation);
-        this.initialControllerRotation.copy(controller.object3D.rotation);
-        this.initialControllerPosition.copy(controller.object3D.position);
-        this.initialModelPosition.copy(this.el.object3D.position);
-        
-        // Stop auto-rotation
-        this.el.sceneEl.emit('stop-view-cycle');
-        
-        console.log('Started grabbing model');
-      },
-
-      endGrab: function () {
-        if (!this.grabbing) return;
-        
-        this.grabbing = false;
-        this.grabbingController = null;
-        
-        // Resume auto-rotation after delay
-        this.el.sceneEl.emit('resume-view-cycle');
-        
-        console.log('Ended grabbing model');
+        this.rightController = document.getElementById('right-controller');
+        this.lastRotation = new THREE.Quaternion();
+        this.currentRotation = new THREE.Quaternion();
+        this.deltaRotation = new THREE.Quaternion();
+        this.isRotating = false;
       },
 
       tick: function () {
-        if (!this.grabbing || !this.grabbingController) return;
+        // Only run if Left Grip is held
+        if (!window.isLeftGripHeld || !this.rightController) {
+          if (this.isRotating) {
+             this.isRotating = false;
+             this.el.sceneEl.emit('resume-view-cycle');
+          }
+          return;
+        }
 
-        const controller = this.grabbingController;
+        // If this is the first frame of grabbing, store initial state
+        if (!this.isRotating) {
+          this.isRotating = true;
+          this.lastRotation.copy(this.rightController.object3D.quaternion);
+          this.el.sceneEl.emit('stop-view-cycle'); // Stop auto-spin
+          return;
+        }
+
+        // Calculate Rotation Delta of Right Controller
+        this.currentRotation.copy(this.rightController.object3D.quaternion);
         
-        // Calculate rotation delta
-        const currentRotation = controller.object3D.rotation;
-        const deltaY = currentRotation.y - this.initialControllerRotation.y;
-        const deltaX = currentRotation.x - this.initialControllerRotation.x;
-        
-        // Apply rotation with sensitivity multiplier
-        this.el.object3D.rotation.y = this.initialModelRotation.y + deltaY * 1.5;
-        this.el.object3D.rotation.x = this.initialModelRotation.x - deltaX * 1.5;
+        // Calculate the difference (Delta)
+        this.deltaRotation.copy(this.lastRotation).invert();
+        this.deltaRotation.premultiply(this.currentRotation);
+
+        // Apply Delta to Model
+        // We multiply the model's quaternion by the controller's delta
+        this.el.object3D.quaternion.premultiply(this.deltaRotation);
+
+        // Update last rotation for next frame
+        this.lastRotation.copy(this.currentRotation);
       }
     });
 
@@ -100,20 +90,18 @@
       init: function () {
         this.scaleStep = 0.1;
         this.minScale = 0.2;
-        this.maxScale = 2.0;
+        this.maxScale = 3.0;
         this.currentScale = parseFloat(this.el.getAttribute('scale').x);
       },
 
       scaleUp: function () {
         this.currentScale = Math.min(this.maxScale, this.currentScale + this.scaleStep);
         this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
-        console.log('Scale up:', this.currentScale);
       },
 
       scaleDown: function () {
         this.currentScale = Math.max(this.minScale, this.currentScale - this.scaleStep);
         this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
-        console.log('Scale down:', this.currentScale);
       }
     });
 
@@ -126,36 +114,70 @@
       init: function () {
         this.onTriggerDown = this.onTriggerDown.bind(this);
         this.onTriggerUp = this.onTriggerUp.bind(this);
+        this.onGripDown = this.onGripDown.bind(this);
+        this.onGripUp = this.onGripUp.bind(this);
         this.onButtonDown = this.onButtonDown.bind(this);
+        this.onThumbstickDown = this.onThumbstickDown.bind(this);
         
+        // Raycast / Trigger interactions
         this.el.addEventListener('triggerdown', this.onTriggerDown);
         this.el.addEventListener('triggerup', this.onTriggerUp);
+        
+        // Grip interactions (Side trigger)
+        this.el.addEventListener('gripdown', this.onGripDown);
+        this.el.addEventListener('gripup', this.onGripUp);
+
+        // Buttons
         this.el.addEventListener('abuttondown', this.onButtonDown);
         this.el.addEventListener('bbuttondown', this.onButtonDown);
         this.el.addEventListener('xbuttondown', this.onButtonDown);
         this.el.addEventListener('ybuttondown', this.onButtonDown);
+
+        // Joystick Click
+        this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
+      },
+
+      onGripDown: function(evt) {
+        if (this.data.hand === 'left') {
+          window.isLeftGripHeld = true;
+          this.el.emit('hapticpulse', { intensity: 0.5, duration: 100 });
+        }
+      },
+
+      onGripUp: function(evt) {
+        if (this.data.hand === 'left') {
+          window.isLeftGripHeld = false;
+        }
+      },
+
+      onThumbstickDown: function(evt) {
+        // RESET VIEW Logic
+        const rig = document.getElementById('rig');
+        const camera = document.getElementById('camera');
+        
+        // Reset rig position
+        rig.setAttribute('position', '0 0 0');
+        
+        // Reset camera rotation to look forward/at model
+        // We can't easily force camera rotation in WebXR as it follows the headset,
+        // but we can rotate the rig wrapper or reset the teleport position.
+        // Best approach for "Reset View": Teleport rig to origin.
+        rig.object3D.position.set(0, 0, 0);
+        rig.object3D.rotation.set(0, 0, 0);
+        
+        // Visual feedback
+        this.el.emit('hapticpulse', { intensity: 1.0, duration: 200 });
+        console.log("View Reset");
       },
 
       onTriggerDown: function (evt) {
+        // Standard raycaster interactions for UI
         const raycaster = this.el.components.raycaster;
         if (!raycaster) return;
 
         const intersections = raycaster.intersectedEls;
-        
         for (let i = 0; i < intersections.length; i++) {
           const el = intersections[i];
-          
-          // Check if we hit the model or any of its children
-          if (el.classList.contains('grabbable') || el.closest('.grabbable')) {
-            const model = document.getElementById('engineering-model');
-            if (model && model.components['grabbable-model']) {
-              model.components['grabbable-model'].startGrab(this.el);
-              this.el.emit('hapticpulse', { intensity: 0.8, duration: 100 });
-            }
-            break;
-          }
-          
-          // Handle other interactive elements
           if (el.classList.contains('interactive')) {
             el.emit('click');
             this.el.emit('hapticpulse', { intensity: 0.5, duration: 50 });
@@ -165,29 +187,71 @@
       },
 
       onTriggerUp: function (evt) {
-        const model = document.getElementById('engineering-model');
-        if (model && model.components['grabbable-model']) {
-          model.components['grabbable-model'].endGrab();
-        }
+        // Cleanup if needed
       },
 
       onButtonDown: function (evt) {
         const model = document.getElementById('engineering-model');
-        if (!model || !model.components['scalable-model']) return;
-
         const type = evt.type;
         
-        // A button or X button = scale up
-        if (type === 'abuttondown' || type === 'xbuttondown') {
-          model.components['scalable-model'].scaleUp();
-          this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+        // A button = scale up
+        if (type === 'abuttondown') {
+          if (model && model.components['scalable-model']) {
+            model.components['scalable-model'].scaleUp();
+            this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+          }
         }
         
-        // B button or Y button = scale down
+        // B or Y button = scale down
         if (type === 'bbuttondown' || type === 'ybuttondown') {
-          model.components['scalable-model'].scaleDown();
-          this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+          if (model && model.components['scalable-model']) {
+            model.components['scalable-model'].scaleDown();
+            this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+          }
         }
+
+        // X Button = RECENTER UI
+        if (type === 'xbuttondown') {
+            this.recenterUI();
+        }
+      },
+
+      recenterUI: function() {
+        // Logic to snap UI in front of camera
+        const camera = document.getElementById('camera');
+        const toggleBtn = document.getElementById('toggle-panel-btn');
+        const panel = document.getElementById('control-panel');
+        
+        // Calculate position 0.8m in front of camera
+        const camPos = new THREE.Vector3();
+        const camDir = new THREE.Vector3();
+        
+        camera.object3D.getWorldPosition(camPos);
+        camera.object3D.getWorldDirection(camDir);
+        camDir.y = 0; // Keep level
+        camDir.normalize();
+
+        const targetPos = new THREE.Vector3();
+        targetPos.copy(camPos).add(camDir.multiplyScalar(0.6));
+        targetPos.y = camPos.y; // Eye level
+
+        // Force update the UI positions
+        // We temporarily disable follow-camera to force the position, or just let follow-camera catch up
+        // But since follow-camera Lerps, we want a hard snap here:
+        
+        if (toggleBtn) {
+            toggleBtn.object3D.position.copy(targetPos);
+            toggleBtn.object3D.lookAt(camPos);
+            toggleBtn.setAttribute('visible', true); // Ensure visible
+        }
+
+        if (panel) {
+            panel.object3D.position.copy(targetPos);
+            panel.object3D.lookAt(camPos);
+            panel.setAttribute('visible', true); // Bring up menu
+        }
+
+        this.el.emit('hapticpulse', { intensity: 0.8, duration: 150 });
       }
     });
 
@@ -208,8 +272,9 @@
         const distance = 0.7;
         const targetX = camPos.x - Math.sin(camRot.y) * distance;
         const targetZ = camPos.z - Math.cos(camRot.y) * distance;
-        const targetY = camPos.y - 0.4;
+        const targetY = camPos.y - 0.2; // Slightly lower
 
+        // Lerp for smooth following
         this.el.object3D.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.1);
         this.el.object3D.lookAt(camPos.x, camPos.y, camPos.z);
       }
@@ -223,7 +288,8 @@
   <div id="overlay" style="display: none;">
     <h1>VR Engineering Visualizer</h1>
     <p>Desktop: Left Click + Drag to Rotate. Scroll Wheel to Zoom. WASD to Move.</p>
-    <p>VR: Point & Hold Trigger to Rotate Model. A/X = Zoom In, B/Y = Zoom Out.</p>
+    <p>VR: Hold Left Grip + Move Right Hand to Rotate.</p>
+    <p>X = Recenter Menu. A/B = Zoom. Joystick Click = Reset View.</p>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
@@ -233,16 +299,17 @@
     Scroll Wheel: Zoom In/Out<br>
     WASD: Move Around<br><br>
     <strong>VR Controls:</strong><br>
-    Trigger: Grab & Rotate Model<br>
-    A/X Button: Zoom In<br>
-    B/Y Button: Zoom Out<br>
-    Joystick: Move Around
+    Left Inside Grip (Hold): Enable Rotation<br>
+    Right Hand (Move): Rotate Model<br>
+    X Button: Recenter UI<br>
+    Joystick Click: Reset View<br>
+    Left Stick: Fly/Move
   </div>
 
   <a-scene id="vr-scene" 
            background="color: #E8F4F8" 
            cursor="rayOrigin: mouse" 
-           raycaster="objects: .interactive, .grabbable">
+           raycaster="objects: .interactive">
 
     <a-assets>
       <img id="wall-tex" src="https://cdn.architextures.org/textures/23/7/plain-green-sheer-none-twinbru-textiles-12eva5.jpg" crossorigin="anonymous">
@@ -250,7 +317,6 @@
       <img id="ceiling-tex" src="https://cdn.architextures.org/textures/23/8/oatmeal-loop-pile-carpet-cubic-chjny5.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <!-- Room -->
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#floor-tex" repeat="10 10" color="#FFF"></a-plane>
     <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" src="#ceiling-tex" repeat="10 10" color="#FFF"></a-plane>
     <a-plane position="0 3 -10" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
@@ -258,27 +324,23 @@
     <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
     <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
     
-    <!-- Lighting -->
     <a-entity light="type: ambient; intensity: 0.8"></a-entity>
     <a-entity light="type: directional; position: 1 5 2; intensity: 0.8"></a-entity>
 
-    <!-- Exit Button -->
     <a-plane id="exit-btn" class="interactive" position="0 2 9.8" rotation="0 180 0" width="2" height="0.8" color="#CF2027">
       <a-text value="EXIT VR" align="center" width="6" color="#FFF"></a-text>
     </a-plane>
 
-    <!-- Menu Toggle Button -->
     <a-circle id="toggle-panel-btn" class="interactive" visible="true" follow-camera radius="0.08" color="#2B2B88" 
               animation="property: scale; from: 1 1 1; to: 1.1 1.1 1.1; dir: alternate; loop: true; dur: 1000">
       <a-text value="MENU" align="center" width="1.2" position="0 0 0.01"></a-text>
     </a-circle>
 
-    <!-- Control Panel -->
     <a-entity id="control-panel" visible="false" follow-camera>
       <a-plane width="1.2" height="0.8" color="#222" opacity="0.9" class="interactive">
         <a-text value="CONTROLS" position="0 0.32 0.01" align="center" width="2.5" color="#FFF"></a-text>
         
-        <a-plane id="btn-close" class="interactive" position="0.5 0.32 0.02" width="0.12" height="0.12" color="red">
+        <a-plane id="btn-close" class="interactive" position="-0.5 0.32 0.02" width="0.12" height="0.12" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
@@ -296,12 +358,11 @@
       </a-plane>
     </a-entity>
 
-    <!-- Help Card -->
     <a-entity id="help-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="HELP" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-help" class="interactive" position="0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-help" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
@@ -310,12 +371,11 @@
       </a-plane>
     </a-entity>
 
-    <!-- Modules Card -->
     <a-entity id="modules-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="MODULES" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-modules" class="interactive" position="0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-modules" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
@@ -324,73 +384,49 @@
       </a-plane>
     </a-entity>
 
-    <!-- Engineering Model - Positioned at eye level for front view -->
     <a-entity id="model-container" position="0 1.6 -2.5">
       <a-entity id="engineering-model" 
                 scale="0.5 0.5 0.5" 
                 rotation="0 0 0"
-                class="grabbable" 
-                grabbable-model
+                remote-rotate-model
                 scalable-model>
-        <!-- Main body -->
         <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Front cylinder -->
         <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
         <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
-        <!-- Side box -->
         <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
-        <!-- Top cylinder -->
         <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
         <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
-        <!-- Small corner box -->
         <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
-        
-        <!-- Reference points -->
-        <a-sphere position="0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.6 -0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="-0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="-0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="-0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="-0.6 -0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.9 0.3 0.3" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.9 0.3 -0.3" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.9 -0.3 0.3" radius="0.04" color="#000000"></a-sphere>
-        <a-sphere position="0.9 -0.3 -0.3" radius="0.04" color="#000000"></a-sphere>
       </a-entity>
 
       <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="5"></a-text>
     </a-entity>
 
-    <!-- VR Rig with Controllers -->
-    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad">
+    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad; fly: true">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
 
-      <!-- Left Controller -->
       <a-entity id="left-controller" 
                 oculus-touch-controls="hand: left"
                 vr-controller="hand: left"
-                raycaster="objects: .interactive, .grabbable; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.75">
+                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.75">
       </a-entity>
 
-      <!-- Right Controller -->
       <a-entity id="right-controller" 
                 oculus-touch-controls="hand: right"
                 vr-controller="hand: right"
-                raycaster="objects: .interactive, .grabbable; far: 10; showLine: true; lineColor: red; lineOpacity: 0.75">
+                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: red; lineOpacity: 0.75">
       </a-entity>
     </a-entity>
 
@@ -427,6 +463,12 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
       viewCycleInterval = setInterval(() => {
         const now = Date.now();
+        // Don't cycle if left grip is held (manual rotation)
+        if (window.isLeftGripHeld) {
+            lastInteractionTime = now;
+            return; 
+        }
+
         if (!isInteracting && (now - lastInteractionTime > 10000 || lastInteractionTime === 0)) {
           viewIdx = (viewIdx + 1) % views.length;
           const view = views[viewIdx];
