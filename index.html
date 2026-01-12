@@ -368,18 +368,22 @@
     <a-entity id="rig" movement-controls="fly: false; speed: 0.15;" position="0 0 0">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
       
-      <!-- LEFT CONTROLLER with laser -->
+      <!-- LEFT HAND with proper model -->
       <a-entity 
         id="left-controller" 
-        laser-controls="hand: left" 
-        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: cyan; lineOpacity: 0.75">
+        hand-controls="hand: left; handModelStyle: lowPoly; color: #15ACCF"
+        laser-controls="hand: left"
+        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: cyan; lineOpacity: 0.75"
+        cursor="rayOrigin: entity">
       </a-entity>
-      
-      <!-- RIGHT CONTROLLER with laser -->
+
+      <!-- RIGHT HAND with proper model -->
       <a-entity 
         id="right-controller" 
-        laser-controls="hand: right" 
-        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: red; lineOpacity: 0.75">
+        hand-controls="hand: right; handModelStyle: lowPoly; color: #15ACCF"
+        laser-controls="hand: right"
+        raycaster="objects: .interactive, .grabbable; far: 10; lineColor: red; lineOpacity: 0.75"
+        cursor="rayOrigin: entity">
       </a-entity>
     </a-entity>
   </a-scene>
