@@ -3,604 +3,310 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing Visualizer - VR Edition (Hand Tracking Fixed)</title>
+  <title>Engineering Drawing VR - Fixed Controls</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
   
   <style>
+    /* BASIC UI STYLES */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+    body { font-family: sans-serif; overflow: hidden; }
 
-    /* Loading Screen */
-    #loading-screen {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, #2B2B88 0%, #1a1a50 100%);
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 20000; transition: opacity 0.5s ease-out;
-    }
-
-    #loading-screen.hidden { opacity: 0; pointer-events: none; }
-
-    .loading-logo {
-      width: 200px; height: 200px; margin-bottom: 40px;
-      border: 8px solid #5CCAE8; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      background: white; box-shadow: 0 0 30px rgba(92, 202, 232, 0.5);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(92, 202, 232, 0.5); }
-      50% { transform: scale(1.05); box-shadow: 0 0 50px rgba(92, 202, 232, 0.8); }
-    }
-
-    .loading-spinner {
-      width: 80px; height: 80px; border: 8px solid rgba(255,255,255,0.1);
-      border-top-color: #CF2027; border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      color: white; font-size: 1.8em; font-weight: 700;
-      letter-spacing: 2px; margin-top: 30px;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    }
-
-    #intro-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(45deg, #2B2B88 0%, #2B2B88 25%, #CF2027 25%, #CF2027 50%, #B78A2D 50%, #B78A2D 75%, #5CCAE8 75%, #5CCAE8 100%);
-      background-size: 100px 100px;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 10000; transition: opacity 0.8s ease-out;
+    #loading {
+      position: fixed; inset: 0; background: #2B2B88; z-index: 999;
+      display: flex; justify-content: center; align-items: center;
+      color: white; font-size: 2rem; font-weight: bold;
     }
     
-    #intro-overlay::before {
-      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255, 255, 255, 0.85); z-index: -1;
+    #overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(255,255,255,0.9);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
 
-    #intro-overlay.hidden { opacity: 0; pointer-events: none; }
-
-    .logo-container {
-      margin-bottom: 40px; padding: 30px; background: white;
-      border: 8px solid #2B2B88; border-radius: 20px;
-      box-shadow: 0 0 0 4px #CF2027, 0 0 0 8px #B78A2D, 0 20px 50px rgba(0,0,0,0.3);
+    .btn {
+      padding: 20px 60px; font-size: 1.5rem; background: #CF2027; color: white;
+      border: none; border-radius: 10px; cursor: pointer; margin-top: 20px;
     }
-
-    #bits-logo { width: 300px; height: auto; display: block; }
-
-    .title-container {
-      text-align: center; margin: 30px 0; padding: 30px 50px; background: white;
-      border: 6px solid #2B2B88; border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    }
-
-    .intro-title {
-      font-size: 3.5em; font-weight: 900; color: #2B2B88; text-transform: uppercase;
-      letter-spacing: 4px; margin: 10px 0; text-shadow: 3px 3px 0 #CF2027, 6px 6px 0 #B78A2D;
-    }
-
-    .intro-subtitle {
-      font-size: 1.8em; font-weight: 700; color: #CF2027; text-transform: uppercase;
-      letter-spacing: 3px; margin-top: 15px; border-top: 4px solid #5CCAE8; padding-top: 15px;
-    }
-
-    .start-button {
-      padding: 25px 80px; font-size: 1.5em; font-weight: 900; color: white;
-      background: #CF2027; border: 6px solid #2B2B88; border-radius: 15px;
-      cursor: pointer; text-transform: uppercase; letter-spacing: 3px;
-      box-shadow: 0 0 0 3px #B78A2D, 0 15px 40px rgba(0,0,0,0.4);
-      transition: all 0.2s ease; margin-top: 40px;
-    }
-
-    .start-button:hover {
-      background: #2B2B88; border-color: #CF2027; transform: scale(1.05);
-      box-shadow: 0 0 0 3px #5CCAE8, 0 20px 50px rgba(0,0,0,0.5);
-    }
-
-    .corner-block { position: absolute; width: 100px; height: 100px; border: 5px solid; }
-    .corner-block.top-left { top: 20px; left: 20px; border-color: #2B2B88 transparent transparent #2B2B88; border-radius: 10px 0 0 0; }
-    .corner-block.top-right { top: 20px; right: 20px; border-color: #CF2027 #CF2027 transparent transparent; border-radius: 0 10px 0 0; }
-    .corner-block.bottom-left { bottom: 20px; left: 20px; border-color: transparent transparent #B78A2D #B78A2D; border-radius: 0 0 0 10px; }
-    .corner-block.bottom-right { bottom: 20px; right: 20px; border-color: transparent #5CCAE8 #5CCAE8 transparent; border-radius: 0 0 10px 0; }
+    .btn:hover { background: #2B2B88; }
   </style>
 
   <script>
-    // --- CUSTOM COMPONENT: Pinch to Click Adapter ---
-    // This bridges the gap between Quest Hand Tracking "pinch" and standard "click" events
+    // --- COMPONENT: Pinch to Click ---
+    // Converts Hand Pinch into a standard click event
     AFRAME.registerComponent('pinch-to-click', {
       init: function () {
-        this.el.addEventListener('pinchstarted', this.onPinchStart.bind(this));
-        this.el.addEventListener('pinchended', this.onPinchEnd.bind(this));
+        this.pinched = false;
+        // Listen for Quest pinch events
+        this.el.addEventListener('pinchstarted', this.onPinch.bind(this));
+        this.el.addEventListener('pinchended', this.onRelease.bind(this));
       },
+      onPinch: function (evt) {
+        if (this.pinched) return;
+        this.pinched = true;
+        
+        // Visual feedback
+        this.el.setAttribute('raycaster', 'lineColor', '#00FF00'); 
 
-      onPinchStart: function (evt) {
-        // Get the raycaster attached to this hand
-        const raycasterEl = this.el;
-        const raycaster = raycasterEl.components.raycaster;
-
-        if (!raycaster) return;
-
-        // Check if we are pointing at something
-        const intersectedEls = raycaster.intersectedEls;
-        if (intersectedEls.length > 0) {
-          const target = intersectedEls[0];
-          
-          console.log('Pinch detected on:', target.id || 'unnamed object');
-
-          // Force emit a 'click' event on the target (for buttons)
-          target.emit('click', evt);
-          
-          // Force emit 'mousedown' (useful for some drag components)
-          target.emit('mousedown', evt);
-
-          // Force emit 'triggerdown' (to trigger our custom grab logic)
-          // We dispatch this on the HAND, not the target, because the grab logic listens to the controller
+        // Find what we are pointing at
+        const raycaster = this.el.components.raycaster;
+        const intersected = raycaster.intersectedEls;
+        
+        if (intersected.length > 0) {
+          const target = intersected[0];
+          console.log("Pinch clicked on:", target.id);
+          // Emit standard click
+          target.emit('click');
+          // Emit triggerdown for grabbing
           this.el.emit('triggerdown', { target: target });
         }
       },
-
-      onPinchEnd: function (evt) {
-        // Emit events for release
+      onRelease: function () {
+        this.pinched = false;
+        // Reset color
+        const defaultColor = this.el.id === 'left-hand' ? '#00FFFF' : '#FF0000';
+        this.el.setAttribute('raycaster', 'lineColor', defaultColor);
         this.el.emit('triggerup');
-        this.el.emit('mouseup');
+      }
+    });
+
+    // --- COMPONENT: Follow Camera ---
+    // Makes the panel follow the user physically
+    AFRAME.registerComponent('follow-camera', {
+      tick: function () {
+        if (!this.el.object3D.visible) return;
+
+        const camera = document.getElementById('camera');
+        const rig = document.getElementById('rig');
+        if (!camera || !rig) return;
+
+        // Get camera world position
+        const camPos = new THREE.Vector3();
+        camera.object3D.getWorldPosition(camPos);
+        
+        // Get camera world rotation (Y axis only)
+        const camRot = new THREE.Euler();
+        camRot.setFromQuaternion(camera.object3D.quaternion, 'YXZ');
+
+        // Calculate target position (in front of camera, slightly down)
+        // We offset by 0.7m forward and 0.4m down
+        const distance = 0.7;
+        const targetX = camPos.x - Math.sin(camRot.y) * distance;
+        const targetZ = camPos.z - Math.cos(camRot.y) * distance;
+        const targetY = camPos.y - 0.4;
+
+        // Smoothly interpolate current panel position to target
+        this.el.object3D.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.1);
+        
+        // Make panel face the user
+        this.el.object3D.lookAt(camPos.x, camPos.y, camPos.z);
       }
     });
   </script>
 </head>
 
 <body>
-  <div id="loading-screen">
-    <div class="loading-logo">
-      <div class="loading-spinner"></div>
-    </div>
-    <div class="loading-text">LOADING EXPERIENCE</div>
+  <div id="loading">Loading VR...</div>
+
+  <div id="overlay" style="display: none;">
+    <h1>VR Engineering Visualizer</h1>
+    <p>Desktop: Use Mouse to Click & Drag. WASD to Move.</p>
+    <p>VR: Pinch to Click. Pinch & Drag Model.</p>
+    <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
-  <div id="intro-overlay" style="display: none;">
-    <div class="corner-block top-left"></div>
-    <div class="corner-block top-right"></div>
-    <div class="corner-block bottom-left"></div>
-    <div class="corner-block bottom-right"></div>
-    
-    <div class="logo-container">
-      <img id="bits-logo" src="https://i.ibb.co/6cSQR6Tt/1200px-BITS-Pilani-Logo-svg.png" alt="BITS Pilani">
-    </div>
-    
-    <div class="title-container">
-      <h1 class="intro-title">Engineering Drawing<br>Visualizer</h1>
-      <p class="intro-subtitle">VR Hand Tracking Edition</p>
-    </div>
-    
-    <button class="start-button" id="start-btn">Start Experience</button>
-  </div>
+  <a-scene id="vr-scene" 
+           background="color: #E8F4F8" 
+           cursor="rayOrigin: mouse" 
+           raycaster="objects: .interactive">
 
-  <a-scene id="vr-scene" style="display: none;" background="color: #E8F4F8">
-    
-    <a-assets timeout="8000">
-      <img id="wall-texture" src="https://cdn.architextures.org/textures/23/10/plain-blue-sheer-twinbru-textiles-1yeo48.jpg" crossorigin="anonymous">
-      <img id="carpet-texture" src="https://cdn.architextures.org/textures/23/7/plain-green-texture-none-twinbru-textiles-9cbkkg.jpg" crossorigin="anonymous">
-      <img id="ceiling-texture" src="https://cdn.architextures.org/textures/23/7/plain-pink-texture-none-twinbru-textiles-yvcpnl.jpg" crossorigin="anonymous">
-      <a-asset-item id="plant-model" src="https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Avocado/glTF/Avocado.gltf"></a-asset-item>
+    <a-assets>
+      <img id="wall-tex" src="https://cdn.architextures.org/textures/23/10/plain-blue-sheer-twinbru-textiles-1yeo48.jpg" crossorigin="anonymous">
+      <img id="floor-tex" src="https://cdn.architextures.org/textures/23/7/plain-green-texture-none-twinbru-textiles-9cbkkg.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <a-entity light="type: ambient; intensity: 0.8; color: #FFFFFF"></a-entity>
-    <a-entity light="type: directional; intensity: 1.0; color: #FFFFFF" position="0 10 0"></a-entity>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#floor-tex" repeat="4 4" color="#888"></a-plane>
+    <a-plane position="0 3 -10" width="20" height="6" src="#wall-tex" repeat="4 2"></a-plane>
+    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-tex" repeat="4 2"></a-plane>
+    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-tex" repeat="4 2"></a-plane>
+    
+    <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+    <a-entity light="type: directional; position: 1 5 2; intensity: 0.8"></a-entity>
 
-    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#8B7355" src="#carpet-texture" repeat="4 4"></a-plane>
+    <a-plane id="exit-btn" class="interactive" position="0 2 9.8" rotation="0 180 0" width="2" height="0.8" color="#CF2027">
+      <a-text value="EXIT VR" align="center" width="6"></a-text>
+    </a-plane>
 
-    <a-plane position="0 3 -10" rotation="0 0 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
-    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
-    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-texture" repeat="4 2"></a-plane>
+    <a-circle id="toggle-panel-btn" class="interactive" position="-0.5 1.5 -1" radius="0.1" color="#2B2B88" 
+              animation="property: scale; from: 1 1 1; to: 1.1 1.1 1.1; dir: alternate; loop: true; dur: 1000">
+      <a-text value="MENU" align="center" width="2"></a-text>
+    </a-circle>
 
-    <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" src="#ceiling-texture" repeat="4 4"></a-plane>
+    <a-entity id="control-panel" visible="false" follow-camera>
+      <a-plane width="1" height="0.6" color="#222" opacity="0.9">
+        <a-text value="CONTROLS" position="0 0.25 0.01" align="center"></a-text>
+        
+        <a-plane id="btn-close" class="interactive" position="0.4 0.25 0.02" width="0.1" height="0.1" color="red">
+          <a-text value="X" align="center"></a-text>
+        </a-plane>
 
-    <a-entity id="exit-button" position="0 2 9.8" rotation="0 180 0" class="interactive">
-      <a-plane width="2" height="0.8" color="#CF2027">
-        <a-text value="EXIT VR" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
+        <a-plane id="btn-view" class="interactive" position="0 0.1 0.02" width="0.4" height="0.1" color="#5CCAE8">
+          <a-text value="Next View" align="center" width="2"></a-text>
+        </a-plane>
+
+        <a-plane id="btn-reset" class="interactive" position="0 -0.1 0.02" width="0.4" height="0.1" color="#B78A2D">
+          <a-text value="Reset Model" align="center" width="2"></a-text>
+        </a-plane>
+
+        <a-text value="Walk around to move" position="0 -0.25 0.02" align="center" width="1.5" color="#aaa"></a-text>
       </a-plane>
     </a-entity>
 
-    <a-entity id="floating-menu-button" position="-0.4 1.5 -0.6" class="interactive">
-      <a-circle radius="0.08" color="#2B2B88" opacity="0.95">
-        <a-text value="PANEL" align="center" position="0 0 0.01" color="#FFFFFF" width="0.45"></a-text>
-      </a-circle>
-    </a-entity>
-
-    <a-entity id="control-panel" visible="false" position="0 1.2 -0.7">
-      <a-plane position="0 0 0" width="1.0" height="0.6" rotation="-15 0 0" color="#2B2B88" opacity="0.95" material="side: double">
-        <a-text value="CONTROLS" position="-0.3 0.24 0.01" align="center" color="#FFFFFF" width="2"></a-text>
-        
-        <a-plane id="panel-close" class="interactive" position="0.42 0.24 0.01" width="0.12" height="0.12" color="#CF2027">
-          <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="1"></a-text>
-        </a-plane>
-        
-        <a-plane id="panel-help" class="interactive" position="-0.3 0.08 0.01" width="0.25" height="0.12" color="#CF2027">
-          <a-text value="HELP" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
-        </a-plane>
-        
-        <a-plane id="panel-menu" class="interactive" position="0 0.08 0.01" width="0.25" height="0.12" color="#5CCAE8">
-          <a-text value="MENU" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
-        </a-plane>
-        
-        <a-plane id="panel-exit" class="interactive" position="0.3 0.08 0.01" width="0.25" height="0.12" color="#B78A2D">
-          <a-text value="EXIT" align="center" position="0 0 0.01" color="#FFFFFF" width="1.2"></a-text>
-        </a-plane>
-        
-        <a-text value="MOVE" position="0 -0.08 0.01" align="center" color="#FFFFFF" width="1.5"></a-text>
-        
-        <a-plane id="move-forward" class="interactive" position="0 -0.18 0.01" width="0.1" height="0.1" color="#5CCAE8">
-          <a-text value="^" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
-        </a-plane>
-        
-        <a-plane id="move-back" class="interactive" position="0 -0.35 0.01" width="0.1" height="0.1" color="#5CCAE8">
-          <a-text value="v" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
-        </a-plane>
-        
-        <a-plane id="move-left" class="interactive" position="-0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
-          <a-text value="<" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
-        </a-plane>
-        
-        <a-plane id="move-right" class="interactive" position="0.12 -0.26 0.01" width="0.1" height="0.1" color="#5CCAE8">
-          <a-text value=">" align="center" position="0 0 0.01" color="#FFFFFF" width="0.8"></a-text>
-        </a-plane>
-      </a-plane>
-    </a-entity>
-
-    <a-entity id="menu-plant" position="-8 0 -8" class="interactive">
-      <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
-      <a-entity gltf-model="#plant-model" position="0 0.6 0" scale="0.7 0.7 0.7" rotation="0 45 0"></a-entity>
-    </a-entity>
-
-    <a-entity id="help-plant" position="8 0 -8" class="interactive">
-      <a-cylinder position="0 0.3 0" radius="0.6" height="0.6" color="#8B4513"></a-cylinder>
-      <a-entity gltf-model="#plant-model" position="0 0.6 0" scale="0.7 0.7 0.7" rotation="0 -45 0"></a-entity>
-    </a-entity>
-
-    <a-entity id="menu-card" position="-3 1.6 -5" visible="false">
-      <a-plane width="3" height="4" color="#FFFFFF" opacity="0.95" material="side: double"></a-plane>
-      <a-text value="MENU" position="0 1.7 0.05" align="center" color="#2B2B88" width="5"></a-text>
-      
-      <a-plane class="interactive" position="0 1.0 0.05" width="2.5" height="0.5" color="#5CCAE8">
-        <a-text value="View Projections" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
-      </a-plane>
-      
-      <a-plane class="interactive" position="0 0.3 0.05" width="2.5" height="0.5" color="#5CCAE8">
-        <a-text value="Section Views" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
-      </a-plane>
-      
-      <a-plane class="interactive" position="0 -0.4 0.05" width="2.5" height="0.5" color="#5CCAE8">
-        <a-text value="Dimensioning" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
-      </a-plane>
-      
-      <a-plane class="interactive" position="0 -1.1 0.05" width="2.5" height="0.5" color="#5CCAE8">
-        <a-text value="Tolerances" align="center" position="0 0 0.01" color="#FFFFFF" width="4"></a-text>
-      </a-plane>
-      
-      <a-plane id="menu-close" class="interactive" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
-        <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
-      </a-plane>
-    </a-entity>
-
-    <a-entity id="help-card" position="3 1.6 -5" visible="false">
-      <a-plane width="3" height="4" color="#FFFFFF" opacity="0.95" material="side: double"></a-plane>
-      <a-text value="HELP" position="0 1.7 0.05" align="center" color="#CF2027" width="5"></a-text>
-      <a-text 
-        value="Controls:\n\nPinch index+thumb to CLICK\n\nPinch & Hold on model\nto grab and rotate\n\nUse on-screen buttons\nto move around" 
-        position="0 0.3 0.05" align="center" color="#2B2B88" width="2.5" wrap-count="25">
-      </a-text>
-      <a-plane id="help-close" class="interactive" position="-1.2 1.7 0.05" width="0.5" height="0.5" color="#CF2027">
-        <a-text value="X" align="center" position="0 0 0.01" color="#FFFFFF" width="3"></a-text>
-      </a-plane>
-    </a-entity>
-
-    <a-entity id="model-container" position="0 1.6 -2.5">
-      <a-entity id="engineering-model" scale="0.4 0.4 0.4" class="grabbable">
-        <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5"></a-box>
-        <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
-        <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5"></a-cylinder>
-        <a-cylinder position="0 0 0.42" radius="0.255" height="0.085" material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
-        <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5"></a-box>
-        <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61" material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
-        <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5"></a-cylinder>
-        <a-cylinder position="0 0.5 0" radius="0.305" height="0.305" material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
-        <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5"></a-box>
-        <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21" material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
+    <a-entity id="model-container" position="0 1.6 -2">
+      <a-entity id="engineering-model" class="interactive" scale="0.5 0.5 0.5">
+        <a-box color="#DDD" width="1" height="1" depth="1"></a-box>
+        <a-cylinder color="#333" radius="0.2" height="1.2"></a-cylinder>
+        <a-sphere color="red" radius="0.1" position="0.5 0.5 0.5"></a-sphere>
       </a-entity>
-      <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="5"></a-text>
+      <a-text id="view-label" value="Front View" position="0 0.8 0" align="center" color="#2B2B88" width="4"></a-text>
     </a-entity>
 
-    <a-entity id="rig" movement-controls="fly: false; speed: 0.15;" position="0 0 0">
+    <a-entity id="rig" movement-controls="speed: 0.1">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
-      
-      <a-entity id="left-hand"
-        laser-controls="hand: left"
-        hand-tracking-controls="hand: left; modelStyle: mesh"
-        raycaster="objects: .interactive, .grabbable; far: 5; showLine: true; lineColor: #118A7E; lineOpacity: 0.8"
-        pinch-to-click>
+
+      <a-entity id="left-hand" 
+        hand-tracking-controls="hand: left"
+        pinch-to-click
+        raycaster="objects: .interactive; far: 5; showLine: true; lineColor: #00FFFF; lineOpacity: 0.8">
       </a-entity>
-      
-      <a-entity id="right-hand"
-        laser-controls="hand: right"
-        hand-tracking-controls="hand: right; modelStyle: mesh"
-        raycaster="objects: .interactive, .grabbable; far: 5; showLine: true; lineColor: #CF2027; lineOpacity: 0.8"
-        pinch-to-click>
+
+      <a-entity id="right-hand" 
+        hand-tracking-controls="hand: right"
+        pinch-to-click
+        raycaster="objects: .interactive; far: 5; showLine: true; lineColor: #FF0000; lineOpacity: 0.8">
       </a-entity>
+
+      <a-entity laser-controls="hand: left" raycaster="objects: .interactive; far: 5; lineColor: #00FFFF"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: .interactive; far: 5; lineColor: #FF0000"></a-entity>
     </a-entity>
+
   </a-scene>
 
   <script>
-    // Loading Screen Management
-    let assetsLoaded = false;
-    let imagesLoaded = false;
-    
-    const logoImg = new Image();
-    logoImg.onload = function() { imagesLoaded = true; checkAllLoaded(); };
-    logoImg.onerror = function() { imagesLoaded = true; checkAllLoaded(); };
-    logoImg.src = 'https://i.ibb.co/6cSQR6Tt/1200px-BITS-Pilani-Logo-svg.png';
-
+    // --- APP LOGIC ---
     const scene = document.querySelector('a-scene');
-    if (scene) {
-      scene.addEventListener('loaded', function() { assetsLoaded = true; checkAllLoaded(); });
-    }
+    const model = document.getElementById('engineering-model');
+    
+    // Hide loading when ready
+    scene.addEventListener('loaded', () => {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('overlay').style.display = 'flex';
+    });
 
-    function checkAllLoaded() {
-      if (assetsLoaded && imagesLoaded) {
-        setTimeout(() => {
-          document.getElementById('loading-screen').classList.add('hidden');
-          setTimeout(() => {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('intro-overlay').style.display = 'flex';
-          }, 500);
-        }, 800);
-      }
-    }
+    // Start Button
+    document.getElementById('start-btn').addEventListener('click', () => {
+      document.getElementById('overlay').style.display = 'none';
+      if (scene.enterVR) scene.enterVR();
+    });
 
-    // Fallback loading
-    setTimeout(() => {
-      if (!document.getElementById('intro-overlay').style.display || document.getElementById('intro-overlay').style.display === 'none') {
-        document.getElementById('loading-screen').classList.add('hidden');
-        setTimeout(() => {
-          document.getElementById('loading-screen').style.display = 'none';
-          document.getElementById('intro-overlay').style.display = 'flex';
-        }, 500);
-      }
-    }, 8000);
-
-    // Global state
-    let vrActive = false;
-    let viewCycleInterval = null;
-    let currentView = 0;
-    let isInteracting = false;
-    let lastInteractionTime = 0;
-    let panelVisible = false;
-
-    const views = [
-      {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
-      {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
-      {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
-      {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}}
+    // Interaction State
+    let views = [
+      {r: {x:0, y:0, z:0}, text: "Front View"},
+      {r: {x:90, y:0, z:0}, text: "Top View"},
+      {r: {x:0, y:90, z:0}, text: "Side View"},
+      {r: {x:35, y:45, z:0}, text: "Iso View"}
     ];
+    let viewIdx = 0;
 
-    function toggleControlPanel() {
-      panelVisible = !panelVisible;
-      const panel = document.getElementById('control-panel');
-      panel.setAttribute('visible', panelVisible);
-    }
-
-    // Follow logic for panel
-    setInterval(() => {
-      if (vrActive) {
-        const rig = document.getElementById('rig');
-        const panel = document.getElementById('control-panel');
-        const button = document.getElementById('floating-menu-button');
-        const rigPos = rig.getAttribute('position');
-        
-        panel.object3D.position.set(rigPos.x, rigPos.y + 1.2, rigPos.z - 0.7);
-        button.object3D.position.set(rigPos.x - 0.4, rigPos.y + 1.5, rigPos.z - 0.6);
-        
-        panel.object3D.rotation.set(THREE.MathUtils.degToRad(-15), 0, 0);
-      }
-    }, 50);
-
-    document.getElementById('start-btn').addEventListener('click', function() {
-      document.getElementById('intro-overlay').classList.add('hidden');
-      setTimeout(() => {
-        document.getElementById('intro-overlay').style.display = 'none';
-        document.getElementById('vr-scene').style.display = 'block';
-        vrActive = true;
-        
-        // Enter VR automatically if supported
-        if (scene.enterVR) {
-           scene.enterVR();
-        }
-        
-        startViewCycle();
-      }, 800);
+    // Click Handlers
+    document.getElementById('toggle-panel-btn').addEventListener('click', () => {
+      const p = document.getElementById('control-panel');
+      p.setAttribute('visible', !p.getAttribute('visible'));
     });
 
-    function startViewCycle() {
-      if (viewCycleInterval) clearInterval(viewCycleInterval);
-      viewCycleInterval = setInterval(() => {
-        const now = Date.now();
-        if (!isInteracting && (now - lastInteractionTime > 10000 || lastInteractionTime === 0)) {
-          currentView = (currentView + 1) % views.length;
-          const view = views[currentView];
-          const model = document.getElementById('engineering-model');
-          const label = document.getElementById('view-label');
-          
-          label.setAttribute('value', view.name);
-          model.setAttribute('animation', {
-            property: 'rotation',
-            to: `${view.rotation.x} ${view.rotation.y} ${view.rotation.z}`,
-            dur: 1200,
-            easing: 'easeInOutQuad'
-          });
-        }
-      }, 3000);
-    }
-
-    function stopViewCycle() {
-      isInteracting = true;
-      lastInteractionTime = Date.now();
-      document.getElementById('view-label').setAttribute('value', 'Interactive Mode');
-      document.getElementById('view-label').setAttribute('color', '#CF2027');
-    }
-
-    function resumeViewCycle() {
-      isInteracting = false;
-      lastInteractionTime = Date.now();
-      document.getElementById('view-label').setAttribute('color', '#2B2B88');
-    }
-
-    function handleExit() {
-      if (scene.is('vr-mode')) scene.exitVR();
-      document.getElementById('vr-scene').style.display = 'none';
-      document.getElementById('intro-overlay').style.display = 'flex';
-      document.getElementById('intro-overlay').classList.remove('hidden');
-      vrActive = false;
-      if (viewCycleInterval) clearInterval(viewCycleInterval);
-    }
-
-    // MAIN INTERACTION LOGIC
-    scene.addEventListener('loaded', function() {
-      const leftHand = document.getElementById('left-hand');
-      const rightHand = document.getElementById('right-hand');
-
-      // 1. STANDARD CLICK INTERACTIONS (Buttons)
-      // These are handled automatically by the raycaster emitting 'click' 
-      // thanks to our 'pinch-to-click' component.
-      
-      // Wire up simple click listeners
-      const clickables = {
-        'exit-button': handleExit,
-        'floating-menu-button': toggleControlPanel,
-        'panel-close': toggleControlPanel,
-        'panel-exit': handleExit,
-        'panel-help': () => {
-           const el = document.getElementById('help-card');
-           el.setAttribute('visible', !el.getAttribute('visible'));
-        },
-        'panel-menu': () => {
-           const el = document.getElementById('menu-card');
-           el.setAttribute('visible', !el.getAttribute('visible'));
-        },
-        'menu-close': () => document.getElementById('menu-card').setAttribute('visible', false),
-        'help-close': () => document.getElementById('help-card').setAttribute('visible', false),
-        'menu-plant': () => {
-           const el = document.getElementById('menu-card');
-           el.setAttribute('visible', !el.getAttribute('visible'));
-        },
-        'help-plant': () => {
-           const el = document.getElementById('help-card');
-           el.setAttribute('visible', !el.getAttribute('visible'));
-        }
-      };
-
-      for (let id in clickables) {
-        const el = document.getElementById(id);
-        if (el) {
-          el.addEventListener('click', clickables[id]);
-        }
-      }
-
-      // Movement buttons
-      const moveRig = (dx, dz) => {
-        const rig = document.getElementById('rig');
-        const camera = document.getElementById('camera');
-        const pos = rig.getAttribute('position');
-        const rot = camera.getAttribute('rotation').y * Math.PI / 180;
-        pos.x += (Math.cos(rot) * dx - Math.sin(rot) * dz) * 0.5;
-        pos.z += (Math.sin(rot) * dx + Math.cos(rot) * dz) * 0.5;
-        rig.setAttribute('position', pos);
-      };
-
-      if(document.getElementById('move-forward')) document.getElementById('move-forward').addEventListener('click', () => moveRig(0, -1));
-      if(document.getElementById('move-back')) document.getElementById('move-back').addEventListener('click', () => moveRig(0, 1));
-      if(document.getElementById('move-left')) document.getElementById('move-left').addEventListener('click', () => moveRig(-1, 0));
-      if(document.getElementById('move-right')) document.getElementById('move-right').addEventListener('click', () => moveRig(1, 0));
-
-
-      // 2. MODEL GRAB & ROTATE LOGIC
-      // Updated to listen for both Controller Triggers AND Hand Pinches
-      const model = document.getElementById('engineering-model');
-      let isGrabbing = false;
-      let grabHand = null;
-      let initialHandRotation = null;
-      let initialModelRotation = null;
-
-      [leftHand, rightHand].forEach(controller => {
-        
-        // Listen for 'triggerdown' (which our pinch-to-click component also emits!)
-        controller.addEventListener('triggerdown', function(evt) {
-          const raycaster = controller.components.raycaster;
-          
-          // Check if raycaster is hitting the model
-          if (raycaster && raycaster.intersectedEls && raycaster.intersectedEls.length > 0) {
-            const target = raycaster.intersectedEls[0];
-            
-            if (target.id === 'engineering-model' || target.closest('#engineering-model')) {
-              isGrabbing = true;
-              grabHand = controller;
-              stopViewCycle();
-              
-              initialHandRotation = new THREE.Euler().copy(controller.object3D.rotation);
-              initialModelRotation = new THREE.Euler().copy(model.object3D.rotation);
-            }
-          }
-        });
-
-        // Listen for release
-        controller.addEventListener('triggerup', function(evt) {
-          if (isGrabbing && grabHand === controller) {
-            isGrabbing = false;
-            grabHand = null;
-            resumeViewCycle();
-          }
-        });
-      });
-
-      // Render loop to update rotation
-      scene.addEventListener('render', function() {
-        if (isGrabbing && grabHand && initialHandRotation && initialModelRotation) {
-          const currentHandRotation = grabHand.object3D.rotation;
-          
-          // Calculate delta
-          const deltaY = (currentHandRotation.y - initialHandRotation.y) * THREE.MathUtils.RAD2DEG;
-          const deltaX = (currentHandRotation.x - initialHandRotation.x) * THREE.MathUtils.RAD2DEG;
-          
-          // Apply sensitivity factor
-          model.object3D.rotation.y = initialModelRotation.y + (deltaY * 0.02); // 0.02 is sensitivity
-          model.object3D.rotation.x = initialModelRotation.x - (deltaX * 0.02);
-        }
-      });
+    document.getElementById('btn-close').addEventListener('click', () => {
+      document.getElementById('control-panel').setAttribute('visible', false);
     });
 
-    // Desktop WASD
-    const rig = document.getElementById('rig');
-    const keys = {};
-    document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-    document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+    document.getElementById('btn-view').addEventListener('click', () => {
+      viewIdx = (viewIdx + 1) % views.length;
+      updateView();
+    });
 
-    setInterval(() => {
-      if (!vrActive) return;
-      const pos = rig.getAttribute('position');
-      const camera = document.getElementById('camera');
-      const rotation = camera.getAttribute('rotation').y * Math.PI / 180;
-      const speed = 0.1;
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      model.setAttribute('rotation', '0 0 0');
+      viewIdx = 0;
+      updateView();
+    });
 
-      if (keys['w']) { pos.x -= Math.sin(rotation) * speed; pos.z -= Math.cos(rotation) * speed; }
-      if (keys['s']) { pos.x += Math.sin(rotation) * speed; pos.z += Math.cos(rotation) * speed; }
-      if (keys['a']) { pos.x -= Math.cos(rotation) * speed; pos.z += Math.sin(rotation) * speed; }
-      if (keys['d']) { pos.x += Math.cos(rotation) * speed; pos.z -= Math.sin(rotation) * speed; }
-      rig.setAttribute('position', pos);
-    }, 16);
+    document.getElementById('exit-btn').addEventListener('click', () => {
+      scene.exitVR();
+      document.getElementById('overlay').style.display = 'flex';
+    });
+
+    function updateView() {
+      const v = views[viewIdx];
+      model.setAttribute('animation', `property: rotation; to: ${v.r.x} ${v.r.y} ${v.r.z}; dur: 500`);
+      document.getElementById('view-label').setAttribute('value', v.text);
+    }
+
+    // --- DRAG TO ROTATE (PC & VR) ---
+    // This handles both Mouse Drag and Pinch Drag
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let startRot = {x:0, y:0};
+
+    // PC Mouse Events on Model
+    model.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.detail.cursorEl ? 0 : e.clientX; // Simplified for PC
+      startY = e.detail.cursorEl ? 0 : e.clientY;
+      startRot = Object.assign({}, model.getAttribute('rotation'));
+    });
+
+    window.addEventListener('mouseup', () => isDragging = false);
+    
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      // PC Mouse rotation logic
+      if (e.buttons === 1) { // Left click only
+        model.object3D.rotation.y += e.movementX * 0.01;
+        model.object3D.rotation.x += e.movementY * 0.01;
+      }
+    });
+
+    // VR Pinch Drag Events
+    // Listening for the custom 'triggerdown' emitted by our component
+    const hands = [document.getElementById('left-hand'), document.getElementById('right-hand')];
+    
+    hands.forEach(hand => {
+      let handStartRot = null;
+      let modelStartRot = null;
+
+      hand.addEventListener('triggerdown', (e) => {
+        if(e.detail.target === model || e.detail.target.closest('#engineering-model')) {
+          handStartRot = hand.object3D.rotation.clone();
+          modelStartRot = model.object3D.rotation.clone();
+        }
+      });
+
+      hand.addEventListener('triggerup', () => {
+        handStartRot = null;
+      });
+
+      // Update loop for VR rotation
+      setInterval(() => {
+        if (handStartRot) {
+          const currentHandRot = hand.object3D.rotation;
+          const dy = (currentHandRot.y - handStartRot.y);
+          const dx = (currentHandRot.x - handStartRot.x);
+          
+          model.object3D.rotation.y = modelStartRot.y + dy * 2;
+          model.object3D.rotation.x = modelStartRot.x + dx * 2;
+        }
+      }, 16);
+    });
 
   </script>
 </body>
