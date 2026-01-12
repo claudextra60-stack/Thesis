@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing VR - Fixed Controls</title>
+  <title>Engineering Drawing VR - Controller Fixed</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -38,32 +38,160 @@
   </style>
 
   <script>
-    AFRAME.registerComponent('pinch-to-click', {
+    // Custom component for controller-based model grabbing and rotation
+    AFRAME.registerComponent('grabbable-model', {
       init: function () {
-        this.pinched = false;
-        this.el.addEventListener('pinchstarted', this.onPinch.bind(this));
-        this.el.addEventListener('pinchended', this.onRelease.bind(this));
+        this.grabbing = false;
+        this.grabbingController = null;
+        this.initialModelRotation = new THREE.Euler();
+        this.initialControllerRotation = new THREE.Euler();
+        this.initialControllerPosition = new THREE.Vector3();
+        this.initialModelPosition = new THREE.Vector3();
       },
-      onPinch: function (evt) {
-        if (this.pinched) return;
-        this.pinched = true;
+
+      startGrab: function (controller) {
+        if (this.grabbing) return;
         
-        const raycaster = this.el.components.raycaster;
-        const intersected = raycaster.intersectedEls;
+        this.grabbing = true;
+        this.grabbingController = controller;
         
-        if (intersected.length > 0) {
-          const target = intersected[0];
-          console.log("Pinch clicked on:", target.id);
-          target.emit('click');
-          this.el.emit('triggerdown', { target: target });
-        }
+        // Store initial rotations
+        this.initialModelRotation.copy(this.el.object3D.rotation);
+        this.initialControllerRotation.copy(controller.object3D.rotation);
+        this.initialControllerPosition.copy(controller.object3D.position);
+        this.initialModelPosition.copy(this.el.object3D.position);
+        
+        // Stop auto-rotation
+        this.el.sceneEl.emit('stop-view-cycle');
+        
+        console.log('Started grabbing model');
       },
-      onRelease: function () {
-        this.pinched = false;
-        this.el.emit('triggerup');
+
+      endGrab: function () {
+        if (!this.grabbing) return;
+        
+        this.grabbing = false;
+        this.grabbingController = null;
+        
+        // Resume auto-rotation after delay
+        this.el.sceneEl.emit('resume-view-cycle');
+        
+        console.log('Ended grabbing model');
+      },
+
+      tick: function () {
+        if (!this.grabbing || !this.grabbingController) return;
+
+        const controller = this.grabbingController;
+        
+        // Calculate rotation delta
+        const currentRotation = controller.object3D.rotation;
+        const deltaY = currentRotation.y - this.initialControllerRotation.y;
+        const deltaX = currentRotation.x - this.initialControllerRotation.x;
+        
+        // Apply rotation with sensitivity multiplier
+        this.el.object3D.rotation.y = this.initialModelRotation.y + deltaY * 1.5;
+        this.el.object3D.rotation.x = this.initialModelRotation.x - deltaX * 1.5;
       }
     });
 
+    // Component for model scaling with A/B buttons
+    AFRAME.registerComponent('scalable-model', {
+      init: function () {
+        this.scaleStep = 0.1;
+        this.minScale = 0.2;
+        this.maxScale = 2.0;
+        this.currentScale = parseFloat(this.el.getAttribute('scale').x);
+      },
+
+      scaleUp: function () {
+        this.currentScale = Math.min(this.maxScale, this.currentScale + this.scaleStep);
+        this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
+        console.log('Scale up:', this.currentScale);
+      },
+
+      scaleDown: function () {
+        this.currentScale = Math.max(this.minScale, this.currentScale - this.scaleStep);
+        this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
+        console.log('Scale down:', this.currentScale);
+      }
+    });
+
+    // Enhanced controller component
+    AFRAME.registerComponent('vr-controller', {
+      schema: {
+        hand: { type: 'string', default: 'left' }
+      },
+
+      init: function () {
+        this.onTriggerDown = this.onTriggerDown.bind(this);
+        this.onTriggerUp = this.onTriggerUp.bind(this);
+        this.onButtonDown = this.onButtonDown.bind(this);
+        
+        this.el.addEventListener('triggerdown', this.onTriggerDown);
+        this.el.addEventListener('triggerup', this.onTriggerUp);
+        this.el.addEventListener('abuttondown', this.onButtonDown);
+        this.el.addEventListener('bbuttondown', this.onButtonDown);
+        this.el.addEventListener('xbuttondown', this.onButtonDown);
+        this.el.addEventListener('ybuttondown', this.onButtonDown);
+      },
+
+      onTriggerDown: function (evt) {
+        const raycaster = this.el.components.raycaster;
+        if (!raycaster) return;
+
+        const intersections = raycaster.intersectedEls;
+        
+        for (let i = 0; i < intersections.length; i++) {
+          const el = intersections[i];
+          
+          // Check if we hit the model or any of its children
+          if (el.classList.contains('grabbable') || el.closest('.grabbable')) {
+            const model = document.getElementById('engineering-model');
+            if (model && model.components['grabbable-model']) {
+              model.components['grabbable-model'].startGrab(this.el);
+              this.el.emit('hapticpulse', { intensity: 0.8, duration: 100 });
+            }
+            break;
+          }
+          
+          // Handle other interactive elements
+          if (el.classList.contains('interactive')) {
+            el.emit('click');
+            this.el.emit('hapticpulse', { intensity: 0.5, duration: 50 });
+            break;
+          }
+        }
+      },
+
+      onTriggerUp: function (evt) {
+        const model = document.getElementById('engineering-model');
+        if (model && model.components['grabbable-model']) {
+          model.components['grabbable-model'].endGrab();
+        }
+      },
+
+      onButtonDown: function (evt) {
+        const model = document.getElementById('engineering-model');
+        if (!model || !model.components['scalable-model']) return;
+
+        const type = evt.type;
+        
+        // A button or X button = scale up
+        if (type === 'abuttondown' || type === 'xbuttondown') {
+          model.components['scalable-model'].scaleUp();
+          this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+        }
+        
+        // B button or Y button = scale down
+        if (type === 'bbuttondown' || type === 'ybuttondown') {
+          model.components['scalable-model'].scaleDown();
+          this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
+        }
+      }
+    });
+
+    // Follow camera component for UI panels
     AFRAME.registerComponent('follow-camera', {
       tick: function () {
         if (!this.el.object3D.visible) return;
@@ -95,15 +223,20 @@
   <div id="overlay" style="display: none;">
     <h1>VR Engineering Visualizer</h1>
     <p>Desktop: Left Click + Drag to Rotate. Scroll Wheel to Zoom. WASD to Move.</p>
-    <p>VR: Pinch to Click. Pinch & Drag Model.</p>
+    <p>VR: Point & Hold Trigger to Rotate Model. A/X = Zoom In, B/Y = Zoom Out.</p>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
   <div id="instructions" style="display: none;">
-    <strong>Controls:</strong><br>
+    <strong>Desktop Controls:</strong><br>
     Left Click + Drag: Rotate Model<br>
     Scroll Wheel: Zoom In/Out<br>
-    WASD: Move Around
+    WASD: Move Around<br><br>
+    <strong>VR Controls:</strong><br>
+    Trigger: Grab & Rotate Model<br>
+    A/X Button: Zoom In<br>
+    B/Y Button: Zoom Out<br>
+    Joystick: Move Around
   </div>
 
   <a-scene id="vr-scene" 
@@ -117,6 +250,7 @@
       <img id="ceiling-tex" src="https://cdn.architextures.org/textures/23/8/oatmeal-loop-pile-carpet-cubic-chjny5.jpg" crossorigin="anonymous">
     </a-assets>
 
+    <!-- Room -->
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#floor-tex" repeat="10 10" color="#FFF"></a-plane>
     <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" src="#ceiling-tex" repeat="10 10" color="#FFF"></a-plane>
     <a-plane position="0 3 -10" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
@@ -124,18 +258,22 @@
     <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
     <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
     
+    <!-- Lighting -->
     <a-entity light="type: ambient; intensity: 0.8"></a-entity>
     <a-entity light="type: directional; position: 1 5 2; intensity: 0.8"></a-entity>
 
+    <!-- Exit Button -->
     <a-plane id="exit-btn" class="interactive" position="0 2 9.8" rotation="0 180 0" width="2" height="0.8" color="#CF2027">
       <a-text value="EXIT VR" align="center" width="6" color="#FFF"></a-text>
     </a-plane>
 
+    <!-- Menu Toggle Button -->
     <a-circle id="toggle-panel-btn" class="interactive" visible="true" follow-camera radius="0.08" color="#2B2B88" 
               animation="property: scale; from: 1 1 1; to: 1.1 1.1 1.1; dir: alternate; loop: true; dur: 1000">
       <a-text value="MENU" align="center" width="1.2" position="0 0 0.01"></a-text>
     </a-circle>
 
+    <!-- Control Panel -->
     <a-entity id="control-panel" visible="false" follow-camera>
       <a-plane width="1.2" height="0.8" color="#222" opacity="0.9" class="interactive">
         <a-text value="CONTROLS" position="0 0.32 0.01" align="center" width="2.5" color="#FFF"></a-text>
@@ -158,6 +296,7 @@
       </a-plane>
     </a-entity>
 
+    <!-- Help Card -->
     <a-entity id="help-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="HELP" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
@@ -171,6 +310,7 @@
       </a-plane>
     </a-entity>
 
+    <!-- Modules Card -->
     <a-entity id="modules-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="MODULES" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
@@ -184,28 +324,40 @@
       </a-plane>
     </a-entity>
 
+    <!-- Engineering Model - Positioned at eye level for front view -->
     <a-entity id="model-container" position="0 1.6 -2.5">
-      <a-entity id="engineering-model" scale="0.4 0.4 0.4" class="interactive grabbable">
+      <a-entity id="engineering-model" 
+                scale="0.5 0.5 0.5" 
+                rotation="0 0 0"
+                class="grabbable" 
+                grabbable-model
+                scalable-model>
+        <!-- Main body -->
         <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
+        <!-- Front cylinder -->
         <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
         <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
+        <!-- Side box -->
         <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
+        <!-- Top cylinder -->
         <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
         <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
         
+        <!-- Small corner box -->
         <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
         <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
           material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
         
+        <!-- Reference points -->
         <a-sphere position="0.6 0.4 0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 0.4 -0.4" radius="0.04" color="#000000"></a-sphere>
         <a-sphere position="0.6 -0.4 0.4" radius="0.04" color="#000000"></a-sphere>
@@ -223,23 +375,23 @@
       <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="5"></a-text>
     </a-entity>
 
-    <a-entity id="rig" movement-controls="speed: 0.1">
+    <!-- VR Rig with Controllers -->
+    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
 
-      <a-entity id="left-hand" 
-        hand-tracking-controls="hand: left"
-        pinch-to-click
-        raycaster="objects: .interactive, .grabbable; far: 5; showLine: true; lineColor: #00FFFF; lineOpacity: 0.8">
+      <!-- Left Controller -->
+      <a-entity id="left-controller" 
+                oculus-touch-controls="hand: left"
+                vr-controller="hand: left"
+                raycaster="objects: .interactive, .grabbable; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.75">
       </a-entity>
 
-      <a-entity id="right-hand" 
-        hand-tracking-controls="hand: right"
-        pinch-to-click
-        raycaster="objects: .interactive, .grabbable; far: 5; showLine: true; lineColor: #FF0000; lineOpacity: 0.8">
+      <!-- Right Controller -->
+      <a-entity id="right-controller" 
+                oculus-touch-controls="hand: right"
+                vr-controller="hand: right"
+                raycaster="objects: .interactive, .grabbable; far: 10; showLine: true; lineColor: red; lineOpacity: 0.75">
       </a-entity>
-
-      <a-entity laser-controls="hand: left" raycaster="objects: .interactive, .grabbable; far: 5; lineColor: #00FFFF; lineOpacity: 0"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .interactive, .grabbable; far: 5; lineColor: #FF0000; lineOpacity: 0"></a-entity>
     </a-entity>
 
   </a-scene>
@@ -256,10 +408,10 @@
     document.getElementById('start-btn').addEventListener('click', () => {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('instructions').style.display = 'block';
-      if (scene.enterVR) scene.enterVR();
       startViewCycle();
     });
 
+    // View cycling system
     let views = [
       {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
       {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
@@ -304,6 +456,10 @@
       document.getElementById('view-label').setAttribute('color', '#2B2B88');
     }
 
+    scene.addEventListener('stop-view-cycle', stopViewCycle);
+    scene.addEventListener('resume-view-cycle', resumeViewCycle);
+
+    // UI Panel Controls
     document.getElementById('toggle-panel-btn').addEventListener('click', () => {
       const p = document.getElementById('control-panel');
       const btn = document.getElementById('toggle-panel-btn');
@@ -374,6 +530,7 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
     });
 
+    // Desktop mouse controls
     let isDragging = false;
     let previousMouseX = 0;
     let previousMouseY = 0;
@@ -426,87 +583,18 @@
       }
     });
 
+    // Desktop scroll wheel for zoom
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const currentScale = model.getAttribute('scale');
-      const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      let newScale = currentScale.x * scaleFactor;
-      newScale = Math.max(0.1, Math.min(2.0, newScale));
-      model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+      const scalable = model.components['scalable-model'];
+      if (scalable) {
+        if (e.deltaY < 0) {
+          scalable.scaleUp();
+        } else {
+          scalable.scaleDown();
+        }
+      }
     }, { passive: false });
-
-    const hands = [document.getElementById('left-hand'), document.getElementById('right-hand')];
-    
-    hands.forEach(hand => {
-      let handStartRot = null;
-      let modelStartRot = null;
-      let isGrabbingModel = false;
-
-      hand.addEventListener('triggerdown', (e) => {
-        const raycaster = hand.components.raycaster;
-        if (raycaster && raycaster.intersectedEls && raycaster.intersectedEls.length > 0) {
-          const target = raycaster.intersectedEls[0];
-          
-          if (target.id === 'engineering-model' || target.closest('#engineering-model')) {
-            isGrabbingModel = true;
-            handStartRot = new THREE.Euler().copy(hand.object3D.rotation);
-            modelStartRot = new THREE.Euler().copy(model.object3D.rotation);
-            stopViewCycle();
-          }
-        }
-      });
-
-      hand.addEventListener('triggerup', () => {
-        if (isGrabbingModel) {
-          isGrabbingModel = false;
-          handStartRot = null;
-          modelStartRot = null;
-          resumeViewCycle();
-        }
-      });
-
-      setInterval(() => {
-        if (isGrabbingModel && handStartRot && modelStartRot) {
-          const currentHandRot = hand.object3D.rotation;
-          const deltaY = (currentHandRot.y - handStartRot.y);
-          const deltaX = (currentHandRot.x - handStartRot.x);
-          
-          model.object3D.rotation.y = modelStartRot.y + deltaY * 2;
-          model.object3D.rotation.x = modelStartRot.x - deltaX * 2;
-        }
-      }, 16);
-    });
-
-    scene.addEventListener('loaded', () => {
-      const leftController = document.querySelector('[laser-controls="hand: left"]');
-      const rightController = document.querySelector('[laser-controls="hand: right"]');
-      
-      if (leftController) {
-        leftController.addEventListener('thumbstickmoved', (e) => {
-          const yAxis = e.detail.y;
-          if (Math.abs(yAxis) > 0.1) {
-            const currentScale = model.getAttribute('scale');
-            const scaleFactor = yAxis > 0 ? 1.02 : 0.98;
-            let newScale = currentScale.x * scaleFactor;
-            newScale = Math.max(0.1, Math.min(2.0, newScale));
-            model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-          }
-        });
-      }
-      
-      if (rightController) {
-        rightController.addEventListener('thumbstickmoved', (e) => {
-          const yAxis = e.detail.y;
-          if (Math.abs(yAxis) > 0.1) {
-            const currentScale = model.getAttribute('scale');
-            const scaleFactor = yAxis > 0 ? 1.02 : 0.98;
-            let newScale = currentScale.x * scaleFactor;
-            newScale = Math.max(0.1, Math.min(2.0, newScale));
-            model.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-          }
-        });
-      }
-    });
   </script>
 </body>
 </html>
