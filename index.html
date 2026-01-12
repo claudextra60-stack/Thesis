@@ -38,6 +38,10 @@
   </style>
 
   <script>
+    // Global rotation mode state
+    let rotationModeActive = false;
+    let rotationModeInitialRotation = new THREE.Euler();
+
     // Custom component for controller-based model grabbing and rotation
     AFRAME.registerComponent('grabbable-model', {
       init: function () {
@@ -117,7 +121,7 @@
       }
     });
 
-    // Enhanced controller component
+    // Enhanced controller component with rotation mode support
     AFRAME.registerComponent('vr-controller', {
       schema: {
         hand: { type: 'string', default: 'left' }
@@ -126,14 +130,46 @@
       init: function () {
         this.onTriggerDown = this.onTriggerDown.bind(this);
         this.onTriggerUp = this.onTriggerUp.bind(this);
+        this.onGripDown = this.onGripDown.bind(this);
+        this.onGripUp = this.onGripUp.bind(this);
         this.onButtonDown = this.onButtonDown.bind(this);
+        this.onThumbstickMoved = this.onThumbstickMoved.bind(this);
+        this.onThumbstickDown = this.onThumbstickDown.bind(this);
         
         this.el.addEventListener('triggerdown', this.onTriggerDown);
         this.el.addEventListener('triggerup', this.onTriggerUp);
+        this.el.addEventListener('gripdown', this.onGripDown);
+        this.el.addEventListener('gripup', this.onGripUp);
         this.el.addEventListener('abuttondown', this.onButtonDown);
         this.el.addEventListener('bbuttondown', this.onButtonDown);
         this.el.addEventListener('xbuttondown', this.onButtonDown);
         this.el.addEventListener('ybuttondown', this.onButtonDown);
+        this.el.addEventListener('thumbstickmoved', this.onThumbstickMoved);
+        this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
+        
+        this.lastRotation = new THREE.Euler();
+      },
+
+      onGripDown: function (evt) {
+        // Left grip activates rotation mode
+        if (this.data.hand === 'left') {
+          rotationModeActive = true;
+          const model = document.getElementById('engineering-model');
+          if (model) {
+            rotationModeInitialRotation.copy(model.object3D.rotation);
+            this.el.emit('hapticpulse', { intensity: 0.6, duration: 80 });
+            console.log('Rotation mode ACTIVE');
+          }
+        }
+      },
+
+      onGripUp: function (evt) {
+        // Left grip release deactivates rotation mode
+        if (this.data.hand === 'left') {
+          rotationModeActive = false;
+          this.el.emit('hapticpulse', { intensity: 0.4, duration: 50 });
+          console.log('Rotation mode INACTIVE');
+        }
       },
 
       onTriggerDown: function (evt) {
@@ -171,23 +207,107 @@
         }
       },
 
+      onThumbstickMoved: function (evt) {
+        // Left controller: Enable vertical movement with thumbstick
+        if (this.data.hand === 'left') {
+          const yAxis = evt.detail.y;
+          if (Math.abs(yAxis) > 0.3) {
+            const rig = document.getElementById('rig');
+            if (rig) {
+              const currentPos = rig.object3D.position;
+              const speed = 0.02;
+              rig.object3D.position.y += yAxis * speed;
+            }
+          }
+        }
+      },
+
+      onThumbstickDown: function (evt) {
+        // Pressing thumbstick resets camera to eye level with model
+        if (this.data.hand === 'left') {
+          const rig = document.getElementById('rig');
+          const model = document.getElementById('model-container');
+          
+          if (rig && model) {
+            const modelY = model.object3D.position.y;
+            rig.object3D.position.y = modelY;
+            this.el.emit('hapticpulse', { intensity: 0.5, duration: 60 });
+            console.log('Camera reset to eye level with model');
+          }
+        }
+      },
+
       onButtonDown: function (evt) {
         const model = document.getElementById('engineering-model');
-        if (!model || !model.components['scalable-model']) return;
-
         const type = evt.type;
         
-        // A button or X button = scale up
-        if (type === 'abuttondown' || type === 'xbuttondown') {
+        // X button: Recenter menu button
+        if (type === 'xbuttondown') {
+          const menuBtn = document.getElementById('toggle-panel-btn');
+          const camera = document.getElementById('camera');
+          
+          if (menuBtn && camera) {
+            const camPos = new THREE.Vector3();
+            camera.object3D.getWorldPosition(camPos);
+            
+            const camRot = new THREE.Euler();
+            camRot.setFromQuaternion(camera.object3D.quaternion, 'YXZ');
+            
+            const distance = 0.5;
+            const targetX = camPos.x - Math.sin(camRot.y) * distance;
+            const targetZ = camPos.z - Math.cos(camRot.y) * distance;
+            const targetY = camPos.y;
+            
+            menuBtn.object3D.position.set(targetX, targetY, targetZ);
+            menuBtn.object3D.lookAt(camPos);
+            menuBtn.setAttribute('visible', true);
+            
+            this.el.emit('hapticpulse', { intensity: 0.5, duration: 60 });
+            console.log('Menu button recentered');
+          }
+          return;
+        }
+        
+        if (!model || !model.components['scalable-model']) return;
+        
+        // A button = scale up
+        if (type === 'abuttondown') {
           model.components['scalable-model'].scaleUp();
           this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
         }
         
-        // B button or Y button = scale down
-        if (type === 'bbuttondown' || type === 'ybuttondown') {
+        // B button = scale down
+        if (type === 'bbuttondown') {
           model.components['scalable-model'].scaleDown();
           this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
         }
+      },
+
+      tick: function () {
+        // Right controller: Rotate model when rotation mode is active
+        if (this.data.hand === 'right' && rotationModeActive) {
+          const model = document.getElementById('engineering-model');
+          if (!model) return;
+          
+          const currentRotation = this.el.object3D.rotation;
+          
+          // Calculate delta from last frame
+          const deltaY = currentRotation.y - this.lastRotation.y;
+          const deltaX = currentRotation.x - this.lastRotation.x;
+          
+          // Apply rotation to model
+          model.object3D.rotation.y += deltaY * 2.0;
+          model.object3D.rotation.x += deltaX * 2.0;
+          
+          // Stop auto-view cycling
+          const scene = document.querySelector('a-scene');
+          if (scene) {
+            scene.emit('stop-view-cycle');
+          }
+        }
+        
+        // Store current rotation for next frame
+        this.lastRotation.copy(this.el.object3D.rotation);
       }
     });
 
@@ -223,7 +343,12 @@
   <div id="overlay" style="display: none;">
     <h1>VR Engineering Visualizer</h1>
     <p>Desktop: Left Click + Drag to Rotate. Scroll Wheel to Zoom. WASD to Move.</p>
-    <p>VR: Point & Hold Trigger to Rotate Model. A/X = Zoom In, B/Y = Zoom Out.</p>
+    <p><strong>VR Controls:</strong></p>
+    <p>• Point & Hold Trigger to Rotate Model</p>
+    <p>• A Button = Zoom In | B Button = Zoom Out</p>
+    <p>• Left Grip + Move Right Controller = Rotate Model</p>
+    <p>• X Button = Recenter Menu | Left Thumbstick = Vertical Movement</p>
+    <p>• Press Left Thumbstick = Reset Camera to Eye Level</p>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
@@ -234,9 +359,11 @@
     WASD: Move Around<br><br>
     <strong>VR Controls:</strong><br>
     Trigger: Grab & Rotate Model<br>
-    A/X Button: Zoom In<br>
-    B/Y Button: Zoom Out<br>
-    Joystick: Move Around
+    Left Grip + Right Controller: Rotate Mode<br>
+    A Button: Zoom In | B Button: Zoom Out<br>
+    X Button: Recenter Menu<br>
+    Left Thumbstick Up/Down: Vertical Movement<br>
+    Press Left Thumbstick: Reset Eye Level
   </div>
 
   <a-scene id="vr-scene" 
@@ -278,7 +405,7 @@
       <a-plane width="1.2" height="0.8" color="#222" opacity="0.9" class="interactive">
         <a-text value="CONTROLS" position="0 0.32 0.01" align="center" width="2.5" color="#FFF"></a-text>
         
-        <a-plane id="btn-close" class="interactive" position="0.5 0.32 0.02" width="0.12" height="0.12" color="red">
+        <a-plane id="btn-close" class="interactive" position="-0.5 0.32 0.02" width="0.12" height="0.12" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
@@ -301,7 +428,7 @@
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="HELP" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-help" class="interactive" position="0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-help" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
@@ -315,7 +442,7 @@
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
         <a-text value="MODULES" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-modules" class="interactive" position="0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-modules" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
