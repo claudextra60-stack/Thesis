@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engineering Drawing VR - Dual Joystick Control</title>
   
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2B2B88">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="Eng Draw VR">
+  
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
   
@@ -38,6 +44,15 @@
   </style>
 
   <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker registered!', reg))
+          .catch(err => console.log('Service Worker registration failed', err));
+      });
+    }
+
     // Global state for Left Grip (Clutch mechanism)
     window.isLeftGripHeld = false;
 
@@ -92,59 +107,6 @@
       scaleDown: function () {
         this.currentScale = Math.max(this.minScale, this.currentScale - this.scaleStep);
         this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
-      }
-    });
-
-    // Custom Look Controls for Left Joystick (Head Rotation)
-    AFRAME.registerComponent('joystick-look-controls', {
-      schema: {
-        rotationSpeed: { default: 2.0 }
-      },
-      init: function () {
-        this.yaw = 0;
-        this.pitch = 0;
-      },
-      tick: function (time, timeDelta) {
-        const leftController = document.getElementById('left-controller');
-        if (!leftController) return;
-        
-        // Access the joystick axis state directly
-        // Note: Different browsers/devices map axes differently, usually 2 & 3 for secondary thumbstick
-        // But for Oculus Touch via A-Frame tracked-controls, it's often available on the component
-        const trackedControls = leftController.components['tracked-controls'];
-        const oculusControls = leftController.components['oculus-touch-controls'];
-        
-        let axisX = 0, axisY = 0;
-
-        if (oculusControls && oculusControls.axis) {
-            axisX = oculusControls.axis[2] || 0; // X axis
-            axisY = oculusControls.axis[3] || 0; // Y axis
-        } 
-        
-        // If axis data isn't easily accessible via components, we fallback to event listeners in the controller component
-        // See 'vr-controller' tick update below
-      },
-      
-      rotateCamera: function(x, y, dt) {
-        const camera = document.getElementById('camera');
-        if (!camera) return;
-
-        const sensitivity = this.data.rotationSpeed * (dt / 1000);
-        
-        // Apply rotation to the camera wrapper (or look-controls offset if accessible)
-        // Since look-controls overrides rotation, we manipulate the parent 'camera-rig-rotation-wrapper' if it existed
-        // OR we use A-Frame's look-controls 'yawObject' and 'pitchObject' via internal API, 
-        // BUT safer is to rotate the Rig for Y (Yaw) and Camera for X (Pitch)
-        
-        const rig = document.getElementById('rig');
-        
-        // Y-Axis Rotation (Turning Body/Head Left/Right) -> Rotate Rig
-        rig.object3D.rotation.y -= x * sensitivity;
-
-        // X-Axis Rotation (Looking Up/Down) -> Rotate Camera
-        // Note: This fights with HMD tracking. Usually VR apps only do Yaw on stick.
-        // If user requested "all axes" for head, we try to apply pitch, but HMD will override.
-        // We will apply Yaw to Rig.
       }
     });
 
@@ -214,17 +176,32 @@
       onThumbstickDown: function(evt) {
         const rig = document.getElementById('rig');
         const model = document.getElementById('engineering-model');
-        
-        // LEFT STICK CLICK: Reset Head View (Face Model)
+        const modelContainer = document.getElementById('model-container');
+        const camera = document.getElementById('camera');
+
+        // LEFT STICK CLICK: Reset Head View & Align Model to Eye Level
         if (this.data.hand === 'left') {
-            // Calculate vector to look at model
-            // Simply resetting rig rotation usually works if model is at default -Z
+            // 1. Reset Rig Rotation (Face Z-axis)
             rig.object3D.rotation.set(0, 0, 0); 
-            // Additionally, ensure camera isn't offset oddly, but HMD handles that.
             
+            // 2. Get Camera World Position
+            const camPos = new THREE.Vector3();
+            camera.object3D.getWorldPosition(camPos);
+
+            // 3. Move Model Container to Exact Eye Height
+            // We keep the original Z depth (-2.5) and X (0), but update Y.
+            modelContainer.object3D.position.set(0, camPos.y, -2.5);
+
+            // 4. Reset Model Rotation to 0 (Front View)
+            model.object3D.rotation.set(0, 0, 0);
+
             // Haptic Feedback
             this.el.emit('hapticpulse', { intensity: 0.5, duration: 150 });
-            console.log("Head View Reset");
+            console.log("View Reset & Model Aligned to Eye Level: " + camPos.y);
+            
+            // Update Label
+            const label = document.getElementById('view-label');
+            if(label) label.setAttribute('value', 'Front View (Eye Level)');
         }
         
         // RIGHT STICK CLICK: Reset Body Position
@@ -297,7 +274,6 @@
             }
         });
 
-        // Ensure toggle button is visible if nothing else is
         if (!panel.getAttribute('visible') && !help.getAttribute('visible') && !modules.getAttribute('visible')) {
              toggleBtn.setAttribute('visible', true);
         }
@@ -306,7 +282,7 @@
       }
     });
 
-    // Follow camera component (Smoothed for normal usage)
+    // Follow camera component
     AFRAME.registerComponent('follow-camera', {
       tick: function () {
         if (!this.el.object3D.visible) return;
@@ -340,7 +316,7 @@
     <p>VR Controls:</p>
     <ul style="text-align: left; margin-bottom: 20px;">
       <li><strong>Left Joystick:</strong> Rotate Head (Look)</li>
-      <li><strong>Left Stick Click:</strong> Reset Head View</li>
+      <li><strong>Left Stick Click:</strong> Reset View & Align to Eye Level</li>
       <li><strong>Right Joystick:</strong> Move Body (Walk/Fly)</li>
       <li><strong>Right Stick Click:</strong> Reset Body Position</li>
       <li><strong>Right Grip:</strong> Recenter Menu</li>
@@ -352,7 +328,7 @@
   <div id="instructions" style="display: none;">
     <strong>Controls:</strong><br>
     L-Stick: Look | R-Stick: Move<br>
-    L-Click: Reset View | R-Click: Reset Pos<br>
+    L-Click: Align View | R-Click: Reset Pos<br>
     R-Grip: Recenter Menu<br>
     L-Grip + R-Hand: Rotate Model
   </div>
@@ -498,6 +474,11 @@
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('instructions').style.display = 'block';
       startViewCycle();
+      
+      // Auto-Enter VR Mode on Click
+      if (scene.enterVR) {
+        scene.enterVR();
+      }
     });
 
     // View cycling system
