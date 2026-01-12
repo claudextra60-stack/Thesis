@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing VR - Enhanced</title>
+  <title>Engineering Drawing VR - Dual Joystick Control</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -41,7 +41,7 @@
     // Global state for Left Grip (Clutch mechanism)
     window.isLeftGripHeld = false;
 
-    // Component to handle the specific "Hold Left Grip + Move Right Controller" rotation
+    // Component for Remote Model Rotation (Clutch Mode)
     AFRAME.registerComponent('remote-rotate-model', {
       init: function () {
         this.rightController = document.getElementById('right-controller');
@@ -52,7 +52,6 @@
       },
 
       tick: function () {
-        // Only run if Left Grip is held
         if (!window.isLeftGripHeld || !this.rightController) {
           if (this.isRotating) {
              this.isRotating = false;
@@ -61,31 +60,22 @@
           return;
         }
 
-        // If this is the first frame of grabbing, store initial state
         if (!this.isRotating) {
           this.isRotating = true;
           this.lastRotation.copy(this.rightController.object3D.quaternion);
-          this.el.sceneEl.emit('stop-view-cycle'); // Stop auto-spin
+          this.el.sceneEl.emit('stop-view-cycle');
           return;
         }
 
-        // Calculate Rotation Delta of Right Controller
         this.currentRotation.copy(this.rightController.object3D.quaternion);
-        
-        // Calculate the difference (Delta)
         this.deltaRotation.copy(this.lastRotation).invert();
         this.deltaRotation.premultiply(this.currentRotation);
-
-        // Apply Delta to Model
-        // We multiply the model's quaternion by the controller's delta
         this.el.object3D.quaternion.premultiply(this.deltaRotation);
-
-        // Update last rotation for next frame
         this.lastRotation.copy(this.currentRotation);
       }
     });
 
-    // Component for model scaling with A/B buttons
+    // Component for scaling
     AFRAME.registerComponent('scalable-model', {
       init: function () {
         this.scaleStep = 0.1;
@@ -105,6 +95,59 @@
       }
     });
 
+    // Custom Look Controls for Left Joystick (Head Rotation)
+    AFRAME.registerComponent('joystick-look-controls', {
+      schema: {
+        rotationSpeed: { default: 2.0 }
+      },
+      init: function () {
+        this.yaw = 0;
+        this.pitch = 0;
+      },
+      tick: function (time, timeDelta) {
+        const leftController = document.getElementById('left-controller');
+        if (!leftController) return;
+        
+        // Access the joystick axis state directly
+        // Note: Different browsers/devices map axes differently, usually 2 & 3 for secondary thumbstick
+        // But for Oculus Touch via A-Frame tracked-controls, it's often available on the component
+        const trackedControls = leftController.components['tracked-controls'];
+        const oculusControls = leftController.components['oculus-touch-controls'];
+        
+        let axisX = 0, axisY = 0;
+
+        if (oculusControls && oculusControls.axis) {
+            axisX = oculusControls.axis[2] || 0; // X axis
+            axisY = oculusControls.axis[3] || 0; // Y axis
+        } 
+        
+        // If axis data isn't easily accessible via components, we fallback to event listeners in the controller component
+        // See 'vr-controller' tick update below
+      },
+      
+      rotateCamera: function(x, y, dt) {
+        const camera = document.getElementById('camera');
+        if (!camera) return;
+
+        const sensitivity = this.data.rotationSpeed * (dt / 1000);
+        
+        // Apply rotation to the camera wrapper (or look-controls offset if accessible)
+        // Since look-controls overrides rotation, we manipulate the parent 'camera-rig-rotation-wrapper' if it existed
+        // OR we use A-Frame's look-controls 'yawObject' and 'pitchObject' via internal API, 
+        // BUT safer is to rotate the Rig for Y (Yaw) and Camera for X (Pitch)
+        
+        const rig = document.getElementById('rig');
+        
+        // Y-Axis Rotation (Turning Body/Head Left/Right) -> Rotate Rig
+        rig.object3D.rotation.y -= x * sensitivity;
+
+        // X-Axis Rotation (Looking Up/Down) -> Rotate Camera
+        // Note: This fights with HMD tracking. Usually VR apps only do Yaw on stick.
+        // If user requested "all axes" for head, we try to apply pitch, but HMD will override.
+        // We will apply Yaw to Rig.
+      }
+    });
+
     // Enhanced controller component
     AFRAME.registerComponent('vr-controller', {
       schema: {
@@ -113,34 +156,52 @@
 
       init: function () {
         this.onTriggerDown = this.onTriggerDown.bind(this);
-        this.onTriggerUp = this.onTriggerUp.bind(this);
         this.onGripDown = this.onGripDown.bind(this);
         this.onGripUp = this.onGripUp.bind(this);
         this.onButtonDown = this.onButtonDown.bind(this);
         this.onThumbstickDown = this.onThumbstickDown.bind(this);
+        this.onAxisMove = this.onAxisMove.bind(this);
         
-        // Raycast / Trigger interactions
         this.el.addEventListener('triggerdown', this.onTriggerDown);
-        this.el.addEventListener('triggerup', this.onTriggerUp);
-        
-        // Grip interactions (Side trigger)
         this.el.addEventListener('gripdown', this.onGripDown);
         this.el.addEventListener('gripup', this.onGripUp);
-
-        // Buttons
         this.el.addEventListener('abuttondown', this.onButtonDown);
         this.el.addEventListener('bbuttondown', this.onButtonDown);
         this.el.addEventListener('xbuttondown', this.onButtonDown);
         this.el.addEventListener('ybuttondown', this.onButtonDown);
-
-        // Joystick Click
         this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
+        this.el.addEventListener('axismove', this.onAxisMove);
+      },
+
+      onAxisMove: function(evt) {
+        // Implementation for Left Joystick Head Rotation
+        if (this.data.hand === 'left') {
+            const axis = evt.detail.axis;
+            if (axis.length >= 2) {
+                // axis[0] is X (Left/Right), axis[1] is Y (Up/Down)
+                const x = axis[2] !== undefined ? axis[2] : axis[0];
+                const y = axis[3] !== undefined ? axis[3] : axis[1];
+                
+                // Deadzone
+                if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1) {
+                    const rig = document.getElementById('rig');
+                    // Rotate Rig (Yaw)
+                    rig.object3D.rotation.y -= x * 0.03;
+                }
+            }
+        }
       },
 
       onGripDown: function(evt) {
+        // Left Grip = Clutch for Rotation
         if (this.data.hand === 'left') {
           window.isLeftGripHeld = true;
           this.el.emit('hapticpulse', { intensity: 0.5, duration: 100 });
+        }
+        
+        // Right Grip = Recenter Menu
+        if (this.data.hand === 'right') {
+           this.recenterUI();
         }
       },
 
@@ -151,27 +212,30 @@
       },
 
       onThumbstickDown: function(evt) {
-        // RESET VIEW Logic
         const rig = document.getElementById('rig');
-        const camera = document.getElementById('camera');
+        const model = document.getElementById('engineering-model');
         
-        // Reset rig position
-        rig.setAttribute('position', '0 0 0');
+        // LEFT STICK CLICK: Reset Head View (Face Model)
+        if (this.data.hand === 'left') {
+            // Calculate vector to look at model
+            // Simply resetting rig rotation usually works if model is at default -Z
+            rig.object3D.rotation.set(0, 0, 0); 
+            // Additionally, ensure camera isn't offset oddly, but HMD handles that.
+            
+            // Haptic Feedback
+            this.el.emit('hapticpulse', { intensity: 0.5, duration: 150 });
+            console.log("Head View Reset");
+        }
         
-        // Reset camera rotation to look forward/at model
-        // We can't easily force camera rotation in WebXR as it follows the headset,
-        // but we can rotate the rig wrapper or reset the teleport position.
-        // Best approach for "Reset View": Teleport rig to origin.
-        rig.object3D.position.set(0, 0, 0);
-        rig.object3D.rotation.set(0, 0, 0);
-        
-        // Visual feedback
-        this.el.emit('hapticpulse', { intensity: 1.0, duration: 200 });
-        console.log("View Reset");
+        // RIGHT STICK CLICK: Reset Body Position
+        if (this.data.hand === 'right') {
+            rig.setAttribute('position', '0 0 0');
+            this.el.emit('hapticpulse', { intensity: 0.8, duration: 200 });
+            console.log("Body Position Reset");
+        }
       },
 
       onTriggerDown: function (evt) {
-        // Standard raycaster interactions for UI
         const raycaster = this.el.components.raycaster;
         if (!raycaster) return;
 
@@ -186,76 +250,63 @@
         }
       },
 
-      onTriggerUp: function (evt) {
-        // Cleanup if needed
-      },
-
       onButtonDown: function (evt) {
         const model = document.getElementById('engineering-model');
         const type = evt.type;
         
-        // A button = scale up
-        if (type === 'abuttondown') {
+        if (type === 'abuttondown' || type === 'xbuttondown') {
           if (model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleUp();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
           }
         }
         
-        // B or Y button = scale down
         if (type === 'bbuttondown' || type === 'ybuttondown') {
           if (model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleDown();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
           }
         }
-
-        // X Button = RECENTER UI
-        if (type === 'xbuttondown') {
-            this.recenterUI();
-        }
       },
 
       recenterUI: function() {
-        // Logic to snap UI in front of camera
         const camera = document.getElementById('camera');
         const toggleBtn = document.getElementById('toggle-panel-btn');
         const panel = document.getElementById('control-panel');
+        const help = document.getElementById('help-card');
+        const modules = document.getElementById('modules-card');
         
-        // Calculate position 0.8m in front of camera
         const camPos = new THREE.Vector3();
         const camDir = new THREE.Vector3();
         
         camera.object3D.getWorldPosition(camPos);
         camera.object3D.getWorldDirection(camDir);
-        camDir.y = 0; // Keep level
+        camDir.y = 0; 
         camDir.normalize();
 
         const targetPos = new THREE.Vector3();
         targetPos.copy(camPos).add(camDir.multiplyScalar(0.6));
-        targetPos.y = camPos.y; // Eye level
+        targetPos.y = camPos.y; 
 
-        // Force update the UI positions
-        // We temporarily disable follow-camera to force the position, or just let follow-camera catch up
-        // But since follow-camera Lerps, we want a hard snap here:
-        
-        if (toggleBtn) {
-            toggleBtn.object3D.position.copy(targetPos);
-            toggleBtn.object3D.lookAt(camPos);
-            toggleBtn.setAttribute('visible', true); // Ensure visible
-        }
+        // Update all UI elements
+        const elements = [toggleBtn, panel, help, modules];
+        elements.forEach(el => {
+            if(el) {
+                el.object3D.position.copy(targetPos);
+                el.object3D.lookAt(camPos);
+            }
+        });
 
-        if (panel) {
-            panel.object3D.position.copy(targetPos);
-            panel.object3D.lookAt(camPos);
-            panel.setAttribute('visible', true); // Bring up menu
+        // Ensure toggle button is visible if nothing else is
+        if (!panel.getAttribute('visible') && !help.getAttribute('visible') && !modules.getAttribute('visible')) {
+             toggleBtn.setAttribute('visible', true);
         }
 
         this.el.emit('hapticpulse', { intensity: 0.8, duration: 150 });
       }
     });
 
-    // Follow camera component for UI panels
+    // Follow camera component (Smoothed for normal usage)
     AFRAME.registerComponent('follow-camera', {
       tick: function () {
         if (!this.el.object3D.visible) return;
@@ -272,10 +323,9 @@
         const distance = 0.7;
         const targetX = camPos.x - Math.sin(camRot.y) * distance;
         const targetZ = camPos.z - Math.cos(camRot.y) * distance;
-        const targetY = camPos.y - 0.2; // Slightly lower
+        const targetY = camPos.y - 0.2;
 
-        // Lerp for smooth following
-        this.el.object3D.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.1);
+        this.el.object3D.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.05);
         this.el.object3D.lookAt(camPos.x, camPos.y, camPos.z);
       }
     });
@@ -287,23 +337,24 @@
 
   <div id="overlay" style="display: none;">
     <h1>VR Engineering Visualizer</h1>
-    <p>Desktop: Left Click + Drag to Rotate. Scroll Wheel to Zoom. WASD to Move.</p>
-    <p>VR: Hold Left Grip + Move Right Hand to Rotate.</p>
-    <p>X = Recenter Menu. A/B = Zoom. Joystick Click = Reset View.</p>
+    <p>VR Controls:</p>
+    <ul style="text-align: left; margin-bottom: 20px;">
+      <li><strong>Left Joystick:</strong> Rotate Head (Look)</li>
+      <li><strong>Left Stick Click:</strong> Reset Head View</li>
+      <li><strong>Right Joystick:</strong> Move Body (Walk/Fly)</li>
+      <li><strong>Right Stick Click:</strong> Reset Body Position</li>
+      <li><strong>Right Grip:</strong> Recenter Menu</li>
+      <li><strong>Left Grip + Right Hand Move:</strong> Rotate Model</li>
+    </ul>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
   <div id="instructions" style="display: none;">
-    <strong>Desktop Controls:</strong><br>
-    Left Click + Drag: Rotate Model<br>
-    Scroll Wheel: Zoom In/Out<br>
-    WASD: Move Around<br><br>
-    <strong>VR Controls:</strong><br>
-    Left Inside Grip (Hold): Enable Rotation<br>
-    Right Hand (Move): Rotate Model<br>
-    X Button: Recenter UI<br>
-    Joystick Click: Reset View<br>
-    Left Stick: Fly/Move
+    <strong>Controls:</strong><br>
+    L-Stick: Look | R-Stick: Move<br>
+    L-Click: Reset View | R-Click: Reset Pos<br>
+    R-Grip: Recenter Menu<br>
+    L-Grip + R-Hand: Rotate Model
   </div>
 
   <a-scene id="vr-scene" 
@@ -414,7 +465,9 @@
       <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="5"></a-text>
     </a-entity>
 
-    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad; fly: true">
+    <a-entity id="rig" 
+              movement-controls="speed: 0.15; controls: gamepad; fly: true">
+              
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
 
       <a-entity id="left-controller" 
@@ -463,7 +516,6 @@
       if (viewCycleInterval) clearInterval(viewCycleInterval);
       viewCycleInterval = setInterval(() => {
         const now = Date.now();
-        // Don't cycle if left grip is held (manual rotation)
         if (window.isLeftGripHeld) {
             lastInteractionTime = now;
             return; 
