@@ -8,14 +8,16 @@
   "description": "VR Engineering Visualizer with Dual Joystick Control",
   "icons": [
     {
-      "src": "https://aframe.io/images/aframe-logo-192.png",
+      "src": "https://i.ibb.co/v4FSdxGv/cropped-circle-image.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "https://aframe.io/images/aframe-logo-512.png",
+      "src": "https://i.ibb.co/v4FSdxGv/cropped-circle-image.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
