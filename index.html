@@ -334,53 +334,59 @@
     L-Grip + R-Hand: Rotate Model
   </div>
 
-  <a-scene id="vr-scene" 
-           background="color: #E8F4F8" 
+  <a-scene id="vr-scene"
            cursor="rayOrigin: mouse" 
            raycaster="objects: .interactive">
 
     <a-assets>
-      <img id="wall-tex" src="https://cdn.architextures.org/textures/25/1/royal-white-granite-hardscape-xgah6l.jpg" crossorigin="anonymous">
-      <img id="floor-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
-      <img id="ceiling-tex" src="https://cdn.architextures.org/textures/23/8/oatmeal-loop-pile-carpet-cubic-chjny5.jpg" crossorigin="anonymous">
+      <!-- 360 Island Skybox - FREE from Poly Haven -->
+      <img id="sky-panorama" src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
+      
+      <!-- Floor Textures -->
+      <img id="sand-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#floor-tex" repeat="10 10" color="#FFF"></a-plane>
-    <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" src="#ceiling-tex" repeat="10 10" color="#FFF"></a-plane>
-    <a-plane position="0 3 -10" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
-    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
-    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
-    <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" src="#wall-tex" repeat="10 3" color="#FFF"></a-plane>
-    
-    <a-entity light="type: ambient; intensity: 0.8"></a-entity>
-    <a-entity light="type: directional; position: 1 5 2; intensity: 0.8"></a-entity>
+    <!-- 360 Degree Realistic Island Skybox -->
+    <a-sky src="#sky-panorama" rotation="0 -90 0" material="side: back"></a-sky>
+
+    <!-- Sandy Platform (Your original texture, same size tiles) -->
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="10 10" color="#FFF"></a-plane>
+
+    <!-- Sand Border Around Central Platform (using same sand texture) -->
+    <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="40" src="#sand-tex" repeat="15 15" color="#FFF"></a-ring>
+
+    <!-- Natural Sunlight -->
+    <a-entity light="type: ambient; intensity: 1; color: #FFF8DC"></a-entity>
+    <a-entity light="type: directional; position: 5 10 7.5; intensity: 1.5; color: #FFFACD" 
+              animation="property: light.intensity; from: 1.5; to: 1.8; dir: alternate; loop: true; dur: 3000"></a-entity>
+    <a-entity light="type: hemisphere; groundColor: #A1887F; intensity: 0.6"></a-entity>
 
     <a-plane id="exit-btn" class="interactive" position="0 2 9.8" rotation="0 180 0" width="2" height="0.8" color="#CF2027">
-      <a-text value="EXIT VR" align="center" width="6" color="#FFF"></a-text>
+      <a-text value="EXIT VR" align="center" width="6" color="#FFF" position="0 0 0.01"></a-text>
     </a-plane>
 
     <a-circle id="toggle-panel-btn" class="interactive" visible="true" follow-camera radius="0.08" color="#2B2B88" 
               animation="property: scale; from: 1 1 1; to: 1.1 1.1 1.1; dir: alternate; loop: true; dur: 1000">
-      <a-text value="MENU" align="center" width="1.2" position="0 0 0.01"></a-text>
+      <a-text value="MENU" align="center" width="1.2" position="0 0 0.02"></a-text>
     </a-circle>
 
     <a-entity id="control-panel" visible="false" follow-camera>
       <a-plane width="1.2" height="0.8" color="#222" opacity="0.9" class="interactive">
-        <a-text value="CONTROLS" position="0 0.32 0.01" align="center" width="2.5" color="#FFF"></a-text>
+        <a-text value="CONTROLS" position="0 0.32 0.02" align="center" width="2.5" color="#FFF"></a-text>
         
-        <a-plane id="btn-close" class="interactive" position="-0.5 0.32 0.02" width="0.12" height="0.12" color="red">
+        <a-plane id="btn-close" class="interactive" position="-0.5 0.32 0.03" width="0.12" height="0.12" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
-        <a-plane id="btn-help" class="interactive" position="0 0.12 0.02" width="0.5" height="0.12" color="#5CCAE8">
+        <a-plane id="btn-help" class="interactive" position="0 0.12 0.03" width="0.5" height="0.12" color="#5CCAE8">
           <a-text value="HELP" align="center" width="3" position="0 0 0.01"></a-text>
         </a-plane>
 
-        <a-plane id="btn-modules" class="interactive" position="0 -0.06 0.02" width="0.5" height="0.12" color="#B78A2D">
+        <a-plane id="btn-modules" class="interactive" position="0 -0.06 0.03" width="0.5" height="0.12" color="#B78A2D">
           <a-text value="MODULES" align="center" width="3" position="0 0 0.01"></a-text>
         </a-plane>
 
-        <a-plane id="btn-exit-panel" class="interactive" position="0 -0.24 0.02" width="0.5" height="0.12" color="#CF2027">
+        <a-plane id="btn-exit-panel" class="interactive" position="0 -0.24 0.03" width="0.5" height="0.12" color="#CF2027">
           <a-text value="EXIT" align="center" width="3" position="0 0 0.01"></a-text>
         </a-plane>
       </a-plane>
@@ -388,27 +394,27 @@
 
     <a-entity id="help-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
-        <a-text value="HELP" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
+        <a-text value="HELP" position="0 0.52 0.02" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-help" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-help" class="interactive" position="-0.35 0.52 0.03" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
         <a-text value="Link 1: Getting Started\nLink 2: User Guide\nLink 3: Tutorials\nLink 4: FAQ\nLink 5: Support" 
-                position="0 0 0.01" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
+                position="0 0 0.02" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
       </a-plane>
     </a-entity>
 
     <a-entity id="modules-card" visible="false" follow-camera>
       <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
-        <a-text value="MODULES" position="0 0.52 0.01" align="center" width="2" color="#FFF"></a-text>
+        <a-text value="MODULES" position="0 0.52 0.02" align="center" width="2" color="#FFF"></a-text>
         
-        <a-plane id="btn-close-modules" class="interactive" position="-0.35 0.52 0.02" width="0.1" height="0.1" color="red">
+        <a-plane id="btn-close-modules" class="interactive" position="-0.35 0.52 0.03" width="0.1" height="0.1" color="red">
           <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
         </a-plane>
 
         <a-text value="Module 1: Introduction\nModule 2: Basic Concepts\nModule 3: Advanced Topics\nModule 4: Projects\nModule 5: Resources" 
-                position="0 0 0.01" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
+                position="0 0 0.02" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
       </a-plane>
     </a-entity>
 
