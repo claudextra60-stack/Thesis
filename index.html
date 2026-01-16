@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing VR - Dual Joystick Control</title>
+  <title>Engineering Drawing VR - Scenery Mode</title>
   <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
   
   <link rel="manifest" href="manifest.json">
@@ -53,6 +53,75 @@
           .catch(err => console.log('Service Worker registration failed', err));
       });
     }
+
+    // --- BIRD FLIGHT COMPONENT ---
+    AFRAME.registerComponent('bird-flight', {
+      schema: {
+        speed: { type: 'number', default: 4 }, // Meters per second
+        radius: { type: 'number', default: 25 }, // How far they can fly before turning
+        heightRange: { type: 'vec2', default: {x: 10, y: 20} } // Min and Max height
+      },
+      init: function() {
+        // 1. Randomize starting position within the radius
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * this.data.radius;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const y = this.data.heightRange.x + Math.random() * (this.data.heightRange.y - this.data.heightRange.x);
+        
+        this.el.object3D.position.set(x, y, z);
+
+        // 2. Random starting rotation (yaw)
+        this.el.object3D.rotation.y = Math.random() * Math.PI * 2;
+
+        // 3. State for turning
+        this.turnSpeed = 0;
+        this.targetTurnSpeed = (Math.random() - 0.5) * 0.02; // Slight natural curve
+      },
+      tick: function(time, timeDelta) {
+        if (!timeDelta) return;
+        const deltaSeconds = timeDelta / 1000;
+        
+        // Move Forward relative to where the bird is facing
+        this.el.object3D.translateZ(this.data.speed * deltaSeconds);
+
+        const pos = this.el.object3D.position;
+
+        // Calculate distance from center (0,0,0)
+        const distance = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+
+        // If bird flies too far, steer it back towards center
+        if (distance > this.data.radius) {
+          // Calculate vector to center
+          const angleToCenter = Math.atan2(-pos.x, -pos.z); // Simple target angle
+          
+          // Smoothly adjust rotation.y towards angleToCenter
+          // We cheat a bit by just adding a constant turn when out of bounds
+          // To determine Left vs Right turn:
+          const currentRot = this.el.object3D.rotation.y;
+          // Just force a turn
+          this.turnSpeed = 0.015; // Harder turn when out of bounds
+        } else {
+          // Inside bounds: revert to gentle meandering
+          // Randomly change turn speed occasionally
+          if (Math.random() < 0.01) {
+            this.targetTurnSpeed = (Math.random() - 0.5) * 0.02;
+          }
+          // LERP turn speed
+          this.turnSpeed += (this.targetTurnSpeed - this.turnSpeed) * 0.1;
+        }
+
+        // Apply Rotation
+        this.el.object3D.rotation.y += this.turnSpeed;
+
+        // Bank (Roll) the bird based on turn speed for realism
+        // Negative roll for positive turn (banking into the turn)
+        this.el.object3D.rotation.z = -this.turnSpeed * 30; 
+        
+        // Add slight bobbing (sine wave on Y)
+        this.el.object3D.position.y += Math.sin(time / 500) * 0.005;
+      }
+    });
 
     // Global state for Left Grip (Clutch mechanism)
     window.isLeftGripHeld = false;
@@ -118,6 +187,8 @@
       },
 
       init: function () {
+        this.sceneryMode = false; // Track if we are in "Scenery/Hidden" mode
+        
         this.onTriggerDown = this.onTriggerDown.bind(this);
         this.onGripDown = this.onGripDown.bind(this);
         this.onGripUp = this.onGripUp.bind(this);
@@ -182,25 +253,16 @@
 
         // LEFT STICK CLICK: Reset Head View & Align Model to Eye Level
         if (this.data.hand === 'left') {
-            // 1. Reset Rig Rotation (Face Z-axis)
             rig.object3D.rotation.set(0, 0, 0); 
             
-            // 2. Get Camera World Position
             const camPos = new THREE.Vector3();
             camera.object3D.getWorldPosition(camPos);
 
-            // 3. Move Model Container to Exact Eye Height
-            // We keep the original Z depth (-2.5) and X (0), but update Y.
             modelContainer.object3D.position.set(0, camPos.y, -2.5);
-
-            // 4. Reset Model Rotation to 0 (Front View)
             model.object3D.rotation.set(0, 0, 0);
 
-            // Haptic Feedback
             this.el.emit('hapticpulse', { intensity: 0.5, duration: 150 });
-            console.log("View Reset & Model Aligned to Eye Level: " + camPos.y);
             
-            // Update Label
             const label = document.getElementById('view-label');
             if(label) label.setAttribute('value', 'Front View (Eye Level)');
         }
@@ -209,11 +271,13 @@
         if (this.data.hand === 'right') {
             rig.setAttribute('position', '0 0 0');
             this.el.emit('hapticpulse', { intensity: 0.8, duration: 200 });
-            console.log("Body Position Reset");
         }
       },
 
       onTriggerDown: function (evt) {
+        // Disable interactions if in Scenery Mode
+        if (this.sceneryMode) return; 
+
         const raycaster = this.el.components.raycaster;
         if (!raycaster) return;
 
@@ -232,22 +296,65 @@
         const model = document.getElementById('engineering-model');
         const type = evt.type;
         
-        if (type === 'abuttondown' || type === 'xbuttondown') {
-          if (model && model.components['scalable-model']) {
+        // --- X BUTTON: TOGGLE SCENERY MODE ---
+        if (type === 'xbuttondown') {
+          this.toggleScenery();
+          return;
+        }
+
+        // --- A BUTTON: SCALE UP ---
+        if (type === 'abuttondown') {
+          if (!this.sceneryMode && model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleUp();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
           }
         }
         
+        // --- B or Y BUTTON: SCALE DOWN ---
         if (type === 'bbuttondown' || type === 'ybuttondown') {
-          if (model && model.components['scalable-model']) {
+          if (!this.sceneryMode && model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleDown();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
           }
         }
       },
 
+      toggleScenery: function() {
+        this.sceneryMode = !this.sceneryMode;
+        
+        // Elements to hide
+        const idsToHide = [
+            'model-container',
+            'exit-btn', 
+            'toggle-panel-btn', 
+            'control-panel', 
+            'help-card', 
+            'modules-card'
+        ];
+
+        if (this.sceneryMode) {
+            // Hide everything
+            idsToHide.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.setAttribute('visible', false);
+            });
+            this.el.emit('hapticpulse', { intensity: 0.8, duration: 300 }); // Long pulse for OFF
+        } else {
+            // RESTORE DEFAULT VIEW
+            // We only bring back the Model, Exit sign, and Menu Button. 
+            // We keep the panels closed to ensure a clean return.
+            document.getElementById('model-container').setAttribute('visible', true);
+            document.getElementById('exit-btn').setAttribute('visible', true);
+            document.getElementById('toggle-panel-btn').setAttribute('visible', true);
+            
+            this.el.emit('hapticpulse', { intensity: 0.3, duration: 100 }); // Short pulse for ON
+        }
+      },
+
       recenterUI: function() {
+        // Don't recenter if everything is hidden
+        if (this.sceneryMode) return;
+
         const camera = document.getElementById('camera');
         const toggleBtn = document.getElementById('toggle-panel-btn');
         const panel = document.getElementById('control-panel');
@@ -317,11 +424,11 @@
     <p>VR Controls:</p>
     <ul style="text-align: left; margin-bottom: 20px;">
       <li><strong>Left Joystick:</strong> Rotate Head (Look)</li>
-      <li><strong>Left Stick Click:</strong> Reset View & Align to Eye Level</li>
       <li><strong>Right Joystick:</strong> Move Body (Walk/Fly)</li>
-      <li><strong>Right Stick Click:</strong> Reset Body Position</li>
-      <li><strong>Right Grip:</strong> Recenter Menu</li>
-      <li><strong>Left Grip + Right Hand Move:</strong> Rotate Model</li>
+      <li><strong>X Button:</strong> Toggle Scenery (Hide UI)</li>
+      <li><strong>A / B Buttons:</strong> Scale Model</li>
+      <li><strong>Left Stick Click:</strong> Reset View</li>
+      <li><strong>Left Grip + Move:</strong> Rotate Model</li>
     </ul>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
@@ -329,9 +436,8 @@
   <div id="instructions" style="display: none;">
     <strong>Controls:</strong><br>
     L-Stick: Look | R-Stick: Move<br>
-    L-Click: Align View | R-Click: Reset Pos<br>
-    R-Grip: Recenter Menu<br>
-    L-Grip + R-Hand: Rotate Model
+    X Btn: Toggle Scenery Mode (Hide All)<br>
+    A/B: Scale | L-Grip: Rotate Model
   </div>
 
   <a-scene id="vr-scene"
@@ -339,23 +445,49 @@
            raycaster="objects: .interactive">
 
     <a-assets>
-      <!-- 360 Island Skybox - FREE from Poly Haven -->
       <img id="sky-panorama" src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
-      
-      <!-- Floor Textures -->
       <img id="sand-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+
+      <a-asset-item id="parrot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Parrot.glb"></a-asset-item>
+      <a-asset-item id="flamingo-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Flamingo.glb"></a-asset-item>
+      <a-asset-item id="stork-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Stork.glb"></a-asset-item>
     </a-assets>
 
-    <!-- 360 Degree Realistic Island Skybox -->
     <a-sky src="#sky-panorama" rotation="0 -90 0" material="side: back"></a-sky>
 
-    <!-- Sandy Platform (Your original texture, same size tiles) -->
+    <a-entity id="birds">
+        <a-entity gltf-model="#parrot-model" 
+                  scale="0.02 0.02 0.02" 
+                  animation-mixer="clip: *; timeScale: 1.2"
+                  bird-flight="speed: 5.5; radius: 30; heightRange: 8 15"></a-entity>
+        <a-entity gltf-model="#parrot-model" 
+                  scale="0.02 0.02 0.02" 
+                  animation-mixer="clip: *; timeScale: 1.1"
+                  bird-flight="speed: 6.0; radius: 35; heightRange: 10 20"></a-entity>
+
+        <a-entity gltf-model="#flamingo-model" 
+                  scale="0.03 0.03 0.03" 
+                  animation-mixer="clip: *; timeScale: 0.8"
+                  bird-flight="speed: 3.5; radius: 40; heightRange: 15 25"></a-entity>
+        <a-entity gltf-model="#flamingo-model" 
+                  scale="0.03 0.03 0.03" 
+                  animation-mixer="clip: *; timeScale: 0.9"
+                  bird-flight="speed: 3.8; radius: 45; heightRange: 12 22"></a-entity>
+
+        <a-entity gltf-model="#stork-model" 
+                  scale="0.03 0.03 0.03" 
+                  animation-mixer="clip: *; timeScale: 0.7"
+                  bird-flight="speed: 4.5; radius: 50; heightRange: 20 40"></a-entity>
+        <a-entity gltf-model="#stork-model" 
+                  scale="0.03 0.03 0.03" 
+                  animation-mixer="clip: *; timeScale: 0.75"
+                  bird-flight="speed: 4.8; radius: 50; heightRange: 25 45"></a-entity>
+    </a-entity>
+
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="10 10" color="#FFF"></a-plane>
 
-    <!-- Sand Border Around Central Platform (using same sand texture) -->
     <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="40" src="#sand-tex" repeat="15 15" color="#FFF"></a-ring>
 
-    <!-- Natural Sunlight -->
     <a-entity light="type: ambient; intensity: 1; color: #FFF8DC"></a-entity>
     <a-entity light="type: directional; position: 5 10 7.5; intensity: 1.5; color: #FFFACD" 
               animation="property: light.intensity; from: 1.5; to: 1.8; dir: alternate; loop: true; dur: 3000"></a-entity>
@@ -469,6 +601,123 @@
   </a-scene>
 
   <script>
+    /**
+     * AUDIO MANAGER
+     * Handles background ambience and random sound effects
+     */
+    const AudioManager = {
+      waves: new Audio('waves.mp3'),
+      birds: new Audio('birds.mp3'),
+      waves2: new Audio('waves2.mp3'),
+      timers: [],
+
+      init: function() {
+        // Track 1: Waves (Continuous Loop)
+        this.waves.loop = true;
+        this.waves.volume = 0.4;
+
+        // Track 2: Birds (Random intervals)
+        this.birds.volume = 0.6;
+        this.birds.addEventListener('ended', () => {
+          this.scheduleNextBird();
+        });
+
+        // Track 3: Waves 2 (Complex random intervals + smooth fading)
+        this.waves2.volume = 0; // Start silent for fade-in
+        this.waves2.loop = true; // We manage play/pause manually, but loop ensures we don't run out of track during a long fade
+      },
+
+      start: function() {
+        // Must be called after user interaction (Click "Enter Experience")
+        this.waves.play().catch(e => console.log("Audio play error:", e));
+        this.scheduleNextBird();
+        this.scheduleWaves2();
+      },
+
+      stop: function() {
+        this.waves.pause();
+        this.birds.pause();
+        this.waves2.pause();
+        this.timers.forEach(t => clearTimeout(t));
+        this.timers = [];
+      },
+
+      scheduleNextBird: function() {
+        // Random interval between 8 and 25 seconds
+        const delay = Math.random() * 17000 + 8000;
+        const timer = setTimeout(() => {
+          this.birds.currentTime = 0;
+          this.birds.play().catch(e => {});
+        }, delay);
+        this.timers.push(timer);
+      },
+
+      scheduleWaves2: function() {
+        // Random interval before the next "swell" starts (10s to 30s)
+        const delay = Math.random() * 20000 + 10000;
+        const timer = setTimeout(() => {
+          this.playWaves2Swell();
+        }, delay);
+        this.timers.push(timer);
+      },
+
+      playWaves2Swell: function() {
+        this.waves2.currentTime = 0;
+        this.waves2.play().catch(e => {});
+        
+        // Random parameters for this specific swell
+        const targetVolume = Math.random() * 0.5 + 0.3; // Peak volume between 0.3 and 0.8
+        const duration = Math.random() * 10000 + 8000;  // How long this swell lasts
+        const fadeInTime = Math.random() * 3000 + 2000; // 2-5s fade in
+        const fadeOutTime = Math.random() * 3000 + 2000; // 2-5s fade out
+
+        // 1. Fade In
+        this.fadeAudio(this.waves2, 0, targetVolume, fadeInTime, () => {
+          
+          // 2. Wait for main duration
+          const holdTimer = setTimeout(() => {
+            
+            // 3. Fade Out
+            this.fadeAudio(this.waves2, targetVolume, 0, fadeOutTime, () => {
+              this.waves2.pause();
+              this.scheduleWaves2(); // Schedule the next cycle
+            });
+
+          }, duration);
+          this.timers.push(holdTimer);
+        });
+      },
+
+      // Helper for smooth volume transitions (no sudden changes)
+      fadeAudio: function(audio, startVol, endVol, duration, callback) {
+        const steps = 60; // 60fps updates
+        const stepTime = duration / steps;
+        const volStep = (endVol - startVol) / steps;
+        let currentStep = 0;
+
+        const interval = setInterval(() => {
+          currentStep++;
+          let newVol = startVol + (volStep * currentStep);
+          // Clamp volume between 0 and 1
+          newVol = Math.max(0, Math.min(1, newVol));
+          audio.volume = newVol;
+
+          if (currentStep >= steps) {
+            clearInterval(interval);
+            if (callback) callback();
+          }
+        }, stepTime);
+        this.timers.push(interval);
+      }
+    };
+
+    // Initialize Audio
+    AudioManager.init();
+
+    /* ---------------------------------------------------- */
+    /* EXISTING LOGIC PRESERVED BELOW                       */
+    /* ---------------------------------------------------- */
+
     const scene = document.querySelector('a-scene');
     const model = document.getElementById('engineering-model');
     
@@ -480,6 +729,10 @@
     document.getElementById('start-btn').addEventListener('click', () => {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('instructions').style.display = 'block';
+      
+      // START AUDIO SYSTEM HERE
+      AudioManager.start();
+
       startViewCycle();
       
       // Auto-Enter VR Mode on Click
@@ -595,6 +848,9 @@
 
     document.getElementById('btn-exit-panel').addEventListener('click', (e) => {
       e.stopPropagation();
+      // STOP AUDIO ON EXIT
+      AudioManager.stop();
+      
       scene.exitVR();
       document.getElementById('overlay').style.display = 'flex';
       document.getElementById('instructions').style.display = 'none';
@@ -606,6 +862,9 @@
     });
 
     document.getElementById('exit-btn').addEventListener('click', () => {
+      // STOP AUDIO ON EXIT
+      AudioManager.stop();
+
       scene.exitVR();
       document.getElementById('overlay').style.display = 'flex';
       document.getElementById('instructions').style.display = 'none';
