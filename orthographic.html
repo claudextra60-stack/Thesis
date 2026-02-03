@@ -114,19 +114,29 @@
 
         if(!targetObj) return;
 
+        // 1. SAVE CURRENT STATE (So we can restore the beach later)
+        const oldBg = scene.background;
+        const oldClearColor = renderer.getClearColor(new THREE.Color());
+        const oldClearAlpha = renderer.getClearAlpha();
+        
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
         const screens = document.getElementById('screens-group');
-        const originalBg = scene.background;
-
+        
+        // 2. PREPARE "BLACK VOID" ENVIRONMENT
+        // Hide scenery elements
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
         if(rig) rig.object3D.visible = false;
         if(screens) screens.object3D.visible = false;
 
-        scene.background = new THREE.Color(0x000000); 
+        // Force Scene Background to NULL (removes Skybox)
+        scene.background = null;
+        // Force Renderer to clear to Solid Black
+        renderer.setClearColor(0x000000, 1);
         
+        // 3. SET OBJECT MATERIALS (Black Body / White Lines)
         const meshes = [];
         const lines = [];
 
@@ -143,21 +153,30 @@
             }
         });
 
+        // 4. RENDER TO TEXTURES (The Snapshot)
+        // Explicitly clear each target to black before drawing
         renderer.setRenderTarget(this.rtFront);
+        renderer.clear();
         renderer.render(scene, this.camFront);
         
         renderer.setRenderTarget(this.rtTop);
+        renderer.clear();
         renderer.render(scene, this.camTop);
 
         renderer.setRenderTarget(this.rtSide);
+        renderer.clear();
         renderer.render(scene, this.camSide);
 
+        // 5. RESTORE REALITY (Bring back the beach)
         renderer.setRenderTarget(null);
-        scene.background = originalBg;
+        scene.background = oldBg;
+        renderer.setClearColor(oldClearColor, oldClearAlpha);
         
+        // Restore Colors
         meshes.forEach(m => m.material.color.setHex(m.userData.origColor));
         lines.forEach(l => l.material.color.setHex(l.userData.origColor));
 
+        // Restore Visibility
         if(env) env.object3D.visible = true;
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
@@ -171,17 +190,13 @@
       init: function () {
         // 1. CLICK LOGIC (Main Trigger - Index Finger)
         this.el.addEventListener('triggerdown', (e) => {
-            // Find what the red line is touching
             const raycaster = this.el.components.raycaster;
             if (!raycaster) return;
             
             const hits = raycaster.intersectedEls;
-            // Loop through hits to find an interactive button
             for (let i = 0; i < hits.length; i++) {
                 if (hits[i].classList.contains('interactive')) {
-                    // Forcefully click it
                     hits[i].emit('click');
-                    // Haptic feedback
                     if (this.el.components.haptics) {
                         this.el.components.haptics.pulse(0.5, 50);
                     }
@@ -197,11 +212,10 @@
                 // Rotate -45 degrees (Clockwise)
                 target.object3D.rotation.y -= Math.PI / 4;
                 
-                // Update projections immediately
+                // Signal update
                 window.isDirty = true;
 
-                // Haptic feedback
-                 if (this.el.components.haptics) {
+                if (this.el.components.haptics) {
                     this.el.components.haptics.pulse(0.8, 100);
                 }
             }
