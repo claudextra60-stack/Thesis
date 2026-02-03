@@ -51,7 +51,7 @@
 
     // ─── COMPONENT: CLEAN EDGES ─────────────────────────────
     AFRAME.registerComponent('clean-edges', {
-        schema: { color: {default: '#FFFFFF'} }, // Default white lines
+        schema: { color: {default: '#FFFFFF'} }, 
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
             if (this.el.getObject3D('mesh')) this.createEdges();
@@ -60,28 +60,25 @@
             const mesh = this.el.getObject3D('mesh');
             if (!mesh || this.edgesCreated) return;
             
-            // 15 degree threshold for crisp edges
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ 
                 color: this.data.color,
                 linewidth: 2 
             });
             const line = new THREE.LineSegments(edges, material);
-            
-            // Mark this line so we can find it later
             line.userData.isEdge = true;
-            
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
     });
 
-    // ─── COMPONENT: PROJECTION RENDERER (FIXED) ─────────────
+    // ─── COMPONENT: PROJECTION RENDERER (VR FIX APPLIED) ────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
         
         // ORTHOGRAPHIC CAMERAS
+        // We add them to the scene so they have a stable world position
         this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camFront.position.set(0, 1.6, 2); 
         this.camFront.lookAt(0, 1.6, 0);
@@ -95,7 +92,11 @@
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
         
-        // RENDER TARGETS (Higher res for crisp lines)
+        // Manually update matrices once to lock them in
+        this.camFront.updateMatrixWorld();
+        this.camTop.updateMatrixWorld();
+        this.camSide.updateMatrixWorld();
+
         const res = 1024; 
         const rtSettings = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
 
@@ -123,11 +124,18 @@
 
         if(!targetObj) return;
 
-        // 1. SAVE STATE
+        // 1. SAVE VR STATE (CRITICAL FIX)
+        const currentXREnabled = renderer.xr.enabled;
+        
+        // 2. DISABLE VR FOR SNAPSHOTS
+        // This stops the headset from hijacking the camera view!
+        renderer.xr.enabled = false;
+
+        // 3. SAVE SCENE STATE
         const oldClearColor = renderer.getClearColor(new THREE.Color());
         const oldClearAlpha = renderer.getClearAlpha();
         
-        // 2. HIDE SCENERY (Including Sky Sphere)
+        // 4. HIDE SCENERY
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
@@ -142,12 +150,10 @@
         if(sky) sky.object3D.visible = false;
         if(birds) birds.object3D.visible = false;
 
-        // 3. SET BLUEPRINT BACKGROUND
-        // We use a deep blue (0x001133) so if the object is black, it's visible.
+        // 5. BLUEPRINT SETUP
         const blueprintColor = 0x001133;
         renderer.setClearColor(blueprintColor, 1);
         
-        // 4. PREPARE OBJECT (The Z-Fighting Fix)
         const meshes = [];
         const lines = [];
 
@@ -159,10 +165,7 @@
                 node.userData.origPolyFactor = node.material.polygonOffsetFactor;
                 node.userData.origPolyUnits = node.material.polygonOffsetUnits;
 
-                // Set Body Color to Match Background (Hidden Lines Style)
                 node.material.color.setHex(blueprintColor); 
-                
-                // CRITICAL FIX: Push the mesh BACK so lines sit on top
                 node.material.polygonOffset = true;
                 node.material.polygonOffsetFactor = 1;
                 node.material.polygonOffsetUnits = 1;
@@ -170,17 +173,16 @@
             if(node.isLineSegments || node.userData.isEdge) {
                 lines.push(node);
                 node.userData.origColor = node.material.color.getHex();
-                // Ensure Lines are White
                 node.material.color.setHex(0xFFFFFF); 
             }
         });
 
-        // 5. RENDER
+        // 6. RENDER (Now strictly using the Ortho cameras)
         renderer.setRenderTarget(this.rtFront); renderer.clear(); renderer.render(scene, this.camFront);
         renderer.setRenderTarget(this.rtTop);   renderer.clear(); renderer.render(scene, this.camTop);
         renderer.setRenderTarget(this.rtSide);  renderer.clear(); renderer.render(scene, this.camSide);
 
-        // 6. RESTORE
+        // 7. RESTORE SCENE
         renderer.setRenderTarget(null);
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         
@@ -198,13 +200,16 @@
         if(screens) screens.object3D.visible = true;
         if(sky) sky.object3D.visible = true;
         if(birds) birds.object3D.visible = true;
+
+        // 8. RESTORE VR STATE (CRITICAL)
+        // Give control back to the headset
+        renderer.xr.enabled = currentXREnabled;
       }
     });
 
     // ─── COMPONENT: INTERACTION ─────────────────────────────
     AFRAME.registerComponent('ortho-interaction', {
       init: function () {
-        // TRIGGER (Click)
         this.el.addEventListener('triggerdown', (e) => {
             const raycaster = this.el.components.raycaster;
             if (!raycaster) return;
@@ -218,7 +223,6 @@
             }
         });
 
-        // GRIP (Rotate)
         this.el.addEventListener('gripdown', (e) => {
             const target = document.getElementById('target-object');
             if (target) {
@@ -237,7 +241,7 @@
 
   <div id="overlay">
     <h1>ORTHOGRAPHIC LAB</h1>
-    <p>We have updated the controls.</p>
+    <p>Controls Updated</p>
     <div class="controls-hint">
         <div><strong>RIGHT GRIP (Click):</strong> Rotate Object 45°</div>
         <div><strong>RIGHT TRIGGER (Click):</strong> Press Menu Buttons</div>
