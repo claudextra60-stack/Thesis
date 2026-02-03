@@ -47,11 +47,11 @@
 
   <script>
     // ─── GLOBAL FLAGS ───────────────────────────────────────
-    window.isDirty = true; // Signals the renderer to update the projections
+    window.isDirty = true; // Signals the renderer to update
 
     // ─── COMPONENT: CLEAN EDGES ─────────────────────────────
     AFRAME.registerComponent('clean-edges', {
-        schema: { color: {default: '#000'} },
+        schema: { color: {default: '#FFFFFF'} }, // Default white lines
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
             if (this.el.getObject3D('mesh')) this.createEdges();
@@ -59,15 +59,24 @@
         createEdges: function() {
             const mesh = this.el.getObject3D('mesh');
             if (!mesh || this.edgesCreated) return;
+            
+            // 15 degree threshold for crisp edges
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
-            const material = new THREE.LineBasicMaterial({ color: this.data.color });
+            const material = new THREE.LineBasicMaterial({ 
+                color: this.data.color,
+                linewidth: 2 
+            });
             const line = new THREE.LineSegments(edges, material);
+            
+            // Mark this line so we can find it later
+            line.userData.isEdge = true;
+            
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
     });
 
-    // ─── COMPONENT: OPTIMIZED PROJECTION RENDERER ───────────
+    // ─── COMPONENT: PROJECTION RENDERER (FIXED) ─────────────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
@@ -86,9 +95,9 @@
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
         
-        // RENDER TARGETS
-        const res = 512; 
-        const rtSettings = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, samples: 2 };
+        // RENDER TARGETS (Higher res for crisp lines)
+        const res = 1024; 
+        const rtSettings = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
 
         this.rtFront = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
@@ -118,24 +127,27 @@
         const oldClearColor = renderer.getClearColor(new THREE.Color());
         const oldClearAlpha = renderer.getClearAlpha();
         
-        // 2. GET ALL ELEMENTS TO HIDE (THE CRITICAL FIX)
+        // 2. HIDE SCENERY (Including Sky Sphere)
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
         const screens = document.getElementById('screens-group');
-        const sky = document.querySelector('a-sky'); // <--- THIS WAS MISSING
+        const sky = document.querySelector('a-sky');
+        const birds = document.getElementById('birds-container');
         
-        // 3. HIDE EVERYTHING
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
         if(rig) rig.object3D.visible = false;
         if(screens) screens.object3D.visible = false;
-        if(sky) sky.object3D.visible = false; // <--- HIDE THE SKY SPHERE
+        if(sky) sky.object3D.visible = false;
+        if(birds) birds.object3D.visible = false;
 
-        // 4. PREPARE RENDERER FOR BLACK VOID
-        renderer.setClearColor(0x000000, 1); // Force Black Background
+        // 3. SET BLUEPRINT BACKGROUND
+        // We use a deep blue (0x001133) so if the object is black, it's visible.
+        const blueprintColor = 0x001133;
+        renderer.setClearColor(blueprintColor, 1);
         
-        // 5. SET OBJECT MATERIALS (Black Body / White Lines)
+        // 4. PREPARE OBJECT (The Z-Fighting Fix)
         const meshes = [];
         const lines = [];
 
@@ -143,78 +155,76 @@
             if(node.isMesh) {
                 meshes.push(node);
                 node.userData.origColor = node.material.color.getHex();
-                node.material.color.setHex(0x000000); 
+                node.userData.origPolyOffset = node.material.polygonOffset;
+                node.userData.origPolyFactor = node.material.polygonOffsetFactor;
+                node.userData.origPolyUnits = node.material.polygonOffsetUnits;
+
+                // Set Body Color to Match Background (Hidden Lines Style)
+                node.material.color.setHex(blueprintColor); 
+                
+                // CRITICAL FIX: Push the mesh BACK so lines sit on top
+                node.material.polygonOffset = true;
+                node.material.polygonOffsetFactor = 1;
+                node.material.polygonOffsetUnits = 1;
             }
-            if(node.isLineSegments) {
+            if(node.isLineSegments || node.userData.isEdge) {
                 lines.push(node);
                 node.userData.origColor = node.material.color.getHex();
+                // Ensure Lines are White
                 node.material.color.setHex(0xFFFFFF); 
             }
         });
 
-        // 6. RENDER TO TEXTURES
-        renderer.setRenderTarget(this.rtFront);
-        renderer.clear();
-        renderer.render(scene, this.camFront);
-        
-        renderer.setRenderTarget(this.rtTop);
-        renderer.clear();
-        renderer.render(scene, this.camTop);
+        // 5. RENDER
+        renderer.setRenderTarget(this.rtFront); renderer.clear(); renderer.render(scene, this.camFront);
+        renderer.setRenderTarget(this.rtTop);   renderer.clear(); renderer.render(scene, this.camTop);
+        renderer.setRenderTarget(this.rtSide);  renderer.clear(); renderer.render(scene, this.camSide);
 
-        renderer.setRenderTarget(this.rtSide);
-        renderer.clear();
-        renderer.render(scene, this.camSide);
-
-        // 7. RESTORE STATE
+        // 6. RESTORE
         renderer.setRenderTarget(null);
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         
-        // Restore Colors
-        meshes.forEach(m => m.material.color.setHex(m.userData.origColor));
+        meshes.forEach(m => { 
+            m.material.color.setHex(m.userData.origColor);
+            m.material.polygonOffset = m.userData.origPolyOffset;
+            m.material.polygonOffsetFactor = m.userData.origPolyFactor;
+            m.material.polygonOffsetUnits = m.userData.origPolyUnits;
+        });
         lines.forEach(l => l.material.color.setHex(l.userData.origColor));
 
-        // Restore Visibility
         if(env) env.object3D.visible = true;
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
         if(screens) screens.object3D.visible = true;
-        if(sky) sky.object3D.visible = true; // <--- SHOW SKY AGAIN
+        if(sky) sky.object3D.visible = true;
+        if(birds) birds.object3D.visible = true;
       }
     });
 
-    // ─── COMPONENT: RIGHT CONTROLLER LOGIC ──────────────────
+    // ─── COMPONENT: INTERACTION ─────────────────────────────
     AFRAME.registerComponent('ortho-interaction', {
       init: function () {
-        // 1. CLICK LOGIC (Main Trigger - Index Finger)
+        // TRIGGER (Click)
         this.el.addEventListener('triggerdown', (e) => {
             const raycaster = this.el.components.raycaster;
             if (!raycaster) return;
-            
             const hits = raycaster.intersectedEls;
             for (let i = 0; i < hits.length; i++) {
                 if (hits[i].classList.contains('interactive')) {
                     hits[i].emit('click');
-                    if (this.el.components.haptics) {
-                        this.el.components.haptics.pulse(0.5, 50);
-                    }
+                    if (this.el.components.haptics) this.el.components.haptics.pulse(0.5, 50);
                     break; 
                 }
             }
         });
 
-        // 2. ROTATION LOGIC (Grip - Middle Finger)
+        // GRIP (Rotate)
         this.el.addEventListener('gripdown', (e) => {
             const target = document.getElementById('target-object');
             if (target) {
-                // Rotate -45 degrees (Clockwise)
                 target.object3D.rotation.y -= Math.PI / 4;
-                
-                // Signal update
                 window.isDirty = true;
-
-                if (this.el.components.haptics) {
-                    this.el.components.haptics.pulse(0.8, 100);
-                }
+                if (this.el.components.haptics) this.el.components.haptics.pulse(0.8, 100);
             }
         });
       }
@@ -227,13 +237,11 @@
 
   <div id="overlay">
     <h1>ORTHOGRAPHIC LAB</h1>
-    <p>We have updated the controls for easier use.</p>
-    
+    <p>We have updated the controls.</p>
     <div class="controls-hint">
         <div><strong>RIGHT GRIP (Click):</strong> Rotate Object 45°</div>
         <div><strong>RIGHT TRIGGER (Click):</strong> Press Menu Buttons</div>
     </div>
-
     <button class="btn" id="start-btn">ENTER LAB</button>
   </div>
 
@@ -256,6 +264,10 @@
         <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="8 8"></a-plane>
         <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="3 8"></a-ring>
     </a-entity>
+    
+    <a-entity id="birds-container">
+       <a-cone color="#fff" position="0 20 -10" scale="0.1 0.1 0.3" bird-flight="radius: 20"></a-cone>
+    </a-entity>
 
     <a-entity light="type: ambient; intensity: 0.9; color: #FFF8DC"></a-entity>
     <a-entity light="type: directional; position: 3 8 3; intensity: 1.0;"></a-entity>
@@ -267,20 +279,17 @@
             </a-plane>
             <a-text value="FRONT VIEW" position="0 2.2 0" align="center" width="6" color="#FFF"></a-text>
         </a-entity>
-
         <a-entity position="0 0.05 0" rotation="-90 0 0">
             <a-plane id="screen-top" width="4.0" height="4.0" color="#FFF" shader="flat">
                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
             </a-plane>
             <a-text value="TOP VIEW" position="0 2.2 0" align="center" width="6" color="#FFF" rotation="0 0 0"></a-text>
         </a-entity>
-
         <a-entity position="0 5.0 0" rotation="90 0 0">
              <a-plane id="screen-ceiling" width="4.0" height="4.0" color="#FFF" shader="flat">
                   <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
              </a-plane>
         </a-entity>
-
         <a-entity position="4 2.5 0" rotation="0 -90 0">
             <a-plane id="screen-side" width="4.0" height="4.0" color="#FFF" shader="flat">
                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
@@ -298,10 +307,8 @@
     <a-entity id="exercise-ui" position="-3.5 1.5 -0.5" rotation="0 60 0">
         <a-box width="1.6" height="1.0" depth="0.05" src="#jute-tex" repeat="1 1" color="#BBB">
             <a-plane width="1.55" height="0.95" position="0 0 0.026" color="#111" opacity="0.9"></a-plane>
-            
             <a-text value="ORTHOGRAPHIC LAB" position="0 0.4 0.05" align="center" width="2.2" font="roboto" color="#FFF" letter-spacing="1"></a-text>
             <a-plane width="1.4" height="0.002" position="0 0.35 0.05" color="#CF2027"></a-plane>
-
             <a-text id="q-text" value="Press GRIP to Rotate 45°.\nPress TRIGGER to click buttons." 
                     position="0 0.15 0.05" align="center" width="1.5" font="roboto" color="#AAA"></a-text>
 
@@ -311,7 +318,6 @@
             <a-plane class="interactive" id="btn-next" position="0.45 -0.1 0.05" width="0.3" height="0.12" color="#333">
                 <a-text value="NEXT >" align="center" width="1.5" position="0 0 0.01"></a-text>
             </a-plane>
-
             <a-text id="level-indicator" value="LEVEL 1 / 20" position="0 -0.1 0.05" align="center" width="2" color="#888"></a-text>
         </a-box>
     </a-entity>
@@ -325,10 +331,8 @@
 
     <a-entity id="rig" movement-controls="speed: 0.15">
       <a-entity id="camera" camera position="0 1.6 1.5" look-controls></a-entity>
-      
       <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
-      
       <a-entity id="right-controller" oculus-touch-controls="hand: right" ortho-interaction
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
     </a-entity>
