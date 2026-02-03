@@ -49,7 +49,7 @@
     // ─── GLOBAL FLAGS ───────────────────────────────────────
     window.isDirty = true; // Signals the renderer to update the projections
 
-    // ─── COMPONENT: CLEAN EDGES (AutoCAD Style) ──────────────
+    // ─── COMPONENT: CLEAN EDGES ─────────────────────────────
     AFRAME.registerComponent('clean-edges', {
         schema: { color: {default: '#000'} },
         init: function() {
@@ -59,7 +59,6 @@
         createEdges: function() {
             const mesh = this.el.getObject3D('mesh');
             if (!mesh || this.edgesCreated) return;
-            // Threshold angle: 15 degrees
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ color: this.data.color });
             const line = new THREE.LineSegments(edges, material);
@@ -87,19 +86,14 @@
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
         
-        // RENDER TARGETS (512x512 is plenty for this)
+        // RENDER TARGETS
         const res = 512; 
-        const rtSettings = { 
-            minFilter: THREE.LinearFilter, 
-            magFilter: THREE.LinearFilter, 
-            samples: 2 // Lower AA for performance
-        };
+        const rtSettings = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, samples: 2 };
 
         this.rtFront = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtSide  = new THREE.WebGLRenderTarget(res, res, rtSettings);
         
-        // Apply textures to screens
         document.querySelector('#screen-front').getObject3D('mesh').material.map   = this.rtFront.texture;
         document.querySelector('#screen-top').getObject3D('mesh').material.map     = this.rtTop.texture;
         document.querySelector('#screen-side').getObject3D('mesh').material.map    = this.rtSide.texture;
@@ -107,11 +101,9 @@
       },
 
       tick: function () {
-        // PERFORMANCE FIX: Only render if the object moved!
         if (!window.isDirty) return;
-        
         this.renderProjections();
-        window.isDirty = false; // Reset flag
+        window.isDirty = false;
       },
 
       renderProjections: function() {
@@ -122,20 +114,17 @@
 
         if(!targetObj) return;
 
-        // 1. Prepare Scene: Hide Environment, Set Background to Black
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
         const screens = document.getElementById('screens-group');
         const originalBg = scene.background;
 
-        // Hide clutter
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
         if(rig) rig.object3D.visible = false;
         if(screens) screens.object3D.visible = false;
 
-        // Set Projection Style (Black Mesh, White Lines)
         scene.background = new THREE.Color(0x000000); 
         
         const meshes = [];
@@ -145,16 +134,15 @@
             if(node.isMesh) {
                 meshes.push(node);
                 node.userData.origColor = node.material.color.getHex();
-                node.material.color.setHex(0x000000); // Body is black
+                node.material.color.setHex(0x000000); 
             }
             if(node.isLineSegments) {
                 lines.push(node);
                 node.userData.origColor = node.material.color.getHex();
-                node.material.color.setHex(0xFFFFFF); // Lines are white
+                node.material.color.setHex(0xFFFFFF); 
             }
         });
 
-        // 2. Render the 3 Views
         renderer.setRenderTarget(this.rtFront);
         renderer.render(scene, this.camFront);
         
@@ -164,15 +152,12 @@
         renderer.setRenderTarget(this.rtSide);
         renderer.render(scene, this.camSide);
 
-        // 3. Cleanup: Restore Scene
         renderer.setRenderTarget(null);
         scene.background = originalBg;
         
-        // Restore Object Colors
         meshes.forEach(m => m.material.color.setHex(m.userData.origColor));
         lines.forEach(l => l.material.color.setHex(l.userData.origColor));
 
-        // Restore Visibility
         if(env) env.object3D.visible = true;
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
@@ -180,42 +165,47 @@
       }
     });
 
-    // ─── COMPONENT: ORTHO CONTROLLER (Right Hand Grip) ─────
-    AFRAME.registerComponent('ortho-rotator', {
+    // ─── COMPONENT: RIGHT CONTROLLER LOGIC ──────────────────
+    // Handles BOTH Rotation (Grip) and Clicking (Trigger)
+    AFRAME.registerComponent('ortho-interaction', {
       init: function () {
-        this.isGripping = false;
-        this.previousRotationY = 0;
-        
-        // Listen to Right Controller events
-        this.el.addEventListener('gripdown', (e) => {
-            this.isGripping = true;
-            this.previousRotationY = this.el.object3D.rotation.y;
-        });
-
-        this.el.addEventListener('gripup', (e) => {
-            this.isGripping = false;
-        });
-      },
-      tick: function () {
-        if (!this.isGripping) return;
-
-        // Get current controller Y rotation
-        const currentRotationY = this.el.object3D.rotation.y;
-        
-        // Calculate difference (Horizontal movement only)
-        const delta = currentRotationY - this.previousRotationY;
-        
-        // Apply to Target Object (Y-AXIS ONLY)
-        const target = document.getElementById('target-object');
-        if (target) {
-            target.object3D.rotation.y += delta;
+        // 1. CLICK LOGIC (Main Trigger - Index Finger)
+        this.el.addEventListener('triggerdown', (e) => {
+            // Find what the red line is touching
+            const raycaster = this.el.components.raycaster;
+            if (!raycaster) return;
             
-            // Mark as dirty so renderer updates THIS FRAME
-            window.isDirty = true;
-        }
+            const hits = raycaster.intersectedEls;
+            // Loop through hits to find an interactive button
+            for (let i = 0; i < hits.length; i++) {
+                if (hits[i].classList.contains('interactive')) {
+                    // Forcefully click it
+                    hits[i].emit('click');
+                    // Haptic feedback
+                    if (this.el.components.haptics) {
+                        this.el.components.haptics.pulse(0.5, 50);
+                    }
+                    break; 
+                }
+            }
+        });
 
-        // Update stored rotation
-        this.previousRotationY = currentRotationY;
+        // 2. ROTATION LOGIC (Grip - Middle Finger)
+        this.el.addEventListener('gripdown', (e) => {
+            const target = document.getElementById('target-object');
+            if (target) {
+                // Rotate -45 degrees (Clockwise)
+                target.object3D.rotation.y -= Math.PI / 4;
+                
+                // Update projections immediately
+                window.isDirty = true;
+
+                // Haptic feedback
+                 if (this.el.components.haptics) {
+                    this.el.components.haptics.pulse(0.8, 100);
+                }
+            }
+        });
       }
     });
   </script>
@@ -226,11 +216,11 @@
 
   <div id="overlay">
     <h1>ORTHOGRAPHIC LAB</h1>
-    <p>Hold the <strong>Right Grip</strong> button and rotate your hand left or right to spin the object horizontally.</p>
+    <p>We have updated the controls for easier use.</p>
     
     <div class="controls-hint">
-        <div><strong>RIGHT GRIP (Hold):</strong> Rotate Object</div>
-        <div><strong>LEFT STICK CLICK:</strong> Reset Orientation</div>
+        <div><strong>RIGHT GRIP (Click):</strong> Rotate Object 45°</div>
+        <div><strong>RIGHT TRIGGER (Click):</strong> Press Menu Buttons</div>
     </div>
 
     <button class="btn" id="start-btn">ENTER LAB</button>
@@ -254,10 +244,6 @@
     <a-entity id="environment-group">
         <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="8 8"></a-plane>
         <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="3 8"></a-ring>
-    </a-entity>
-
-    <a-entity id="birds-container">
-       <a-cone color="#fff" position="0 20 -10" scale="0.1 0.1 0.3" bird-flight="radius: 20"></a-cone>
     </a-entity>
 
     <a-entity light="type: ambient; intensity: 0.9; color: #FFF8DC"></a-entity>
@@ -305,7 +291,7 @@
             <a-text value="ORTHOGRAPHIC LAB" position="0 0.4 0.05" align="center" width="2.2" font="roboto" color="#FFF" letter-spacing="1"></a-text>
             <a-plane width="1.4" height="0.002" position="0 0.35 0.05" color="#CF2027"></a-plane>
 
-            <a-text id="q-text" value="Use RIGHT GRIP to rotate.\nCompare views on walls." 
+            <a-text id="q-text" value="Press GRIP to Rotate 45°.\nPress TRIGGER to click buttons." 
                     position="0 0.15 0.05" align="center" width="1.5" font="roboto" color="#AAA"></a-text>
 
             <a-plane class="interactive" id="btn-prev" position="-0.45 -0.1 0.05" width="0.3" height="0.12" color="#333">
@@ -332,16 +318,14 @@
       <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
       
-      <a-entity id="right-controller" oculus-touch-controls="hand: right" ortho-rotator
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" ortho-interaction
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
     </a-entity>
 
   </a-scene>
 
   <script>
-    // ─── LOGIC ──────────────────────────────────────────────
     const scene = document.querySelector('a-scene');
-    
     scene.addEventListener('loaded', () => {
       document.getElementById('loading').style.display = 'none';
     });
@@ -356,21 +340,10 @@
         window.location.href = 'index.html';
     });
 
-    // ─── GEOMETRY DATA ──────────────────────────────────────
-    const box = (x,y,z, w,h,d) => `
-        <a-box position="${x} ${y} ${z}" width="${w}" height="${h}" depth="${d}" 
-               color="#FFF" shader="flat" clean-edges></a-box>
-    `;
-    const cyl = (x,y,z, r,h, rotX=0, rotZ=0) => `
-        <a-cylinder position="${x} ${y} ${z}" radius="${r}" height="${h}" rotation="${rotX} 0 ${rotZ}" 
-                    color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cylinder>
-    `;
-    const cone = (x,y,z, rb, h, rotX=0) => `
-        <a-cone position="${x} ${y} ${z}" radius-bottom="${rb}" height="${h}" rotation="${rotX} 0 0"
-                color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cone>
-    `;
+    const box = (x,y,z, w,h,d) => `<a-box position="${x} ${y} ${z}" width="${w}" height="${h}" depth="${d}" color="#FFF" shader="flat" clean-edges></a-box>`;
+    const cyl = (x,y,z, r,h, rotX=0, rotZ=0) => `<a-cylinder position="${x} ${y} ${z}" radius="${r}" height="${h}" rotation="${rotX} 0 ${rotZ}" color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cylinder>`;
+    const cone = (x,y,z, rb, h, rotX=0) => `<a-cone position="${x} ${y} ${z}" radius-bottom="${rb}" height="${h}" rotation="${rotX} 0 0" color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cone>`;
 
-    // Same levels as before
     const levels = [
         { h: box(0,0,0, 1,1,1) }, 
         { h: box(0,0,0, 1.5, 0.5, 1) }, 
@@ -405,22 +378,17 @@
 
         txtLevel.setAttribute('value', `LEVEL ${currentLevel + 1} / 20`);
         targetEl.innerHTML = levels[idx].h;
-        
         targetEl.object3D.rotation.set(0,0,0);
-        
-        // Force update immediately on load
         window.isDirty = true;
     }
 
     document.getElementById('btn-next').addEventListener('click', () => loadLevel(currentLevel + 1));
     document.getElementById('btn-prev').addEventListener('click', () => loadLevel(currentLevel - 1));
 
-    // Reset on thumbstick click (Left controller)
     document.getElementById('left-controller').addEventListener('thumbstickdown', () => {
         targetEl.object3D.rotation.set(0,0,0);
         window.isDirty = true;
     });
-
   </script>
 </body>
 </html>
