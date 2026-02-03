@@ -50,8 +50,10 @@
     window.isDirty = true; // Signals the renderer to update
 
     // ─── COMPONENT: CLEAN EDGES ─────────────────────────────
+    // ─── COMPONENT: CLEAN EDGES (UPDATED) ───────────────────
     AFRAME.registerComponent('clean-edges', {
-        schema: { color: {default: '#FFFFFF'} }, 
+        // Change 1: Default color is now Black (#000) for the 3D model
+        schema: { color: {default: '#000000'} }, 
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
             if (this.el.getObject3D('mesh')) this.createEdges();
@@ -63,10 +65,13 @@
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ 
                 color: this.data.color,
-                linewidth: 2 
+                // Change 2: Increased thickness for better projection visibility
+                linewidth: 5 
             });
             const line = new THREE.LineSegments(edges, material);
-            line.userData.isEdge = true;
+            
+            line.userData.isEdge = true; // Tag for the renderer
+            
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
