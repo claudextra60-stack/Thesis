@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orthographic Master - Eng Draw VR</title>
+  <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
+  <meta name="theme-color" content="#2B2B88">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+  
+  <script src="shared-env.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; background: #000; }
+    
+    #loading {
+      position: fixed; inset: 0; background: #111; z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; font-weight: 300; letter-spacing: 2px;
+    }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, rgba(15,15,20,0.95) 0%, rgba(30,30,60,0.92) 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; text-align: center;
+    }
+    h1 { font-weight: 800; font-size: 3rem; margin: 0 0 10px 0; letter-spacing: -1px; }
+    p { color: #aaa; font-size: 1.1rem; max-width: 600px; line-height: 1.6; margin-bottom: 30px; }
+    
+    .controls-hint {
+        background: rgba(255,255,255,0.1); padding: 15px 30px; border-radius: 8px;
+        text-align: left; font-size: 0.9rem; color: #ddd; margin-bottom: 30px;
+    }
+    .controls-hint strong { color: #fff; margin-right: 10px; }
+
+    .btn {
+      padding: 16px 48px; font-size: 1rem; font-weight: 600;
+      background: #CF2027; color: white; border: none; border-radius: 6px;
+      cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+      transition: all 0.2s ease;
+    }
+    .btn:hover { background: #E03038; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(207,32,39,0.4); }
+  </style>
+
+  <script>
+    // ─── GLOBAL STATE ───────────────────────────────────────
+    window.isAnimationPaused = false; // Controls the Pause/Play state
+
+    // ─── COMPONENT: CLEAN EDGES (AutoCAD Style) ──────────────
+    AFRAME.registerComponent('clean-edges', {
+        schema: { color: {default: '#000'} },
+        init: function() {
+            this.el.addEventListener('loaded', () => this.createEdges());
+            if (this.el.getObject3D('mesh')) this.createEdges();
+        },
+        createEdges: function() {
+            const mesh = this.el.getObject3D('mesh');
+            if (!mesh || this.edgesCreated) return;
+            // Threshold angle: 15 degrees
+            const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
+            const material = new THREE.LineBasicMaterial({ color: this.data.color });
+            const line = new THREE.LineSegments(edges, material);
+            this.el.object3D.add(line);
+            this.edgesCreated = true;
+        }
+    });
+
+    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
+    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
+    AFRAME.registerComponent('projection-renderer', {
+      init: function () {
+        const size = 1.3; 
+        
+        // CAMERAS
+        this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
+        this.camFront.position.set(0, 1.6, 2); 
+        this.camFront.lookAt(0, 1.6, 0);
+
+        this.camTop = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
+        this.camTop.position.set(0, 3.6, 0);
+        this.camTop.lookAt(0, 1.6, 0);
+        this.camTop.rotation.z = -Math.PI / 2;
+
+        this.camSide = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
+        this.camSide.position.set(2, 1.6, 0);
+        this.camSide.lookAt(0, 1.6, 0);
+        
+        // RENDER TARGET SETTINGS
+        // Resolution 512: Makes the 1px lines look effectively "thicker" than 1024.
+        const res = 512; 
+        const rtSettings = { 
+            minFilter: THREE.LinearFilter, 
+            magFilter: THREE.LinearFilter, 
+            samples: 4, // Anti-aliasing (smooths edges)
+            type: THREE.HalfFloatType
+        };
+
+        this.rtFront = new THREE.WebGLRenderTarget(res, res, rtSettings);
+        this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
+        this.rtSide  = new THREE.WebGLRenderTarget(res, res, rtSettings);
+
+        // TEXTURE SETTINGS (ANISOTROPY)
+        // This makes the lines look "HD" and crisp even when viewed from the side
+        const maxAnisotropy = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
+        this.rtFront.texture.anisotropy = maxAnisotropy;
+        this.rtTop.texture.anisotropy = maxAnisotropy;
+        this.rtSide.texture.anisotropy = maxAnisotropy;
+        
+        // Assign textures
+        document.querySelector('#screen-front').getObject3D('mesh').material.map   = this.rtFront.texture;
+        document.querySelector('#screen-top').getObject3D('mesh').material.map     = this.rtTop.texture;
+        document.querySelector('#screen-side').getObject3D('mesh').material.map    = this.rtSide.texture;
+        document.querySelector('#screen-ceiling').getObject3D('mesh').material.map = this.rtTop.texture;
+      },
+
+      tick: function () {
+        const renderer = this.el.sceneEl.renderer;
+        const sceneEl = this.el.sceneEl;
+        const scene = sceneEl.object3D;
+        const targetObj = document.getElementById('target-object');
+
+        // Groups to hide
+        const env = document.getElementById('environment-group');
+        const ui = document.getElementById('exercise-ui');
+        const rig = document.getElementById('rig');
+        const exit = document.getElementById('exit-door');
+        const screens = document.getElementById('screens-group');
+
+        const originalBg = scene.background;
+        const meshes = [];
+        const lines = [];
+
+        if(targetObj) {
+            targetObj.object3D.traverse(node => {
+                if(node.isMesh) meshes.push(node);
+                if(node.isLineSegments) lines.push(node);
+            });
+        }
+
+        // Setup Projection Style
+        scene.background = new THREE.Color(0x000000); 
+        
+        // Z-Fighting Fix: Push black meshes back
+        meshes.forEach(m => {
+            m.userData.origColor = m.material.color.getHex();
+            m.userData.origPolyOffset = m.material.polygonOffset;
+            m.userData.origPolyFactor = m.material.polygonOffsetFactor;
+            m.userData.origPolyUnits  = m.material.polygonOffsetUnits;
+
+            m.material.color.setHex(0x000000); 
+            m.material.polygonOffset = true;
+            m.material.polygonOffsetFactor = 1;
+            m.material.polygonOffsetUnits = 1;
+        });
+
+        lines.forEach(l => {
+            l.userData.origColor = l.material.color.getHex();
+            l.material.color.setHex(0xFFFFFF);
+        });
+
+        // Hide UI/Env
+        if(env) env.object3D.visible = false;
+        if(ui) ui.object3D.visible = false;
+        if(rig) rig.object3D.visible = false;
+        if(exit) exit.object3D.visible = false;
+        if(screens) screens.object3D.visible = false;
+
+        // Render
+        renderer.setRenderTarget(this.rtFront);
+        renderer.render(scene, this.camFront);
+        
+        renderer.setRenderTarget(this.rtTop);
+        renderer.render(scene, this.camTop);
+
+        renderer.setRenderTarget(this.rtSide);
+        renderer.render(scene, this.camSide);
+
+        // Restore
+        renderer.setRenderTarget(null);
+        scene.background = originalBg;
+        
+        meshes.forEach(m => { 
+            m.material.color.setHex(m.userData.origColor);
+            m.material.polygonOffset = m.userData.origPolyOffset;
+            m.material.polygonOffsetFactor = m.userData.origPolyFactor;
+            m.material.polygonOffsetUnits = m.userData.origPolyUnits;
+        });
+
+        lines.forEach(l => { l.material.color.setHex(l.userData.origColor); });
+
+        if(env) env.object3D.visible = true;
+        if(ui) ui.object3D.visible = true;
+        if(rig) rig.object3D.visible = true;
+        if(exit) exit.object3D.visible = true;
+        if(screens) screens.object3D.visible = true;
+      }
+    });
+
+    // ─── COMPONENT: REMOTE ROTATE ───────────────────────────
+    AFRAME.registerComponent('remote-rotate-model', {
+      init: function () {
+        this.rightController = document.getElementById('right-controller');
+        this.lastRotation    = new THREE.Quaternion();
+        this.currentRotation = new THREE.Quaternion();
+        this.deltaRotation   = new THREE.Quaternion();
+        this.isRotating      = false;
+      },
+      tick: function () {
+        // If left grip is held, we manually rotate
+        if (window.isLeftGripHeld && this.rightController) {
+            if (!this.isRotating) {
+                this.isRotating = true;
+                this.lastRotation.copy(this.rightController.object3D.quaternion);
+                // Disable animation while manually turning
+                this.el.setAttribute('animation', 'enabled', false);
+            }
+            this.currentRotation.copy(this.rightController.object3D.quaternion);
+            this.deltaRotation.copy(this.lastRotation).invert();
+            this.deltaRotation.premultiply(this.currentRotation);
+            this.el.object3D.quaternion.premultiply(this.deltaRotation);
+            this.lastRotation.copy(this.currentRotation);
+        } else {
+            // Released manual control
+            if (this.isRotating) { 
+                this.isRotating = false; 
+            }
+            // Only resume animation if NOT paused globally
+            const shouldAnimate = !window.isAnimationPaused;
+            this.el.setAttribute('animation', 'enabled', shouldAnimate);
+        }
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <div id="loading">LOADING MODULE...</div>
+
+  <div id="overlay">
+    <h1>ORTHOGRAPHIC LAB</h1>
+    <p>We have set up projection cameras. As you rotate the object, the walls will update in real-time to show the exact 2D Orthographic views.</p>
+    
+    <div class="controls-hint">
+        <div><strong>LEFT GRIP (Hold) + RIGHT HAND (Turn):</strong> Rotate Object Manually</div>
+        <div><strong>LEFT STICK CLICK:</strong> Reset Orientation</div>
+        <div><strong>RIGHT GRIP (Toggle):</strong> Play / Pause Animation</div>
+    </div>
+
+    <button class="btn" id="start-btn">ENTER LAB</button>
+  </div>
+
+  <a-scene id="vr-scene" 
+           cursor="rayOrigin: mouse" 
+           raycaster="objects: .interactive" 
+           projection-renderer>
+
+    <a-assets>
+      <img id="sky-panorama" src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
+      <img id="sand-tex"     src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="soil-tex"     src="https://cdn.architextures.org/textures/23/5/soil-none-5i4x9p.jpg" crossorigin="anonymous">
+      <img id="sisal-tex"    src="https://cdn.architextures.org/textures/21/07/sisal-weave-60e333df44d3b-1200.jpg" crossorigin="anonymous">
+      <img id="jute-tex"     src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
+    </a-assets>
+
+    <a-sky src="#sky-panorama" rotation="0 -90 0"></a-sky>
+    
+    <a-entity id="environment-group">
+        <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="8 8"></a-plane>
+        <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="3 8"></a-ring>
+        <a-ring position="0 0.02 0" rotation="-90 0 0" radius-inner="25" radius-outer="50" src="#sand-tex" repeat="12 12"></a-ring>
+    </a-entity>
+
+    <a-entity id="birds-container">
+       <a-cone color="#fff" position="0 20 -10" scale="0.1 0.1 0.3" bird-flight="radius: 20"></a-cone>
+    </a-entity>
+
+    <a-entity light="type: ambient; intensity: 0.9; color: #FFF8DC"></a-entity>
+    <a-entity light="type: directional; position: 3 8 3; intensity: 1.0;"></a-entity>
+
+    <a-entity id="screens-group">
+        <a-entity position="0 2.5 -4">
+            <a-plane id="screen-front" width="4.0" height="4.0" color="#FFF" shader="flat">
+                 <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box> 
+            </a-plane>
+        </a-entity>
+
+        <a-entity position="0 0.05 0" rotation="-90 0 0">
+            <a-plane id="screen-top" width="4.0" height="4.0" color="#FFF" shader="flat">
+                 <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <a-entity position="0 5.0 0" rotation="90 0 0">
+             <a-plane id="screen-ceiling" width="4.0" height="4.0" color="#FFF" shader="flat">
+                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
+             </a-plane>
+        </a-entity>
+
+        <a-entity position="4 2.5 0" rotation="0 -90 0">
+            <a-plane id="screen-side" width="4.0" height="4.0" color="#FFF" shader="flat">
+                 <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
+            </a-plane>
+        </a-entity>
+    </a-entity>
+
+    <a-entity id="target-container" position="0 1.6 0">
+        <a-entity id="target-object" 
+                  remote-rotate-model
+                  animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+             <a-box color="#FFF" shader="flat" width="1" height="1" depth="1" clean-edges></a-box>
+        </a-entity>
+    </a-entity>
+
+    <a-entity id="exercise-ui" position="-3.5 1.5 -0.5" rotation="0 60 0">
+        <a-box width="1.6" height="1.0" depth="0.05" src="#jute-tex" repeat="1 1" color="#BBB">
+            <a-plane width="1.55" height="0.95" position="0 0 0.026" color="#111" opacity="0.9"></a-plane>
+            
+            <a-text value="ORTHOGRAPHIC LAB" position="0 0.4 0.03" align="center" width="2.2" font="roboto" color="#FFF" letter-spacing="1"></a-text>
+            <a-plane width="1.4" height="0.002" position="0 0.35 0.03" color="#CF2027"></a-plane>
+
+            <a-text id="q-text" value="Rotate the white block.\nPress RIGHT GRIP to Pause/Play." 
+                    position="0 0.15 0.03" align="center" width="1.5" font="roboto" color="#AAA"></a-text>
+
+            <a-plane class="interactive" id="btn-prev" position="-0.45 -0.1 0.04" width="0.3" height="0.12" color="#333">
+                <a-text value="< PREV" align="center" width="1.5" position="0 0 0.01"></a-text>
+            </a-plane>
+            <a-plane class="interactive" id="btn-next" position="0.45 -0.1 0.04" width="0.3" height="0.12" color="#333">
+                <a-text value="NEXT >" align="center" width="1.5" position="0 0 0.01"></a-text>
+            </a-plane>
+
+            <a-text id="level-indicator" value="LEVEL 1 / 20" position="0 -0.1 0.04" align="center" width="2" color="#888"></a-text>
+        </a-box>
+    </a-entity>
+
+    <a-entity id="exit-door" position="0 1.6 4" rotation="0 180 0">
+        <a-plane class="interactive" id="btn-home" width="1.5" height="0.6" src="#sisal-tex" repeat="1 1" color="#999">
+             <a-box width="1.6" height="0.7" depth="0.1" position="0 0 -0.06" color="#333"></a-box>
+             <a-text value="EXIT TO MAIN MENU" align="center" width="3" position="0 0 0.01" color="#000" font="roboto"></a-text>
+        </a-plane>
+    </a-entity>
+
+    <a-entity id="rig" movement-controls="speed: 0.15">
+      <a-entity id="camera" camera position="0 1.6 1.5" look-controls></a-entity>
+      <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left"
+                raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" vr-controller-module="hand: right"
+                raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    // ─── LOGIC ──────────────────────────────────────────────
+    const scene = document.querySelector('a-scene');
+    
+    scene.addEventListener('loaded', () => {
+      document.getElementById('loading').style.display = 'none';
+      
+      // Initialize controller listeners
+      const rightCon = document.getElementById('right-controller');
+      if (rightCon) {
+          rightCon.addEventListener('gripdown', () => {
+              window.isAnimationPaused = !window.isAnimationPaused;
+              const target = document.getElementById('target-object');
+              // Force update
+              target.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+              console.log("Animation Paused:", window.isAnimationPaused);
+          });
+      }
+    });
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      document.getElementById('overlay').style.display = 'none';
+      if(AudioManager && AudioManager.start) AudioManager.start();
+      loadLevel(0);
+    });
+
+    document.getElementById('btn-home').addEventListener('click', () => {
+        window.location.href = 'index.html';
+    });
+
+    // ─── GEOMETRY DATA ──────────────────────────────────────
+    const box = (x,y,z, w,h,d) => `
+        <a-box position="${x} ${y} ${z}" width="${w}" height="${h}" depth="${d}" 
+               color="#FFF" shader="flat" clean-edges></a-box>
+    `;
+    const cyl = (x,y,z, r,h, rotX=0, rotZ=0) => `
+        <a-cylinder position="${x} ${y} ${z}" radius="${r}" height="${h}" rotation="${rotX} 0 ${rotZ}" 
+                    color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cylinder>
+    `;
+    const cone = (x,y,z, rb, h, rotX=0) => `
+        <a-cone position="${x} ${y} ${z}" radius-bottom="${rb}" height="${h}" rotation="${rotX} 0 0"
+                color="#FFF" shader="flat" segments-radial="16" clean-edges></a-cone>
+    `;
+
+    const levels = [
+        { h: box(0,0,0, 1,1,1) }, 
+        { h: box(0,0,0, 1.5, 0.5, 1) }, 
+        { h: box(0,0,0, 0.5, 1.5, 0.5) }, 
+        { h: box(0,0.4,0, 0.4,0.8,0.4) + box(0,0.9,0, 1.2,0.2,0.4) }, 
+        { h: box(-0.25,0,0, 0.5,1,1) + box(0.25,-0.25,0, 0.5,0.5,1) }, 
+        { h: box(-0.4,0,0, 0.2,1,1) + box(0.4,0,0, 0.2,1,1) + box(0,-0.4,0, 0.6,0.2,1) }, 
+        { h: box(0,-0.25,0, 1,0.5,1) + box(0,0.25,-0.25, 1,0.5,0.5) }, 
+        { h: cone(0,0,0, 0.6, 1, 0) },
+        { h: cyl(0,0,0, 0.5,1) }, 
+        { h: cyl(0,0,0, 0.6,0.8) + cyl(0,0.41,0, 0.4,0.02) }, 
+        { h: box(0,-0.25,0, 1,0.5,1) + `<a-triangle vertex-a="0 0.5 -0.5" vertex-b="-0.5 -0.5 0.5" vertex-c="0.5 -0.5 0.5" color="#FFF" shader="flat" side="double" clean-edges></a-triangle>` }, 
+        { h: box(0,-0.25,0, 1,0.5,1) + cone(0,0.25,0, 0.75,0.5,0) },
+        { h: cyl(-0.6,0,0, 0.3,0.2, 0,90) + cyl(0.6,0,0, 0.3,0.2, 0,90) + cyl(0,0,0, 0.1,1.2, 0,90) },
+        { h: box(0,0,0, 1,1,1) + box(0.35,0.35,0.35, 0.4,0.4,0.4) }, 
+        { h: box(-0.35,0,0, 0.3,1,1) + box(0.35,0,0, 0.3,1,1) + box(0,-0.4,0, 0.4,0.2,1) }, 
+        { h: box(-0.4,0,0, 0.2,1,1) + box(0.4,0,0, 0.2,1,1) + box(0,0,0, 0.6,0.2,0.4) }, 
+        { h: box(0,0,0, 0.3,1.2,0.3) + box(0,0,0, 1.2,0.3,0.3) + box(0,0,0, 0.3,0.3,1.2) }, 
+        { h: box(0,-0.25,0, 1,0.5,1) + box(0,0.25,-0.25, 1,0.5,0.5) + cyl(0,-0.25,0.25, 0.2,0.51) }, 
+        { h: box(0,0,0, 1,0.2,1) + box(-0.4,0.3,0, 0.2,0.6,1) },
+        { h: box(0,0,0, 0.8,0.8,0.8) + cyl(0,0.4,0, 0.2,0.1) + box(0.3,0,0.45, 0.2,0.6,0.1) }
+    ];
+
+    let currentLevel = 0;
+    const targetEl  = document.getElementById('target-object');
+    const txtLevel  = document.getElementById('level-indicator');
+
+    function loadLevel(idx) {
+        if (idx < 0) idx = 0;
+        if (idx >= levels.length) idx = levels.length - 1;
+        currentLevel = idx;
+
+        txtLevel.setAttribute('value', `LEVEL ${currentLevel + 1} / 20`);
+        targetEl.innerHTML = levels[idx].h;
+        
+        targetEl.object3D.rotation.set(0,0,0);
+        targetEl.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+    }
+
+    document.getElementById('btn-next').addEventListener('click', () => loadLevel(currentLevel + 1));
+    document.getElementById('btn-prev').addEventListener('click', () => loadLevel(currentLevel - 1));
+
+    // Reset on thumbstick click
+    document.getElementById('left-controller').addEventListener('thumbstickdown', () => {
+        targetEl.object3D.rotation.set(0,0,0);
+        targetEl.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+    });
+
+  </script>
+</body>
+</html>

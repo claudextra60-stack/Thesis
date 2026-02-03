@@ -3,155 +3,130 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Drawing VR - Scenery Mode</title>
+  <title>Engineering Drawing VR</title>
   <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
-  
+
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2B2B88">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="application-name" content="Eng Draw VR">
-  
+
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-  
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: sans-serif; overflow: hidden; }
+    body { font-family: 'Rajdhani', sans-serif; overflow: hidden; }
 
     #loading {
-      position: fixed; inset: 0; background: #2B2B88; z-index: 999;
-      display: flex; justify-content: center; align-items: center;
-      color: white; font-size: 2rem; font-weight: bold;
+      position: fixed; inset: 0; background: #1a1a2e; z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; font-size: 2rem; font-weight: 600; letter-spacing: 3px;
     }
-    
+    #loading .sub { font-size: 0.85rem; color: #7a7a9d; margin-top: 8px; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; }
+
     #overlay {
       position: fixed; inset: 0; z-index: 100;
-      background: rgba(255,255,255,0.9);
+      background: linear-gradient(135deg, rgba(26,26,46,0.95) 0%, rgba(43,43,136,0.92) 100%);
       display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white;
     }
+    #overlay h1 { font-size: 2.6rem; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 6px; }
+    #overlay .tagline { color: #8a8ab5; font-weight: 300; font-size: 1rem; letter-spacing: 2px; margin-bottom: 28px; }
+    #overlay .controls-list { list-style: none; text-align: left; margin-bottom: 28px; }
+    #overlay .controls-list li { padding: 5px 0; font-size: 0.95rem; color: #c0c0d8; font-weight: 400; }
+    #overlay .controls-list li strong { color: #fff; font-weight: 600; min-width: 180px; display: inline-block; }
 
     .btn {
-      padding: 20px 60px; font-size: 1.5rem; background: #CF2027; color: white;
-      border: none; border-radius: 10px; cursor: pointer; margin-top: 20px;
+      padding: 14px 52px; font-size: 1.1rem; font-family: 'Rajdhani', sans-serif;
+      background: #CF2027; color: white; border: none; border-radius: 4px;
+      cursor: pointer; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+      transition: background 0.2s, box-shadow 0.2s;
     }
-    .btn:hover { background: #2B2B88; }
+    .btn:hover { background: #2B2B88; box-shadow: 0 0 20px rgba(43,43,136,0.5); }
 
     #instructions {
       position: fixed; bottom: 20px; left: 20px; z-index: 50;
-      background: rgba(0,0,0,0.7); color: white; padding: 15px;
-      border-radius: 8px; font-size: 14px;
+      background: rgba(10,10,20,0.82); color: #ccc; padding: 14px 18px;
+      border-radius: 6px; font-size: 13px; font-family: 'Rajdhani', sans-serif;
+      border: 1px solid rgba(255,255,255,0.08); letter-spacing: 0.5px;
     }
+    #instructions strong { color: #fff; }
   </style>
 
   <script>
-    // Register Service Worker for PWA
+    // ─── SERVICE WORKER ──────────────────────────────────────
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker registered!', reg))
-          .catch(err => console.log('Service Worker registration failed', err));
+        navigator.serviceWorker.register('sw.js').catch(() => {});
       });
     }
 
-    // --- BIRD FLIGHT COMPONENT ---
+    // ─── BIRD FLIGHT ─────────────────────────────────────────
     AFRAME.registerComponent('bird-flight', {
       schema: {
-        speed: { type: 'number', default: 4 }, // Meters per second
-        radius: { type: 'number', default: 25 }, // How far they can fly before turning
-        heightRange: { type: 'vec2', default: {x: 10, y: 20} } // Min and Max height
+        speed:       { type: 'number', default: 4 },
+        radius:      { type: 'number', default: 25 },
+        heightRange: { type: 'vec2',   default: {x: 10, y: 20} }
       },
-      init: function() {
-        // 1. Randomize starting position within the radius
+      init: function () {
         const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * this.data.radius;
-        const x = Math.cos(angle) * dist;
-        const z = Math.sin(angle) * dist;
-        const y = this.data.heightRange.x + Math.random() * (this.data.heightRange.y - this.data.heightRange.x);
-        
-        this.el.object3D.position.set(x, y, z);
-
-        // 2. Random starting rotation (yaw)
+        const dist  = Math.random() * this.data.radius;
+        this.el.object3D.position.set(
+          Math.cos(angle) * dist,
+          this.data.heightRange.x + Math.random() * (this.data.heightRange.y - this.data.heightRange.x),
+          Math.sin(angle) * dist
+        );
         this.el.object3D.rotation.y = Math.random() * Math.PI * 2;
-
-        // 3. State for turning
-        this.turnSpeed = 0;
-        this.targetTurnSpeed = (Math.random() - 0.5) * 0.02; // Slight natural curve
+        this.turnSpeed       = 0;
+        this.targetTurnSpeed = (Math.random() - 0.5) * 0.02;
       },
-      tick: function(time, timeDelta) {
+      tick: function (time, timeDelta) {
         if (!timeDelta) return;
-        const deltaSeconds = timeDelta / 1000;
-        
-        // Move Forward relative to where the bird is facing
-        this.el.object3D.translateZ(this.data.speed * deltaSeconds);
-
-        const pos = this.el.object3D.position;
-
-        // Calculate distance from center (0,0,0)
-        const distance = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
-
-        // If bird flies too far, steer it back towards center
-        if (distance > this.data.radius) {
-          // Calculate vector to center
-          const angleToCenter = Math.atan2(-pos.x, -pos.z); // Simple target angle
-          
-          // Smoothly adjust rotation.y towards angleToCenter
-          // We cheat a bit by just adding a constant turn when out of bounds
-          // To determine Left vs Right turn:
-          const currentRot = this.el.object3D.rotation.y;
-          // Just force a turn
-          this.turnSpeed = 0.015; // Harder turn when out of bounds
+        this.el.object3D.translateZ(this.data.speed * (timeDelta / 1000));
+        const pos  = this.el.object3D.position;
+        const dist = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+        if (dist > this.data.radius) {
+          this.turnSpeed = 0.015;
         } else {
-          // Inside bounds: revert to gentle meandering
-          // Randomly change turn speed occasionally
-          if (Math.random() < 0.01) {
-            this.targetTurnSpeed = (Math.random() - 0.5) * 0.02;
-          }
-          // LERP turn speed
+          if (Math.random() < 0.01) this.targetTurnSpeed = (Math.random() - 0.5) * 0.02;
           this.turnSpeed += (this.targetTurnSpeed - this.turnSpeed) * 0.1;
         }
-
-        // Apply Rotation
         this.el.object3D.rotation.y += this.turnSpeed;
-
-        // Bank (Roll) the bird based on turn speed for realism
-        // Negative roll for positive turn (banking into the turn)
-        this.el.object3D.rotation.z = -this.turnSpeed * 30; 
-        
-        // Add slight bobbing (sine wave on Y)
+        this.el.object3D.rotation.z  = -this.turnSpeed * 30;
         this.el.object3D.position.y += Math.sin(time / 500) * 0.005;
       }
     });
 
-    // Global state for Left Grip (Clutch mechanism)
+    // ─── GLOBAL STATE ────────────────────────────────────────
     window.isLeftGripHeld = false;
 
-    // Component for Remote Model Rotation (Clutch Mode)
+    // ─── REMOTE ROTATE MODEL (left-grip clutch) ─────────────
     AFRAME.registerComponent('remote-rotate-model', {
       init: function () {
         this.rightController = document.getElementById('right-controller');
-        this.lastRotation = new THREE.Quaternion();
+        this.lastRotation    = new THREE.Quaternion();
         this.currentRotation = new THREE.Quaternion();
-        this.deltaRotation = new THREE.Quaternion();
-        this.isRotating = false;
+        this.deltaRotation   = new THREE.Quaternion();
+        this.isRotating      = false;
       },
-
       tick: function () {
         if (!window.isLeftGripHeld || !this.rightController) {
-          if (this.isRotating) {
-             this.isRotating = false;
-             this.el.sceneEl.emit('resume-view-cycle');
-          }
+          if (this.isRotating) { this.isRotating = false; this.el.sceneEl.emit('resume-view-cycle'); }
           return;
         }
-
         if (!this.isRotating) {
           this.isRotating = true;
           this.lastRotation.copy(this.rightController.object3D.quaternion);
           this.el.sceneEl.emit('stop-view-cycle');
           return;
         }
-
         this.currentRotation.copy(this.rightController.object3D.quaternion);
         this.deltaRotation.copy(this.lastRotation).invert();
         this.deltaRotation.premultiply(this.currentRotation);
@@ -160,132 +135,101 @@
       }
     });
 
-    // Component for scaling
+    // ─── SCALABLE MODEL ──────────────────────────────────────
     AFRAME.registerComponent('scalable-model', {
       init: function () {
-        this.scaleStep = 0.1;
-        this.minScale = 0.2;
-        this.maxScale = 3.0;
+        this.scaleStep    = 0.1;
+        this.minScale     = 0.2;
+        this.maxScale     = 3.0;
         this.currentScale = parseFloat(this.el.getAttribute('scale').x);
       },
-
       scaleUp: function () {
         this.currentScale = Math.min(this.maxScale, this.currentScale + this.scaleStep);
         this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
       },
-
       scaleDown: function () {
         this.currentScale = Math.max(this.minScale, this.currentScale - this.scaleStep);
         this.el.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
       }
     });
 
-    // Enhanced controller component
+    // ─── VR CONTROLLER (full index version) ──────────────────
     AFRAME.registerComponent('vr-controller', {
-      schema: {
-        hand: { type: 'string', default: 'left' }
-      },
-
+      schema: { hand: { type: 'string', default: 'left' } },
       init: function () {
-        this.sceneryMode = false; // Track if we are in "Scenery/Hidden" mode
-        
-        this.onTriggerDown = this.onTriggerDown.bind(this);
-        this.onGripDown = this.onGripDown.bind(this);
-        this.onGripUp = this.onGripUp.bind(this);
-        this.onButtonDown = this.onButtonDown.bind(this);
+        this.sceneryMode = false;
+        this.onTriggerDown   = this.onTriggerDown.bind(this);
+        this.onGripDown      = this.onGripDown.bind(this);
+        this.onGripUp        = this.onGripUp.bind(this);
+        this.onButtonDown    = this.onButtonDown.bind(this);
         this.onThumbstickDown = this.onThumbstickDown.bind(this);
-        this.onAxisMove = this.onAxisMove.bind(this);
-        
-        this.el.addEventListener('triggerdown', this.onTriggerDown);
-        this.el.addEventListener('gripdown', this.onGripDown);
-        this.el.addEventListener('gripup', this.onGripUp);
-        this.el.addEventListener('abuttondown', this.onButtonDown);
-        this.el.addEventListener('bbuttondown', this.onButtonDown);
-        this.el.addEventListener('xbuttondown', this.onButtonDown);
-        this.el.addEventListener('ybuttondown', this.onButtonDown);
+        this.onAxisMove      = this.onAxisMove.bind(this);
+
+        this.el.addEventListener('triggerdown',   this.onTriggerDown);
+        this.el.addEventListener('gripdown',      this.onGripDown);
+        this.el.addEventListener('gripup',        this.onGripUp);
+        this.el.addEventListener('abuttondown',   this.onButtonDown);
+        this.el.addEventListener('bbuttondown',   this.onButtonDown);
+        this.el.addEventListener('xbuttondown',   this.onButtonDown);
+        this.el.addEventListener('ybuttondown',   this.onButtonDown);
         this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
-        this.el.addEventListener('axismove', this.onAxisMove);
+        this.el.addEventListener('axismove',      this.onAxisMove);
       },
 
-      onAxisMove: function(evt) {
-        // Implementation for Left Joystick Head Rotation
+      onAxisMove: function (evt) {
         if (this.data.hand === 'left') {
-            const axis = evt.detail.axis;
-            if (axis.length >= 2) {
-                // axis[0] is X (Left/Right), axis[1] is Y (Up/Down)
-                const x = axis[2] !== undefined ? axis[2] : axis[0];
-                const y = axis[3] !== undefined ? axis[3] : axis[1];
-                
-                // Deadzone
-                if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1) {
-                    const rig = document.getElementById('rig');
-                    // Rotate Rig (Yaw)
-                    rig.object3D.rotation.y -= x * 0.03;
-                }
-            }
+          const axis = evt.detail.axis;
+          if (!axis || axis.length < 2) return;
+          const x = axis[2] !== undefined ? axis[2] : axis[0];
+          if (Math.abs(x) > 0.1) {
+            const rig = document.getElementById('rig');
+            if (rig) rig.object3D.rotation.y -= x * 0.03;
+          }
         }
       },
 
-      onGripDown: function(evt) {
-        // Left Grip = Clutch for Rotation
+      onGripDown: function () {
         if (this.data.hand === 'left') {
           window.isLeftGripHeld = true;
           this.el.emit('hapticpulse', { intensity: 0.5, duration: 100 });
         }
-        
-        // Right Grip = Recenter Menu
-        if (this.data.hand === 'right') {
-           this.recenterUI();
-        }
+        if (this.data.hand === 'right') this.recenterUI();
       },
 
-      onGripUp: function(evt) {
-        if (this.data.hand === 'left') {
-          window.isLeftGripHeld = false;
-        }
+      onGripUp: function () {
+        if (this.data.hand === 'left') window.isLeftGripHeld = false;
       },
 
-      onThumbstickDown: function(evt) {
-        const rig = document.getElementById('rig');
-        const model = document.getElementById('engineering-model');
-        const modelContainer = document.getElementById('model-container');
+      onThumbstickDown: function () {
+        const rig    = document.getElementById('rig');
+        const model  = document.getElementById('engineering-model');
+        const container = document.getElementById('model-container');
         const camera = document.getElementById('camera');
 
-        // LEFT STICK CLICK: Reset Head View & Align Model to Eye Level
         if (this.data.hand === 'left') {
-            rig.object3D.rotation.set(0, 0, 0); 
-            
-            const camPos = new THREE.Vector3();
-            camera.object3D.getWorldPosition(camPos);
-
-            modelContainer.object3D.position.set(0, camPos.y, -2.5);
-            model.object3D.rotation.set(0, 0, 0);
-
-            this.el.emit('hapticpulse', { intensity: 0.5, duration: 150 });
-            
-            const label = document.getElementById('view-label');
-            if(label) label.setAttribute('value', 'Front View (Eye Level)');
+          rig.object3D.rotation.set(0, 0, 0);
+          const camPos = new THREE.Vector3();
+          camera.object3D.getWorldPosition(camPos);
+          container.object3D.position.set(0, camPos.y, -2.5);
+          model.object3D.rotation.set(0, 0, 0);
+          this.el.emit('hapticpulse', { intensity: 0.5, duration: 150 });
+          const label = document.getElementById('view-label');
+          if (label) label.setAttribute('value', 'Front View (Eye Level)');
         }
-        
-        // RIGHT STICK CLICK: Reset Body Position
         if (this.data.hand === 'right') {
-            rig.setAttribute('position', '0 0 0');
-            this.el.emit('hapticpulse', { intensity: 0.8, duration: 200 });
+          rig.setAttribute('position', '0 0 0');
+          this.el.emit('hapticpulse', { intensity: 0.8, duration: 200 });
         }
       },
 
-      onTriggerDown: function (evt) {
-        // Disable interactions if in Scenery Mode
-        if (this.sceneryMode) return; 
-
+      onTriggerDown: function () {
+        if (this.sceneryMode) return;
         const raycaster = this.el.components.raycaster;
         if (!raycaster) return;
-
-        const intersections = raycaster.intersectedEls;
-        for (let i = 0; i < intersections.length; i++) {
-          const el = intersections[i];
-          if (el.classList.contains('interactive')) {
-            el.emit('click');
+        const hits = raycaster.intersectedEls;
+        for (let i = 0; i < hits.length; i++) {
+          if (hits[i].classList.contains('interactive')) {
+            hits[i].emit('click');
             this.el.emit('hapticpulse', { intensity: 0.5, duration: 50 });
             break;
           }
@@ -294,24 +238,14 @@
 
       onButtonDown: function (evt) {
         const model = document.getElementById('engineering-model');
-        const type = evt.type;
-        
-        // --- X BUTTON: TOGGLE SCENERY MODE ---
-        if (type === 'xbuttondown') {
-          this.toggleScenery();
-          return;
-        }
-
-        // --- A BUTTON: SCALE UP ---
-        if (type === 'abuttondown') {
+        if (evt.type === 'xbuttondown') { this.toggleScenery(); return; }
+        if (evt.type === 'abuttondown') {
           if (!this.sceneryMode && model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleUp();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
           }
         }
-        
-        // --- B or Y BUTTON: SCALE DOWN ---
-        if (type === 'bbuttondown' || type === 'ybuttondown') {
+        if (evt.type === 'bbuttondown' || evt.type === 'ybuttondown') {
           if (!this.sceneryMode && model && model.components['scalable-model']) {
             model.components['scalable-model'].scaleDown();
             this.el.emit('hapticpulse', { intensity: 0.3, duration: 30 });
@@ -319,97 +253,59 @@
         }
       },
 
-      toggleScenery: function() {
+      toggleScenery: function () {
         this.sceneryMode = !this.sceneryMode;
-        
-        // Elements to hide
-        const idsToHide = [
-            'model-container',
-            'exit-btn', 
-            'toggle-panel-btn', 
-            'control-panel', 
-            'help-card', 
-            'modules-card'
-        ];
-
-        if (this.sceneryMode) {
-            // Hide everything
-            idsToHide.forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.setAttribute('visible', false);
-            });
-            this.el.emit('hapticpulse', { intensity: 0.8, duration: 300 }); // Long pulse for OFF
-        } else {
-            // RESTORE DEFAULT VIEW
-            // We only bring back the Model, Exit sign, and Menu Button. 
-            // We keep the panels closed to ensure a clean return.
-            document.getElementById('model-container').setAttribute('visible', true);
-            document.getElementById('exit-btn').setAttribute('visible', true);
-            document.getElementById('toggle-panel-btn').setAttribute('visible', true);
-            
-            this.el.emit('hapticpulse', { intensity: 0.3, duration: 100 }); // Short pulse for ON
-        }
+        const ids = ['model-container','exit-btn','toggle-panel-btn','control-panel','help-card','modules-card'];
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.setAttribute('visible', !this.sceneryMode);
+        });
+        this.el.emit('hapticpulse', { intensity: this.sceneryMode ? 0.8 : 0.3, duration: this.sceneryMode ? 300 : 100 });
       },
 
-      recenterUI: function() {
-        // Don't recenter if everything is hidden
+      recenterUI: function () {
         if (this.sceneryMode) return;
-
         const camera = document.getElementById('camera');
-        const toggleBtn = document.getElementById('toggle-panel-btn');
-        const panel = document.getElementById('control-panel');
-        const help = document.getElementById('help-card');
-        const modules = document.getElementById('modules-card');
-        
+        if (!camera) return;
         const camPos = new THREE.Vector3();
         const camDir = new THREE.Vector3();
-        
         camera.object3D.getWorldPosition(camPos);
         camera.object3D.getWorldDirection(camDir);
-        camDir.y = 0; 
-        camDir.normalize();
+        camDir.y = 0; camDir.normalize();
+        const target = new THREE.Vector3().copy(camPos).add(camDir.multiplyScalar(0.6));
+        target.y = camPos.y;
 
-        const targetPos = new THREE.Vector3();
-        targetPos.copy(camPos).add(camDir.multiplyScalar(0.6));
-        targetPos.y = camPos.y; 
-
-        // Update all UI elements
-        const elements = [toggleBtn, panel, help, modules];
-        elements.forEach(el => {
-            if(el) {
-                el.object3D.position.copy(targetPos);
-                el.object3D.lookAt(camPos);
-            }
+        ['toggle-panel-btn','control-panel','help-card','modules-card'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.object3D.position.copy(target); el.object3D.lookAt(camPos); }
         });
 
-        if (!panel.getAttribute('visible') && !help.getAttribute('visible') && !modules.getAttribute('visible')) {
-             toggleBtn.setAttribute('visible', true);
-        }
-
+        const tp = document.getElementById('toggle-panel-btn');
+        const cp = document.getElementById('control-panel');
+        const hc = document.getElementById('help-card');
+        const mc = document.getElementById('modules-card');
+        if (!cp.getAttribute('visible') && !hc.getAttribute('visible') && !mc.getAttribute('visible'))
+          tp.setAttribute('visible', true);
         this.el.emit('hapticpulse', { intensity: 0.8, duration: 150 });
       }
     });
 
-    // Follow camera component
+    // ─── FOLLOW-CAMERA ───────────────────────────────────────
     AFRAME.registerComponent('follow-camera', {
       tick: function () {
         if (!this.el.object3D.visible) return;
-
         const camera = document.getElementById('camera');
         if (!camera) return;
-
         const camPos = new THREE.Vector3();
         camera.object3D.getWorldPosition(camPos);
-        
         const camRot = new THREE.Euler();
         camRot.setFromQuaternion(camera.object3D.quaternion, 'YXZ');
-
-        const distance = 0.7;
-        const targetX = camPos.x - Math.sin(camRot.y) * distance;
-        const targetZ = camPos.z - Math.cos(camRot.y) * distance;
-        const targetY = camPos.y - 0.2;
-
-        this.el.object3D.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.05);
+        const d = 0.9; /* ← pushed further from eyes (was 0.7) */
+        this.el.object3D.position.lerp(new THREE.Vector3(
+          camPos.x - Math.sin(camRot.y) * d,
+          camPos.y - 0.2,
+          camPos.z - Math.cos(camRot.y) * d
+        ), 0.05);
         this.el.object3D.lookAt(camPos.x, camPos.y, camPos.z);
       }
     });
@@ -417,310 +313,240 @@
 </head>
 
 <body>
-  <div id="loading">Loading VR...</div>
+  <div id="loading">
+    LOADING
+    <div class="sub">Engineering Drawing VR</div>
+  </div>
 
   <div id="overlay" style="display: none;">
-    <h1>VR Engineering Visualizer</h1>
-    <p>VR Controls:</p>
-    <ul style="text-align: left; margin-bottom: 20px;">
-      <li><strong>Left Joystick:</strong> Rotate Head (Look)</li>
-      <li><strong>Right Joystick:</strong> Move Body (Walk/Fly)</li>
-      <li><strong>X Button:</strong> Toggle Scenery (Hide UI)</li>
-      <li><strong>A / B Buttons:</strong> Scale Model</li>
-      <li><strong>Left Stick Click:</strong> Reset View</li>
-      <li><strong>Left Grip + Move:</strong> Rotate Model</li>
+    <h1>Eng Draw VR</h1>
+    <p class="tagline">Visualise · Understand · Master</p>
+    <ul class="controls-list">
+      <li><strong>Left Joystick</strong> Rotate Head (Look Around)</li>
+      <li><strong>Right Joystick</strong> Move Body (Walk / Fly)</li>
+      <li><strong>X Button</strong> Toggle Scenery Mode (Hide UI)</li>
+      <li><strong>A / B Buttons</strong> Scale Model Up / Down</li>
+      <li><strong>Left Stick Click</strong> Reset View & Position</li>
+      <li><strong>Left Grip + Move</strong> Rotate the 3D Model</li>
+      <li><strong>Right Grip</strong> Recenter Menu</li>
     </ul>
     <button class="btn" id="start-btn">ENTER EXPERIENCE</button>
   </div>
 
   <div id="instructions" style="display: none;">
     <strong>Controls:</strong><br>
-    L-Stick: Look | R-Stick: Move<br>
-    X Btn: Toggle Scenery Mode (Hide All)<br>
-    A/B: Scale | L-Grip: Rotate Model
+    L-Stick: Look &nbsp;|&nbsp; R-Stick: Move<br>
+    X: Scenery &nbsp;|&nbsp; A/B: Scale &nbsp;|&nbsp; L-Grip: Rotate
   </div>
 
-  <a-scene id="vr-scene"
-           cursor="rayOrigin: mouse" 
-           raycaster="objects: .interactive">
+  <!-- ─── A-FRAME SCENE ─────────────────────────────────── -->
+  <a-scene id="vr-scene" cursor="rayOrigin: mouse" raycaster="objects: .interactive">
 
     <a-assets>
       <img id="sky-panorama" src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
-      <img id="sand-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="sand-tex"     src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="soil-tex"     src="https://cdn.architextures.org/textures/23/5/soil-none-5i4x9p.jpg" crossorigin="anonymous">
+      <img id="sisal-tex"    src="https://cdn.architextures.org/textures/21/07/sisal-weave-60e333df44d3b-1200.jpg" crossorigin="anonymous">
+      <img id="jute-tex"     src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
 
-      <a-asset-item id="parrot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Parrot.glb"></a-asset-item>
+      <a-asset-item id="parrot-model"   src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Parrot.glb"></a-asset-item>
       <a-asset-item id="flamingo-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Flamingo.glb"></a-asset-item>
-      <a-asset-item id="stork-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Stork.glb"></a-asset-item>
+      <a-asset-item id="stork-model"    src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Stork.glb"></a-asset-item>
     </a-assets>
 
+    <!-- Sky -->
     <a-sky src="#sky-panorama" rotation="0 -90 0" material="side: back"></a-sky>
 
+    <!-- Birds (untouched) -->
     <a-entity id="birds">
-        <a-entity gltf-model="#parrot-model" 
-                  scale="0.02 0.02 0.02" 
-                  animation-mixer="clip: *; timeScale: 1.2"
-                  bird-flight="speed: 5.5; radius: 30; heightRange: 8 15"></a-entity>
-        <a-entity gltf-model="#parrot-model" 
-                  scale="0.02 0.02 0.02" 
-                  animation-mixer="clip: *; timeScale: 1.1"
-                  bird-flight="speed: 6.0; radius: 35; heightRange: 10 20"></a-entity>
-
-        <a-entity gltf-model="#flamingo-model" 
-                  scale="0.03 0.03 0.03" 
-                  animation-mixer="clip: *; timeScale: 0.8"
-                  bird-flight="speed: 3.5; radius: 40; heightRange: 15 25"></a-entity>
-        <a-entity gltf-model="#flamingo-model" 
-                  scale="0.03 0.03 0.03" 
-                  animation-mixer="clip: *; timeScale: 0.9"
-                  bird-flight="speed: 3.8; radius: 45; heightRange: 12 22"></a-entity>
-
-        <a-entity gltf-model="#stork-model" 
-                  scale="0.03 0.03 0.03" 
-                  animation-mixer="clip: *; timeScale: 0.7"
-                  bird-flight="speed: 4.5; radius: 50; heightRange: 20 40"></a-entity>
-        <a-entity gltf-model="#stork-model" 
-                  scale="0.03 0.03 0.03" 
-                  animation-mixer="clip: *; timeScale: 0.75"
-                  bird-flight="speed: 4.8; radius: 50; heightRange: 25 45"></a-entity>
+      <a-entity gltf-model="#parrot-model"   scale="0.02 0.02 0.02" animation-mixer="clip: *; timeScale: 1.2" bird-flight="speed: 5.5; radius: 30; heightRange: 8 15"></a-entity>
+      <a-entity gltf-model="#parrot-model"   scale="0.02 0.02 0.02" animation-mixer="clip: *; timeScale: 1.1" bird-flight="speed: 6.0; radius: 35; heightRange: 10 20"></a-entity>
+      <a-entity gltf-model="#flamingo-model" scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.8" bird-flight="speed: 3.5; radius: 40; heightRange: 15 25"></a-entity>
+      <a-entity gltf-model="#flamingo-model" scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.9" bird-flight="speed: 3.8; radius: 45; heightRange: 12 22"></a-entity>
+      <a-entity gltf-model="#stork-model"    scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.7" bird-flight="speed: 4.5; radius: 50; heightRange: 20 40"></a-entity>
+      <a-entity gltf-model="#stork-model"    scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.75" bird-flight="speed: 4.8; radius: 50; heightRange: 25 45"></a-entity>
     </a-entity>
 
-    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="10 10" color="#FFF"></a-plane>
+    <!-- Ground: sand centre + soil ring + sand outer ring -->
+    <a-plane  position="0 0 0"    rotation="-90 0 0" width="20" height="20" src="#sand-tex"  repeat="10 10" color="#FFF"></a-plane>
+    <a-ring   position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="1 1" color="#FFF"></a-ring>
+    <a-ring   position="0 0.02 0" rotation="-90 0 0" radius-inner="25" radius-outer="40" src="#sand-tex" repeat="15 15" color="#FFF"></a-ring>
 
-    <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="40" src="#sand-tex" repeat="15 15" color="#FFF"></a-ring>
-
+    <!-- Lighting (untouched) -->
     <a-entity light="type: ambient; intensity: 1; color: #FFF8DC"></a-entity>
-    <a-entity light="type: directional; position: 5 10 7.5; intensity: 1.5; color: #FFFACD" 
+    <a-entity light="type: directional; position: 5 10 7.5; intensity: 1.5; color: #FFFACD"
               animation="property: light.intensity; from: 1.5; to: 1.8; dir: alternate; loop: true; dur: 3000"></a-entity>
     <a-entity light="type: hemisphere; groundColor: #A1887F; intensity: 0.6"></a-entity>
 
+    <!-- ── EXIT button (untouched position) ── -->
     <a-plane id="exit-btn" class="interactive" position="0 2 9.8" rotation="0 180 0" width="2" height="0.8" color="#CF2027">
       <a-text value="EXIT VR" align="center" width="6" color="#FFF" position="0 0 0.01"></a-text>
     </a-plane>
 
-    <a-circle id="toggle-panel-btn" class="interactive" visible="true" follow-camera radius="0.08" color="#2B2B88" 
-              animation="property: scale; from: 1 1 1; to: 1.1 1.1 1.1; dir: alternate; loop: true; dur: 1000">
-      <a-text value="MENU" align="center" width="1.2" position="0 0 0.02"></a-text>
+    <!-- ── MENU toggle button — textured, smaller text, pushed to 0.9 via follow-camera ── -->
+    <a-circle id="toggle-panel-btn" class="interactive" visible="true" follow-camera radius="0.07" 
+              src="#sisal-tex" repeat="1 1"
+              animation="property: scale; from: 1 1 1; to: 1.05 1.05 1.05; dir: alternate; loop: true; dur: 1200">
+      <!-- subtle dark ring border -->
+      <a-circle radius="0.072" position="0 0 -0.002" color="#1a1a2e" opacity="0.6"></a-circle>
+      <a-circle radius="0.07"  position="0 0 -0.001" src="#sisal-tex" repeat="1 1"></a-circle>
+      <a-text value="MENU" align="center" width="0.7" position="0 0 0.015" color="#1a1a2e"></a-text>
     </a-circle>
 
+    <!-- ── CONTROL PANEL — sisal textured ── -->
     <a-entity id="control-panel" visible="false" follow-camera>
-      <a-plane width="1.2" height="0.8" color="#222" opacity="0.9" class="interactive">
-        <a-text value="CONTROLS" position="0 0.32 0.02" align="center" width="2.5" color="#FFF"></a-text>
-        
-        <a-plane id="btn-close" class="interactive" position="-0.5 0.32 0.03" width="0.12" height="0.12" color="red">
-          <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
+      <a-plane width="1.1" height="0.72" src="#sisal-tex" repeat="1 1" class="interactive">
+        <!-- dark overlay for readability -->
+        <a-plane width="1.1" height="0.72" position="0 0 0.001" color="#1a1a2e" opacity="0.72"></a-plane>
+
+        <a-text value="CONTROLS" position="0 0.28 0.015" align="center" width="2.2" color="#fff"></a-text>
+
+        <!-- Close X -->
+        <a-plane id="btn-close" class="interactive" position="-0.46 0.28 0.02" width="0.1" height="0.1" color="#CF2027">
+          <a-text value="✕" align="center" width="1.8" position="0 0 0.008" color="#fff"></a-text>
         </a-plane>
 
-        <a-plane id="btn-help" class="interactive" position="0 0.12 0.03" width="0.5" height="0.12" color="#5CCAE8">
-          <a-text value="HELP" align="center" width="3" position="0 0 0.01"></a-text>
+        <!-- HELP -->
+        <a-plane id="btn-help" class="interactive" position="0 0.1 0.02" width="0.46" height="0.1" src="#jute-tex" repeat="1 1">
+          <a-plane width="0.46" height="0.1" position="0 0 0.002" color="#2B2B88" opacity="0.75"></a-plane>
+          <a-text value="HELP" align="center" width="2.6" position="0 0 0.012" color="#fff"></a-text>
         </a-plane>
 
-        <a-plane id="btn-modules" class="interactive" position="0 -0.06 0.03" width="0.5" height="0.12" color="#B78A2D">
-          <a-text value="MODULES" align="center" width="3" position="0 0 0.01"></a-text>
+        <!-- MODULES -->
+        <a-plane id="btn-modules" class="interactive" position="0 -0.04 0.02" width="0.46" height="0.1" src="#jute-tex" repeat="1 1">
+          <a-plane width="0.46" height="0.1" position="0 0 0.002" color="#B78A2D" opacity="0.75"></a-plane>
+          <a-text value="MODULES" align="center" width="2.6" position="0 0 0.012" color="#fff"></a-text>
         </a-plane>
 
-        <a-plane id="btn-exit-panel" class="interactive" position="0 -0.24 0.03" width="0.5" height="0.12" color="#CF2027">
-          <a-text value="EXIT" align="center" width="3" position="0 0 0.01"></a-text>
+        <!-- EXIT -->
+        <a-plane id="btn-exit-panel" class="interactive" position="0 -0.18 0.02" width="0.46" height="0.1" src="#jute-tex" repeat="1 1">
+          <a-plane width="0.46" height="0.1" position="0 0 0.002" color="#CF2027" opacity="0.78"></a-plane>
+          <a-text value="EXIT" align="center" width="2.6" position="0 0 0.012" color="#fff"></a-text>
         </a-plane>
       </a-plane>
     </a-entity>
 
+    <!-- ── HELP CARD — jute textured ── -->
     <a-entity id="help-card" visible="false" follow-camera>
-      <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
-        <a-text value="HELP" position="0 0.52 0.02" align="center" width="2" color="#FFF"></a-text>
-        
-        <a-plane id="btn-close-help" class="interactive" position="-0.35 0.52 0.03" width="0.1" height="0.1" color="red">
-          <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
+      <a-plane width="0.76" height="1.15" src="#jute-tex" repeat="1 1" class="interactive" position="0 0 0.15">
+        <a-plane width="0.76" height="1.15" position="0 0 0.002" color="#1a1a2e" opacity="0.85"></a-plane>
+        <a-text value="HELP" position="0 0.48 0.015" align="center" width="1.8" color="#fff"></a-text>
+
+        <a-plane id="btn-close-help" class="interactive" position="-0.32 0.48 0.02" width="0.09" height="0.09" color="#CF2027">
+          <a-text value="✕" align="center" width="1.8" position="0 0 0.008" color="#fff"></a-text>
         </a-plane>
 
-        <a-text value="Link 1: Getting Started\nLink 2: User Guide\nLink 3: Tutorials\nLink 4: FAQ\nLink 5: Support" 
-                position="0 0 0.02" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
+        <a-text value="Getting Started\n\nUser Guide\n\nTutorials\n\nFAQ\n\nSupport"
+                position="0 0.05 0.015" align="center" width="1.4" color="#b0b0c8"></a-text>
       </a-plane>
     </a-entity>
 
+    <!-- ── MODULES CARD — jute textured, real module links ── -->
     <a-entity id="modules-card" visible="false" follow-camera>
-      <a-plane width="0.8" height="1.2" color="#333" opacity="0.95" position="0 0 0.15" class="interactive">
-        <a-text value="MODULES" position="0 0.52 0.02" align="center" width="2" color="#FFF"></a-text>
-        
-        <a-plane id="btn-close-modules" class="interactive" position="-0.35 0.52 0.03" width="0.1" height="0.1" color="red">
-          <a-text value="X" align="center" width="2" position="0 0 0.01"></a-text>
+      <a-plane width="0.9" height="1.3" src="#jute-tex" repeat="1 1" class="interactive" position="0 0 0.15">
+        <a-plane width="0.9" height="1.3" position="0 0 0.002" color="#1a1a2e" opacity="0.85"></a-plane>
+        <a-text value="MODULES" position="0 0.56 0.015" align="center" width="2" color="#fff"></a-text>
+
+        <a-plane id="btn-close-modules" class="interactive" position="-0.39 0.56 0.02" width="0.09" height="0.09" color="#CF2027">
+          <a-text value="✕" align="center" width="1.8" position="0 0 0.008" color="#fff"></a-text>
         </a-plane>
 
-        <a-text value="Module 1: Introduction\nModule 2: Basic Concepts\nModule 3: Advanced Topics\nModule 4: Projects\nModule 5: Resources" 
-                position="0 0 0.02" align="center" width="1.5" color="#AAA" wrap-count="25"></a-text>
+        <!-- Module buttons — each is a clickable plane -->
+        <a-plane id="mod-btn-1" class="interactive" position="0  0.38 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
+          <a-text value="1. Orthographic Projection" align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-2" class="interactive" position="0  0.24 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
+          <a-text value="2. Isometric Drawing"       align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-3" class="interactive" position="0  0.10 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
+          <a-text value="3. Projection of Lines"     align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-4" class="interactive" position="0 -0.04 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
+          <a-text value="4. Projection of Planes"    align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
+          <a-text value="Coming Soon"                 align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-5" class="interactive" position="0 -0.18 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
+          <a-text value="5. Projection of Solids"    align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
+          <a-text value="Coming Soon"                 align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-6" class="interactive" position="0 -0.32 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
+          <a-text value="6. Section of Solids"       align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
+          <a-text value="Coming Soon"                 align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
+        </a-plane>
+        <a-plane id="mod-btn-7" class="interactive" position="0 -0.46 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
+          <a-text value="7. Development of Surfaces" align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
+          <a-text value="Coming Soon"                 align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
+        </a-plane>
       </a-plane>
     </a-entity>
 
+    <!-- ── 3D MODEL (compound shape — untouched geometry) ── -->
     <a-entity id="model-container" position="0 1.6 -2.5">
-      <a-entity id="engineering-model" 
-                scale="0.5 0.5 0.5" 
-                rotation="0 0 0"
-                remote-rotate-model
-                scalable-model>
-        <a-box position="0 0 0" width="1.2" height="0.8" depth="0.8" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
-        <a-box position="0 0 0" width="1.21" height="0.81" depth="0.81" 
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
-        
-        <a-cylinder position="0 0 0.42" radius="0.25" height="0.08" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
-        <a-cylinder position="0 0 0.42" radius="0.255" height="0.085"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
-        
-        <a-box position="0.7 0 0" width="0.4" height="0.6" depth="0.6" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
-        <a-box position="0.7 0 0" width="0.41" height="0.61" depth="0.61"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
-        
-        <a-cylinder position="0 0.5 0" radius="0.3" height="0.3" color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
-        <a-cylinder position="0 0.5 0" radius="0.305" height="0.305"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
-        
-        <a-box position="-0.5 -0.3 0.3" width="0.2" height="0.2" depth="0.2" color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
-        <a-box position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21"
-          material="color: #000000; wireframe: true; wireframeLinewidth: 3"></a-box>
+      <a-entity id="engineering-model" scale="0.5 0.5 0.5" rotation="0 0 0" remote-rotate-model scalable-model>
+        <a-box      position="0 0 0"       width="1.2"  height="0.8"  depth="0.8"  color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
+        <a-box      position="0 0 0"       width="1.21" height="0.81" depth="0.81" material="color: #000; wireframe: true; wireframeLinewidth: 3"></a-box>
+        <a-cylinder position="0 0 0.42"    radius="0.25"  height="0.08"  color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
+        <a-cylinder position="0 0 0.42"    radius="0.255" height="0.085" material="color: #000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
+        <a-box      position="0.7 0 0"     width="0.4"  height="0.6"  depth="0.6"  color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
+        <a-box      position="0.7 0 0"     width="0.41" height="0.61" depth="0.61" material="color: #000; wireframe: true; wireframeLinewidth: 3"></a-box>
+        <a-cylinder position="0 0.5 0"     radius="0.3"   height="0.3"   color="#F5F5F5" metalness="0.5" roughness="0.3"></a-cylinder>
+        <a-cylinder position="0 0.5 0"     radius="0.305" height="0.305" material="color: #000; wireframe: true; wireframeLinewidth: 3"></a-cylinder>
+        <a-box      position="-0.5 -0.3 0.3" width="0.2"  height="0.2"  depth="0.2"  color="#F5F5F5" metalness="0.2" roughness="0.4"></a-box>
+        <a-box      position="-0.5 -0.3 0.3" width="0.21" height="0.21" depth="0.21" material="color: #000; wireframe: true; wireframeLinewidth: 3"></a-box>
       </a-entity>
-
-      <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="5"></a-text>
+      <a-text id="view-label" value="Front View" position="0 1.2 0" align="center" color="#2B2B88" width="4"></a-text>
     </a-entity>
 
-    <a-entity id="rig" 
-              movement-controls="speed: 0.15; controls: gamepad; fly: true">
-              
+    <!-- ── RIG + CONTROLLERS (untouched) ── -->
+    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad; fly: true">
       <a-entity id="camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
-
-      <a-entity id="left-controller" 
-                oculus-touch-controls="hand: left"
-                vr-controller="hand: left"
-                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.75">
-      </a-entity>
-
-      <a-entity id="right-controller" 
-                oculus-touch-controls="hand: right"
-                vr-controller="hand: right"
-                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: red; lineOpacity: 0.75">
-      </a-entity>
+      <a-entity id="left-controller"  oculus-touch-controls="hand: left"  vr-controller="hand: left"
+                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: cyan; lineOpacity: 0.75"></a-entity>
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" vr-controller="hand: right"
+                raycaster="objects: .interactive; far: 10; showLine: true; lineColor: red;  lineOpacity: 0.75"></a-entity>
     </a-entity>
 
   </a-scene>
 
+  <!-- ─── SCRIPTS ─────────────────────────────────────────── -->
   <script>
-    /**
-     * AUDIO MANAGER
-     * Handles background ambience and random sound effects
-     */
+    // ── AUDIO MANAGER ──────────────────────────────────────
     const AudioManager = {
-      waves: new Audio('waves.mp3'),
-      birds: new Audio('birds.mp3'),
-      waves2: new Audio('waves2.mp3'),
+      waves: new Audio('waves.mp3'), birds: new Audio('birds.mp3'), waves2: new Audio('waves2.mp3'),
       timers: [],
-
-      init: function() {
-        // Track 1: Waves (Continuous Loop)
-        this.waves.loop = true;
-        this.waves.volume = 0.4;
-
-        // Track 2: Birds (Random intervals)
+      init: function () {
+        this.waves.loop = true; this.waves.volume = 0.4;
         this.birds.volume = 0.6;
-        this.birds.addEventListener('ended', () => {
-          this.scheduleNextBird();
-        });
-
-        // Track 3: Waves 2 (Complex random intervals + smooth fading)
-        this.waves2.volume = 0; // Start silent for fade-in
-        this.waves2.loop = true; // We manage play/pause manually, but loop ensures we don't run out of track during a long fade
+        this.birds.addEventListener('ended', () => this.scheduleNextBird());
+        this.waves2.volume = 0; this.waves2.loop = true;
       },
-
-      start: function() {
-        // Must be called after user interaction (Click "Enter Experience")
-        this.waves.play().catch(e => console.log("Audio play error:", e));
-        this.scheduleNextBird();
-        this.scheduleWaves2();
+      start: function () { this.waves.play().catch(()=>{}); this.scheduleNextBird(); this.scheduleWaves2(); },
+      stop: function () { this.waves.pause(); this.birds.pause(); this.waves2.pause(); this.timers.forEach(t=>clearTimeout(t)); this.timers=[]; },
+      scheduleNextBird: function () {
+        this.timers.push(setTimeout(() => { this.birds.currentTime=0; this.birds.play().catch(()=>{}); }, Math.random()*17000+8000));
       },
-
-      stop: function() {
-        this.waves.pause();
-        this.birds.pause();
-        this.waves2.pause();
-        this.timers.forEach(t => clearTimeout(t));
-        this.timers = [];
+      scheduleWaves2: function () {
+        this.timers.push(setTimeout(() => this.playWaves2Swell(), Math.random()*20000+10000));
       },
-
-      scheduleNextBird: function() {
-        // Random interval between 8 and 25 seconds
-        const delay = Math.random() * 17000 + 8000;
-        const timer = setTimeout(() => {
-          this.birds.currentTime = 0;
-          this.birds.play().catch(e => {});
-        }, delay);
-        this.timers.push(timer);
-      },
-
-      scheduleWaves2: function() {
-        // Random interval before the next "swell" starts (10s to 30s)
-        const delay = Math.random() * 20000 + 10000;
-        const timer = setTimeout(() => {
-          this.playWaves2Swell();
-        }, delay);
-        this.timers.push(timer);
-      },
-
-      playWaves2Swell: function() {
-        this.waves2.currentTime = 0;
-        this.waves2.play().catch(e => {});
-        
-        // Random parameters for this specific swell
-        const targetVolume = Math.random() * 0.5 + 0.3; // Peak volume between 0.3 and 0.8
-        const duration = Math.random() * 10000 + 8000;  // How long this swell lasts
-        const fadeInTime = Math.random() * 3000 + 2000; // 2-5s fade in
-        const fadeOutTime = Math.random() * 3000 + 2000; // 2-5s fade out
-
-        // 1. Fade In
-        this.fadeAudio(this.waves2, 0, targetVolume, fadeInTime, () => {
-          
-          // 2. Wait for main duration
-          const holdTimer = setTimeout(() => {
-            
-            // 3. Fade Out
-            this.fadeAudio(this.waves2, targetVolume, 0, fadeOutTime, () => {
-              this.waves2.pause();
-              this.scheduleWaves2(); // Schedule the next cycle
-            });
-
-          }, duration);
-          this.timers.push(holdTimer);
+      playWaves2Swell: function () {
+        this.waves2.currentTime=0; this.waves2.play().catch(()=>{});
+        const tv=Math.random()*0.5+0.3, dur=Math.random()*10000+8000, fi=Math.random()*3000+2000, fo=Math.random()*3000+2000;
+        this.fadeAudio(this.waves2, 0, tv, fi, () => {
+          this.timers.push(setTimeout(() => { this.fadeAudio(this.waves2, tv, 0, fo, () => { this.waves2.pause(); this.scheduleWaves2(); }); }, dur));
         });
       },
-
-      // Helper for smooth volume transitions (no sudden changes)
-      fadeAudio: function(audio, startVol, endVol, duration, callback) {
-        const steps = 60; // 60fps updates
-        const stepTime = duration / steps;
-        const volStep = (endVol - startVol) / steps;
-        let currentStep = 0;
-
-        const interval = setInterval(() => {
-          currentStep++;
-          let newVol = startVol + (volStep * currentStep);
-          // Clamp volume between 0 and 1
-          newVol = Math.max(0, Math.min(1, newVol));
-          audio.volume = newVol;
-
-          if (currentStep >= steps) {
-            clearInterval(interval);
-            if (callback) callback();
-          }
-        }, stepTime);
-        this.timers.push(interval);
+      fadeAudio: function (audio, s, e, dur, cb) {
+        const steps=60, st=dur/steps, vs=(e-s)/steps; let c=0;
+        const iv=setInterval(() => { c++; audio.volume=Math.max(0,Math.min(1,s+vs*c)); if(c>=steps){clearInterval(iv);if(cb)cb();} }, st);
+        this.timers.push(iv);
       }
     };
-
-    // Initialize Audio
     AudioManager.init();
 
-    /* ---------------------------------------------------- */
-    /* EXISTING LOGIC PRESERVED BELOW                       */
-    /* ---------------------------------------------------- */
-
+    // ── SCENE READY ─────────────────────────────────────────
     const scene = document.querySelector('a-scene');
     const model = document.getElementById('engineering-model');
-    
+
     scene.addEventListener('loaded', () => {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('overlay').style.display = 'flex';
@@ -729,79 +555,45 @@
     document.getElementById('start-btn').addEventListener('click', () => {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('instructions').style.display = 'block';
-      
-      // START AUDIO SYSTEM HERE
       AudioManager.start();
-
       startViewCycle();
-      
-      // Auto-Enter VR Mode on Click
-      if (scene.enterVR) {
-        scene.enterVR();
-      }
+      if (scene.enterVR) scene.enterVR();
     });
 
-    // View cycling system
-    let views = [
-      {name: 'Front View', rotation: {x: 0, y: 0, z: 0}},
-      {name: 'Top View', rotation: {x: 90, y: 0, z: 0}},
-      {name: 'Side View', rotation: {x: 0, y: 90, z: 0}},
-      {name: 'Isometric View', rotation: {x: 35.26, y: 45, z: 0}}
+    // ── VIEW CYCLING (untouched logic) ────────────────────
+    const views = [
+      {name:'Front View',     rotation:{x:0,     y:0,  z:0}},
+      {name:'Top View',       rotation:{x:90,    y:0,  z:0}},
+      {name:'Side View',      rotation:{x:0,     y:90, z:0}},
+      {name:'Isometric View', rotation:{x:35.26, y:45, z:0}}
     ];
-    let viewIdx = 0;
-    let viewCycleInterval = null;
-    let isInteracting = false;
-    let lastInteractionTime = 0;
+    let viewIdx=0, viewCycleInterval=null, isInteracting=false, lastInteractionTime=0;
 
     function startViewCycle() {
       if (viewCycleInterval) clearInterval(viewCycleInterval);
       viewCycleInterval = setInterval(() => {
-        const now = Date.now();
-        if (window.isLeftGripHeld) {
-            lastInteractionTime = now;
-            return; 
-        }
-
-        if (!isInteracting && (now - lastInteractionTime > 10000 || lastInteractionTime === 0)) {
-          viewIdx = (viewIdx + 1) % views.length;
-          const view = views[viewIdx];
-          const label = document.getElementById('view-label');
-          
-          label.setAttribute('value', view.name);
-          model.setAttribute('animation', {
-            property: 'rotation',
-            to: `${view.rotation.x} ${view.rotation.y} ${view.rotation.z}`,
-            dur: 1200,
-            easing: 'easeInOutQuad'
-          });
+        if (window.isLeftGripHeld) { lastInteractionTime=Date.now(); return; }
+        if (!isInteracting && (Date.now()-lastInteractionTime>10000 || lastInteractionTime===0)) {
+          viewIdx = (viewIdx+1) % views.length;
+          const v = views[viewIdx];
+          document.getElementById('view-label').setAttribute('value', v.name);
+          model.setAttribute('animation', { property:'rotation', to:`${v.rotation.x} ${v.rotation.y} ${v.rotation.z}`, dur:1200, easing:'easeInOutQuad' });
         }
       }, 3000);
     }
+    function stopViewCycle()   { isInteracting=true;  lastInteractionTime=Date.now(); document.getElementById('view-label').setAttribute('value','Interactive Mode'); document.getElementById('view-label').setAttribute('color','#CF2027'); }
+    function resumeViewCycle() { isInteracting=false; lastInteractionTime=Date.now(); document.getElementById('view-label').setAttribute('color','#2B2B88'); }
 
-    function stopViewCycle() {
-      isInteracting = true;
-      lastInteractionTime = Date.now();
-      document.getElementById('view-label').setAttribute('value', 'Interactive Mode');
-      document.getElementById('view-label').setAttribute('color', '#CF2027');
-    }
-
-    function resumeViewCycle() {
-      isInteracting = false;
-      lastInteractionTime = Date.now();
-      document.getElementById('view-label').setAttribute('color', '#2B2B88');
-    }
-
-    scene.addEventListener('stop-view-cycle', stopViewCycle);
+    scene.addEventListener('stop-view-cycle',   stopViewCycle);
     scene.addEventListener('resume-view-cycle', resumeViewCycle);
 
-    // UI Panel Controls
+    // ── PANEL TOGGLE LOGIC (untouched) ────────────────────
     document.getElementById('toggle-panel-btn').addEventListener('click', () => {
-      const p = document.getElementById('control-panel');
+      const p   = document.getElementById('control-panel');
       const btn = document.getElementById('toggle-panel-btn');
-      const isVisible = p.getAttribute('visible');
-      
-      p.setAttribute('visible', !isVisible);
-      btn.setAttribute('visible', isVisible);
+      const vis = p.getAttribute('visible');
+      p.setAttribute('visible', !vis);
+      btn.setAttribute('visible', vis);
     });
 
     document.getElementById('btn-close').addEventListener('click', (e) => {
@@ -812,11 +604,9 @@
 
     document.getElementById('btn-help').addEventListener('click', (e) => {
       e.stopPropagation();
-      const panel = document.getElementById('control-panel');
-      if (panel.getAttribute('visible')) {
-        const helpCard = document.getElementById('help-card');
-        helpCard.setAttribute('visible', true);
-        panel.setAttribute('visible', false);
+      if (document.getElementById('control-panel').getAttribute('visible')) {
+        document.getElementById('help-card').setAttribute('visible', true);
+        document.getElementById('control-panel').setAttribute('visible', false);
         document.getElementById('toggle-panel-btn').setAttribute('visible', false);
         document.getElementById('modules-card').setAttribute('visible', false);
       }
@@ -824,11 +614,9 @@
 
     document.getElementById('btn-modules').addEventListener('click', (e) => {
       e.stopPropagation();
-      const panel = document.getElementById('control-panel');
-      if (panel.getAttribute('visible')) {
-        const modulesCard = document.getElementById('modules-card');
-        modulesCard.setAttribute('visible', true);
-        panel.setAttribute('visible', false);
+      if (document.getElementById('control-panel').getAttribute('visible')) {
+        document.getElementById('modules-card').setAttribute('visible', true);
+        document.getElementById('control-panel').setAttribute('visible', false);
         document.getElementById('toggle-panel-btn').setAttribute('visible', false);
         document.getElementById('help-card').setAttribute('visible', false);
       }
@@ -848,9 +636,7 @@
 
     document.getElementById('btn-exit-panel').addEventListener('click', (e) => {
       e.stopPropagation();
-      // STOP AUDIO ON EXIT
       AudioManager.stop();
-      
       scene.exitVR();
       document.getElementById('overlay').style.display = 'flex';
       document.getElementById('instructions').style.display = 'none';
@@ -862,79 +648,63 @@
     });
 
     document.getElementById('exit-btn').addEventListener('click', () => {
-      // STOP AUDIO ON EXIT
       AudioManager.stop();
-
       scene.exitVR();
       document.getElementById('overlay').style.display = 'flex';
       document.getElementById('instructions').style.display = 'none';
       if (viewCycleInterval) clearInterval(viewCycleInterval);
     });
 
-    // Desktop mouse controls
-    let isDragging = false;
-    let previousMouseX = 0;
-    let previousMouseY = 0;
-    let mouseDownOnModel = false;
+    // ── MODULE BUTTON NAVIGATION ──────────────────────────
+    const modulePages = {
+      'mod-btn-1': 'orthographic.html',
+      'mod-btn-2': 'isometric.html',
+      'mod-btn-3': 'projection-lines.html',
+      'mod-btn-4': null,
+      'mod-btn-5': null,
+      'mod-btn-6': null,
+      'mod-btn-7': null
+    };
+    Object.keys(modulePages).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', () => {
+        if (modulePages[id]) {
+          window.location.href = modulePages[id];
+        } else {
+          el.setAttribute('opacity', '0.35');
+          setTimeout(() => el.setAttribute('opacity', '0.82'), 700);
+        }
+      });
+    });
+
+    // ── DESKTOP MOUSE CONTROLS (untouched) ────────────────
+    let isDragging=false, previousMouseX=0, previousMouseY=0, mouseDownOnModel=false;
 
     model.addEventListener('mousedown', (e) => {
-      mouseDownOnModel = true;
-      isDragging = true;
-      previousMouseX = e.clientX;
-      previousMouseY = e.clientY;
-      stopViewCycle();
-      e.preventDefault();
-      e.stopPropagation();
+      mouseDownOnModel=true; isDragging=true;
+      previousMouseX=e.clientX; previousMouseY=e.clientY;
+      stopViewCycle(); e.preventDefault(); e.stopPropagation();
     });
-
     document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        mouseDownOnModel = false;
-        resumeViewCycle();
-      }
+      if (isDragging) { isDragging=false; mouseDownOnModel=false; resumeViewCycle(); }
     });
-    
     document.addEventListener('mousemove', (e) => {
       if (!isDragging || !mouseDownOnModel) return;
-      
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const deltaX = e.clientX - previousMouseX;
-      const deltaY = e.clientY - previousMouseY;
-      
-      previousMouseX = e.clientX;
-      previousMouseY = e.clientY;
-      
-      model.object3D.rotation.y += deltaX * 0.01;
-      model.object3D.rotation.x += deltaY * 0.01;
+      e.preventDefault(); e.stopPropagation();
+      model.object3D.rotation.y += (e.clientX - previousMouseX) * 0.01;
+      model.object3D.rotation.x += (e.clientY - previousMouseY) * 0.01;
+      previousMouseX=e.clientX; previousMouseY=e.clientY;
     });
 
     const camera = document.getElementById('camera');
-    model.addEventListener('mouseenter', () => {
-      if (camera.components['look-controls']) {
-        camera.components['look-controls'].pause();
-      }
-    });
-    
-    model.addEventListener('mouseleave', () => {
-      if (!isDragging && camera.components['look-controls']) {
-        camera.components['look-controls'].play();
-      }
-    });
+    model.addEventListener('mouseenter', () => { if (camera.components['look-controls']) camera.components['look-controls'].pause(); });
+    model.addEventListener('mouseleave', () => { if (!isDragging && camera.components['look-controls']) camera.components['look-controls'].play(); });
 
-    // Desktop scroll wheel for zoom
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const scalable = model.components['scalable-model'];
-      if (scalable) {
-        if (e.deltaY < 0) {
-          scalable.scaleUp();
-        } else {
-          scalable.scaleDown();
-        }
-      }
+      const sc = model.components['scalable-model'];
+      if (sc) { e.deltaY < 0 ? sc.scaleUp() : sc.scaleDown(); }
     }, { passive: false });
   </script>
 </body>
