@@ -114,29 +114,28 @@
 
         if(!targetObj) return;
 
-        // 1. SAVE CURRENT STATE (So we can restore the beach later)
-        const oldBg = scene.background;
+        // 1. SAVE STATE
         const oldClearColor = renderer.getClearColor(new THREE.Color());
         const oldClearAlpha = renderer.getClearAlpha();
         
+        // 2. GET ALL ELEMENTS TO HIDE (THE CRITICAL FIX)
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
         const screens = document.getElementById('screens-group');
+        const sky = document.querySelector('a-sky'); // <--- THIS WAS MISSING
         
-        // 2. PREPARE "BLACK VOID" ENVIRONMENT
-        // Hide scenery elements
+        // 3. HIDE EVERYTHING
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
         if(rig) rig.object3D.visible = false;
         if(screens) screens.object3D.visible = false;
+        if(sky) sky.object3D.visible = false; // <--- HIDE THE SKY SPHERE
 
-        // Force Scene Background to NULL (removes Skybox)
-        scene.background = null;
-        // Force Renderer to clear to Solid Black
-        renderer.setClearColor(0x000000, 1);
+        // 4. PREPARE RENDERER FOR BLACK VOID
+        renderer.setClearColor(0x000000, 1); // Force Black Background
         
-        // 3. SET OBJECT MATERIALS (Black Body / White Lines)
+        // 5. SET OBJECT MATERIALS (Black Body / White Lines)
         const meshes = [];
         const lines = [];
 
@@ -153,8 +152,7 @@
             }
         });
 
-        // 4. RENDER TO TEXTURES (The Snapshot)
-        // Explicitly clear each target to black before drawing
+        // 6. RENDER TO TEXTURES
         renderer.setRenderTarget(this.rtFront);
         renderer.clear();
         renderer.render(scene, this.camFront);
@@ -167,9 +165,8 @@
         renderer.clear();
         renderer.render(scene, this.camSide);
 
-        // 5. RESTORE REALITY (Bring back the beach)
+        // 7. RESTORE STATE
         renderer.setRenderTarget(null);
-        scene.background = oldBg;
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         
         // Restore Colors
@@ -181,11 +178,11 @@
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
         if(screens) screens.object3D.visible = true;
+        if(sky) sky.object3D.visible = true; // <--- SHOW SKY AGAIN
       }
     });
 
     // ─── COMPONENT: RIGHT CONTROLLER LOGIC ──────────────────
-    // Handles BOTH Rotation (Grip) and Clicking (Trigger)
     AFRAME.registerComponent('ortho-interaction', {
       init: function () {
         // 1. CLICK LOGIC (Main Trigger - Index Finger)
