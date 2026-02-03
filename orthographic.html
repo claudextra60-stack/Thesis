@@ -50,105 +50,34 @@
 
   <script>
     // ─── GLOBAL STATE ───────────────────────────────────────
-    window.isAnimationPaused = false;
-    window.isLeftGripHeld = false;
+    window.isAnimationPaused = false; // Controls the Pause/Play state
 
-    // ─── COMPONENT: ORTHO INTERACTION (Grip & Trigger) ──────
-    // Note: We removed movement logic from here. movement-controls handles WASD & Joystick now.
-    AFRAME.registerComponent('ortho-interaction', {
-      schema: { 
-        hand: { type: 'string', default: 'left' }
-      },
-      init: function () {
-        this.onGripDown = this.onGripDown.bind(this);
-        this.onGripUp = this.onGripUp.bind(this);
-        this.onThumbstickDown = this.onThumbstickDown.bind(this);
-        this.onTriggerDown = this.onTriggerDown.bind(this);
-
-        this.el.addEventListener('gripdown', this.onGripDown);
-        this.el.addEventListener('gripup', this.onGripUp);
-        this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
-        this.el.addEventListener('triggerdown', this.onTriggerDown);
-      },
-
-      onGripDown: function () {
-        // RIGHT HAND: Toggle Pause
-        if (this.data.hand === 'right') {
-          window.isAnimationPaused = !window.isAnimationPaused;
-          const target = document.getElementById('target-object');
-          if (target) {
-            target.setAttribute('animation', 'enabled', !window.isAnimationPaused);
-            this.el.emit('hapticpulse', { intensity: 0.8, duration: 150 });
-            const qText = document.getElementById('q-text');
-            if(qText) qText.setAttribute('value', window.isAnimationPaused ? "PAUSED" : "Rotate the white block.\nPress RIGHT GRIP to Pause/Play.");
-          }
-        }
-        // LEFT HAND: Manual Rotation Clutch
-        if (this.data.hand === 'left') {
-          window.isLeftGripHeld = true;
-          this.el.emit('hapticpulse', { intensity: 0.5, duration: 100 });
-        }
-      },
-
-      onGripUp: function () {
-        if (this.data.hand === 'left') window.isLeftGripHeld = false;
-      },
-
-      onThumbstickDown: function () {
-        // LEFT STICK CLICK: Reset Object
-        if (this.data.hand === 'left') {
-          const target = document.getElementById('target-object');
-          if(target) {
-            target.object3D.rotation.set(0,0,0);
-            this.el.emit('hapticpulse', { intensity: 0.5, duration: 50 });
-          }
-        }
-      },
-
-      onTriggerDown: function() {
-        // Pass click to UI
-        const raycaster = this.el.components.raycaster;
-        if (!raycaster) return;
-        const hits = raycaster.intersectedEls;
-        for (let i = 0; i < hits.length; i++) {
-          if (hits[i].classList.contains('interactive')) {
-            hits[i].emit('click');
-            this.el.emit('hapticpulse', { intensity: 0.5, duration: 50 });
-            break;
-          }
-        }
-      }
-    });
-
-    // ─── COMPONENT: CLEAN EDGES ──────────────────────────────
+    // ─── COMPONENT: CLEAN EDGES (AutoCAD Style) ──────────────
     AFRAME.registerComponent('clean-edges', {
         schema: { color: {default: '#000'} },
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
-            this.el.addEventListener('model-loaded', () => this.createEdges()); // Fix for GLTF/Shape delays
             if (this.el.getObject3D('mesh')) this.createEdges();
         },
         createEdges: function() {
             const mesh = this.el.getObject3D('mesh');
             if (!mesh || this.edgesCreated) return;
+            // Threshold angle: 15 degrees
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ color: this.data.color });
             const line = new THREE.LineSegments(edges, material);
-            
-            // IMPORTANT: Add edges to Layer 1 as well so Ortho Cameras see them
-            line.layers.enable(1); 
-            
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
     });
 
-    // ─── COMPONENT: PROJECTION RENDERER (LAYER FIX) ──────────
+    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
+    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
         
-        // 1. CREATE CAMERAS
+        // CAMERAS
         this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camFront.position.set(0, 1.6, 2); 
         this.camFront.lookAt(0, 1.6, 0);
@@ -161,33 +90,32 @@
         this.camSide = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
-
-        // 2. SET LAYERS (Crucial for VR Fix)
-        // Ortho cameras will ONLY see Layer 1. 
-        // We will put the Object on Layer 1. The Environment stays on Layer 0.
-        this.camFront.layers.set(1); 
-        this.camTop.layers.set(1);
-        this.camSide.layers.set(1);
-
-        // 3. RENDER TARGETS
+        
+        // RENDER TARGET SETTINGS
+        // Resolution 512: Makes the 1px lines look effectively "thicker" than 1024.
         const res = 512; 
         const rtSettings = { 
             minFilter: THREE.LinearFilter, 
             magFilter: THREE.LinearFilter, 
-            samples: 4, 
+            samples: 4, // Anti-aliasing (smooths edges)
             type: THREE.HalfFloatType
         };
+
         this.rtFront = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtSide  = new THREE.WebGLRenderTarget(res, res, rtSettings);
 
-        // 4. ASSIGN TEXTURES TO SCREENS
-        const maxAniso = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
-        [this.rtFront, this.rtTop, this.rtSide].forEach(rt => rt.texture.anisotropy = maxAniso);
-
-        document.querySelector('#screen-front').getObject3D('mesh').material.map = this.rtFront.texture;
-        document.querySelector('#screen-top').getObject3D('mesh').material.map = this.rtTop.texture;
-        document.querySelector('#screen-side').getObject3D('mesh').material.map = this.rtSide.texture;
+        // TEXTURE SETTINGS (ANISOTROPY)
+        // This makes the lines look "HD" and crisp even when viewed from the side
+        const maxAnisotropy = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
+        this.rtFront.texture.anisotropy = maxAnisotropy;
+        this.rtTop.texture.anisotropy = maxAnisotropy;
+        this.rtSide.texture.anisotropy = maxAnisotropy;
+        
+        // Assign textures
+        document.querySelector('#screen-front').getObject3D('mesh').material.map   = this.rtFront.texture;
+        document.querySelector('#screen-top').getObject3D('mesh').material.map     = this.rtTop.texture;
+        document.querySelector('#screen-side').getObject3D('mesh').material.map    = this.rtSide.texture;
         document.querySelector('#screen-ceiling').getObject3D('mesh').material.map = this.rtTop.texture;
       },
 
@@ -197,31 +125,53 @@
         const scene = sceneEl.object3D;
         const targetObj = document.getElementById('target-object');
 
-        if(!targetObj) return;
+        // Groups to hide
+        const env = document.getElementById('environment-group');
+        const ui = document.getElementById('exercise-ui');
+        const rig = document.getElementById('rig');
+        const exit = document.getElementById('exit-door');
+        const screens = document.getElementById('screens-group');
 
-        // ─── LAYER MANAGEMENT ───
-        // Ensure Target Object and Lights are visible to Ortho Cameras (Layer 1)
-        // We do this every tick to catch new geometries loaded by levels
-        scene.traverse(node => {
-            // If it's the target object or a child of it
-            if (node === targetObj.object3D || targetObj.object3D.children.includes(node) || node.parent === targetObj.object3D) {
-                node.layers.enable(1); // Enable Layer 1 so Ortho cams see it
-            }
-            // If it's a light, enable Layer 1 so the object is lit in the projection
-            if (node.isLight) {
-                node.layers.enable(1);
-            }
+        const originalBg = scene.background;
+        const meshes = [];
+        const lines = [];
+
+        if(targetObj) {
+            targetObj.object3D.traverse(node => {
+                if(node.isMesh) meshes.push(node);
+                if(node.isLineSegments) lines.push(node);
+            });
+        }
+
+        // Setup Projection Style
+        scene.background = new THREE.Color(0x000000); 
+        
+        // Z-Fighting Fix: Push black meshes back
+        meshes.forEach(m => {
+            m.userData.origColor = m.material.color.getHex();
+            m.userData.origPolyOffset = m.material.polygonOffset;
+            m.userData.origPolyFactor = m.material.polygonOffsetFactor;
+            m.userData.origPolyUnits  = m.material.polygonOffsetUnits;
+
+            m.material.color.setHex(0x000000); 
+            m.material.polygonOffset = true;
+            m.material.polygonOffsetFactor = 1;
+            m.material.polygonOffsetUnits = 1;
         });
 
-        // ─── RENDERING ───
-        const originalClearAlpha = renderer.getClearAlpha();
-        const originalClearColor = new THREE.Color();
-        renderer.getClearColor(originalClearColor);
+        lines.forEach(l => {
+            l.userData.origColor = l.material.color.getHex();
+            l.material.color.setHex(0xFFFFFF);
+        });
 
-        // Render black background for the projections
-        renderer.setClearColor(0x000000, 1);
+        // Hide UI/Env
+        if(env) env.object3D.visible = false;
+        if(ui) ui.object3D.visible = false;
+        if(rig) rig.object3D.visible = false;
+        if(exit) exit.object3D.visible = false;
+        if(screens) screens.object3D.visible = false;
 
-        // Render snapshots
+        // Render
         renderer.setRenderTarget(this.rtFront);
         renderer.render(scene, this.camFront);
         
@@ -231,13 +181,28 @@
         renderer.setRenderTarget(this.rtSide);
         renderer.render(scene, this.camSide);
 
-        // Restore renderer to normal for the Main Camera (The Player)
+        // Restore
         renderer.setRenderTarget(null);
-        renderer.setClearColor(originalClearColor, originalClearAlpha);
+        scene.background = originalBg;
+        
+        meshes.forEach(m => { 
+            m.material.color.setHex(m.userData.origColor);
+            m.material.polygonOffset = m.userData.origPolyOffset;
+            m.material.polygonOffsetFactor = m.userData.origPolyFactor;
+            m.material.polygonOffsetUnits = m.userData.origPolyUnits;
+        });
+
+        lines.forEach(l => { l.material.color.setHex(l.userData.origColor); });
+
+        if(env) env.object3D.visible = true;
+        if(ui) ui.object3D.visible = true;
+        if(rig) rig.object3D.visible = true;
+        if(exit) exit.object3D.visible = true;
+        if(screens) screens.object3D.visible = true;
       }
     });
 
-    // ─── COMPONENT: REMOTE ROTATE (MANUAL) ──────────────────
+    // ─── COMPONENT: REMOTE ROTATE ───────────────────────────
     AFRAME.registerComponent('remote-rotate-model', {
       init: function () {
         this.rightController = document.getElementById('right-controller');
@@ -247,10 +212,12 @@
         this.isRotating      = false;
       },
       tick: function () {
+        // If left grip is held, we manually rotate
         if (window.isLeftGripHeld && this.rightController) {
             if (!this.isRotating) {
                 this.isRotating = true;
                 this.lastRotation.copy(this.rightController.object3D.quaternion);
+                // Disable animation while manually turning
                 this.el.setAttribute('animation', 'enabled', false);
             }
             this.currentRotation.copy(this.rightController.object3D.quaternion);
@@ -259,9 +226,11 @@
             this.el.object3D.quaternion.premultiply(this.deltaRotation);
             this.lastRotation.copy(this.currentRotation);
         } else {
+            // Released manual control
             if (this.isRotating) { 
                 this.isRotating = false; 
             }
+            // Only resume animation if NOT paused globally
             const shouldAnimate = !window.isAnimationPaused;
             this.el.setAttribute('animation', 'enabled', shouldAnimate);
         }
@@ -275,14 +244,12 @@
 
   <div id="overlay">
     <h1>ORTHOGRAPHIC LAB</h1>
-    <p>As you rotate the object, the walls will update in real-time to show the exact 2D Orthographic views.</p>
+    <p>We have set up projection cameras. As you rotate the object, the walls will update in real-time to show the exact 2D Orthographic views.</p>
     
     <div class="controls-hint">
-        <div><strong>PC:</strong> WASD to Move, Mouse to Look</div>
-        <div><strong>VR LEFT JOYSTICK:</strong> Move</div>
-        <div><strong>VR RIGHT JOYSTICK:</strong> Look</div>
-        <div><strong>VR RIGHT GRIP:</strong> Pause / Play Rotation</div>
-        <div><strong>VR LEFT GRIP + MOVE:</strong> Rotate Object Manually</div>
+        <div><strong>LEFT GRIP (Hold) + RIGHT HAND (Turn):</strong> Rotate Object Manually</div>
+        <div><strong>LEFT STICK CLICK:</strong> Reset Orientation</div>
+        <div><strong>RIGHT GRIP (Toggle):</strong> Play / Pause Animation</div>
     </div>
 
     <button class="btn" id="start-btn">ENTER LAB</button>
@@ -378,18 +345,11 @@
         </a-plane>
     </a-entity>
 
-    <a-entity id="rig" movement-controls="speed: 0.15; controls: keyboard, touch, gamepad, trackpad">
-      
+    <a-entity id="rig" movement-controls="speed: 0.15">
       <a-entity id="camera" camera position="0 1.6 1.5" look-controls></a-entity>
-      
-      <a-entity id="left-controller" 
-                oculus-touch-controls="hand: left" 
-                ortho-interaction="hand: left"
+      <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
-      
-      <a-entity id="right-controller" 
-                oculus-touch-controls="hand: right" 
-                ortho-interaction="hand: right"
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" vr-controller-module="hand: right"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
     </a-entity>
 
@@ -401,15 +361,24 @@
     
     scene.addEventListener('loaded', () => {
       document.getElementById('loading').style.display = 'none';
+      
+      // Initialize controller listeners
+      const rightCon = document.getElementById('right-controller');
+      if (rightCon) {
+          rightCon.addEventListener('gripdown', () => {
+              window.isAnimationPaused = !window.isAnimationPaused;
+              const target = document.getElementById('target-object');
+              // Force update
+              target.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+              console.log("Animation Paused:", window.isAnimationPaused);
+          });
+      }
     });
 
     document.getElementById('start-btn').addEventListener('click', () => {
       document.getElementById('overlay').style.display = 'none';
       if(AudioManager && AudioManager.start) AudioManager.start();
       loadLevel(0);
-      
-      // Attempt to enter VR immediately if available
-      if(scene.enterVR) scene.enterVR();
     });
 
     document.getElementById('btn-home').addEventListener('click', () => {
@@ -471,6 +440,12 @@
 
     document.getElementById('btn-next').addEventListener('click', () => loadLevel(currentLevel + 1));
     document.getElementById('btn-prev').addEventListener('click', () => loadLevel(currentLevel - 1));
+
+    // Reset on thumbstick click
+    document.getElementById('left-controller').addEventListener('thumbstickdown', () => {
+        targetEl.object3D.rotation.set(0,0,0);
+        targetEl.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+    });
 
   </script>
 </body>
