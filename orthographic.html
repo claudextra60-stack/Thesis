@@ -53,57 +53,37 @@
     window.isAnimationPaused = false;
     window.isLeftGripHeld = false;
 
-    // ─── COMPONENT: ORTHO VR CONTROLLER (QUEST 2 FIX) ───────
-    AFRAME.registerComponent('ortho-vr-controls', {
+    // ─── COMPONENT: ORTHO INTERACTION (Grip & Trigger) ──────
+    // Note: We removed movement logic from here. movement-controls handles WASD & Joystick now.
+    AFRAME.registerComponent('ortho-interaction', {
       schema: { 
-        hand: { type: 'string', default: 'left' },
-        speed: { type: 'number', default: 2.5 } // Walking speed
+        hand: { type: 'string', default: 'left' }
       },
       init: function () {
-        this.rig = document.getElementById('rig');
-        this.camera = document.getElementById('camera');
-        
-        // Bind functions
-        this.onAxisMove = this.onAxisMove.bind(this);
         this.onGripDown = this.onGripDown.bind(this);
         this.onGripUp = this.onGripUp.bind(this);
         this.onThumbstickDown = this.onThumbstickDown.bind(this);
         this.onTriggerDown = this.onTriggerDown.bind(this);
 
-        // Event Listeners
-        this.el.addEventListener('axismove', this.onAxisMove);
         this.el.addEventListener('gripdown', this.onGripDown);
         this.el.addEventListener('gripup', this.onGripUp);
         this.el.addEventListener('thumbstickdown', this.onThumbstickDown);
         this.el.addEventListener('triggerdown', this.onTriggerDown);
-
-        this.axis = [0, 0];
-      },
-
-      onAxisMove: function (evt) {
-        if (evt.detail.axis.length >= 2) {
-          this.axis[0] = evt.detail.axis[2] !== undefined ? evt.detail.axis[2] : evt.detail.axis[0];
-          this.axis[1] = evt.detail.axis[3] !== undefined ? evt.detail.axis[3] : evt.detail.axis[1];
-        }
       },
 
       onGripDown: function () {
-        // RIGHT HAND: Toggle Pause (Inner Trigger)
+        // RIGHT HAND: Toggle Pause
         if (this.data.hand === 'right') {
           window.isAnimationPaused = !window.isAnimationPaused;
           const target = document.getElementById('target-object');
           if (target) {
             target.setAttribute('animation', 'enabled', !window.isAnimationPaused);
-            // Visual Haptic feedback
             this.el.emit('hapticpulse', { intensity: 0.8, duration: 150 });
-            
-            // Update UI Text if needed
             const qText = document.getElementById('q-text');
             if(qText) qText.setAttribute('value', window.isAnimationPaused ? "PAUSED" : "Rotate the white block.\nPress RIGHT GRIP to Pause/Play.");
           }
         }
-        
-        // LEFT HAND: Enable Manual Rotation
+        // LEFT HAND: Manual Rotation Clutch
         if (this.data.hand === 'left') {
           window.isLeftGripHeld = true;
           this.el.emit('hapticpulse', { intensity: 0.5, duration: 100 });
@@ -115,7 +95,7 @@
       },
 
       onThumbstickDown: function () {
-        // LEFT STICK CLICK: Reset Object Rotation
+        // LEFT STICK CLICK: Reset Object
         if (this.data.hand === 'left') {
           const target = document.getElementById('target-object');
           if(target) {
@@ -126,7 +106,7 @@
       },
 
       onTriggerDown: function() {
-        // Forward click events to interactive objects (UI buttons)
+        // Pass click to UI
         const raycaster = this.el.components.raycaster;
         if (!raycaster) return;
         const hits = raycaster.intersectedEls;
@@ -137,49 +117,15 @@
             break;
           }
         }
-      },
-
-      tick: function (time, timeDelta) {
-        if (!timeDelta || !this.rig || !this.camera) return;
-        const dt = timeDelta / 1000;
-        const deadzone = 0.1;
-
-        // LEFT HAND: Rotate Rig (Yaw)
-        if (this.data.hand === 'left') {
-            if (Math.abs(this.axis[0]) > deadzone) {
-                this.rig.object3D.rotation.y -= this.axis[0] * 2 * dt;
-            }
-        }
-
-        // RIGHT HAND: Move Rig (Walk)
-        if (this.data.hand === 'right') {
-            if (Math.abs(this.axis[0]) > deadzone || Math.abs(this.axis[1]) > deadzone) {
-                
-                // Get Camera Direction (Y-rotation only)
-                const camRot = new THREE.Euler();
-                camRot.setFromQuaternion(this.camera.object3D.quaternion, 'YXZ');
-                const angle = camRot.y;
-
-                // Calculate movement vector based on joystick + camera angle
-                const x = this.axis[0];
-                const z = this.axis[1];
-
-                // Rotate vector by camera angle
-                const dx = x * Math.cos(angle) + z * Math.sin(angle);
-                const dz = z * Math.cos(angle) - x * Math.sin(angle);
-
-                this.rig.object3D.position.x += dx * this.data.speed * dt;
-                this.rig.object3D.position.z += dz * this.data.speed * dt;
-            }
-        }
       }
     });
 
-    // ─── COMPONENT: CLEAN EDGES (AutoCAD Style) ──────────────
+    // ─── COMPONENT: CLEAN EDGES ──────────────────────────────
     AFRAME.registerComponent('clean-edges', {
         schema: { color: {default: '#000'} },
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
+            this.el.addEventListener('model-loaded', () => this.createEdges()); // Fix for GLTF/Shape delays
             if (this.el.getObject3D('mesh')) this.createEdges();
         },
         createEdges: function() {
@@ -188,17 +134,21 @@
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ color: this.data.color });
             const line = new THREE.LineSegments(edges, material);
+            
+            // IMPORTANT: Add edges to Layer 1 as well so Ortho Cameras see them
+            line.layers.enable(1); 
+            
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
     });
 
-    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
+    // ─── COMPONENT: PROJECTION RENDERER (LAYER FIX) ──────────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
         
-        // CAMERAS
+        // 1. CREATE CAMERAS
         this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camFront.position.set(0, 1.6, 2); 
         this.camFront.lookAt(0, 1.6, 0);
@@ -211,7 +161,15 @@
         this.camSide = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
-        
+
+        // 2. SET LAYERS (Crucial for VR Fix)
+        // Ortho cameras will ONLY see Layer 1. 
+        // We will put the Object on Layer 1. The Environment stays on Layer 0.
+        this.camFront.layers.set(1); 
+        this.camTop.layers.set(1);
+        this.camSide.layers.set(1);
+
+        // 3. RENDER TARGETS
         const res = 512; 
         const rtSettings = { 
             minFilter: THREE.LinearFilter, 
@@ -219,19 +177,17 @@
             samples: 4, 
             type: THREE.HalfFloatType
         };
-
         this.rtFront = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtSide  = new THREE.WebGLRenderTarget(res, res, rtSettings);
 
-        const maxAnisotropy = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
-        this.rtFront.texture.anisotropy = maxAnisotropy;
-        this.rtTop.texture.anisotropy = maxAnisotropy;
-        this.rtSide.texture.anisotropy = maxAnisotropy;
-        
-        document.querySelector('#screen-front').getObject3D('mesh').material.map   = this.rtFront.texture;
-        document.querySelector('#screen-top').getObject3D('mesh').material.map     = this.rtTop.texture;
-        document.querySelector('#screen-side').getObject3D('mesh').material.map    = this.rtSide.texture;
+        // 4. ASSIGN TEXTURES TO SCREENS
+        const maxAniso = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
+        [this.rtFront, this.rtTop, this.rtSide].forEach(rt => rt.texture.anisotropy = maxAniso);
+
+        document.querySelector('#screen-front').getObject3D('mesh').material.map = this.rtFront.texture;
+        document.querySelector('#screen-top').getObject3D('mesh').material.map = this.rtTop.texture;
+        document.querySelector('#screen-side').getObject3D('mesh').material.map = this.rtSide.texture;
         document.querySelector('#screen-ceiling').getObject3D('mesh').material.map = this.rtTop.texture;
       },
 
@@ -241,48 +197,31 @@
         const scene = sceneEl.object3D;
         const targetObj = document.getElementById('target-object');
 
-        const env = document.getElementById('environment-group');
-        const ui = document.getElementById('exercise-ui');
-        const rig = document.getElementById('rig');
-        const exit = document.getElementById('exit-door');
-        const screens = document.getElementById('screens-group');
+        if(!targetObj) return;
 
-        const originalBg = scene.background;
-        const meshes = [];
-        const lines = [];
-
-        if(targetObj) {
-            targetObj.object3D.traverse(node => {
-                if(node.isMesh) meshes.push(node);
-                if(node.isLineSegments) lines.push(node);
-            });
-        }
-
-        scene.background = new THREE.Color(0x000000); 
-        
-        meshes.forEach(m => {
-            m.userData.origColor = m.material.color.getHex();
-            m.userData.origPolyOffset = m.material.polygonOffset;
-            m.userData.origPolyFactor = m.material.polygonOffsetFactor;
-            m.userData.origPolyUnits  = m.material.polygonOffsetUnits;
-
-            m.material.color.setHex(0x000000); 
-            m.material.polygonOffset = true;
-            m.material.polygonOffsetFactor = 1;
-            m.material.polygonOffsetUnits = 1;
+        // ─── LAYER MANAGEMENT ───
+        // Ensure Target Object and Lights are visible to Ortho Cameras (Layer 1)
+        // We do this every tick to catch new geometries loaded by levels
+        scene.traverse(node => {
+            // If it's the target object or a child of it
+            if (node === targetObj.object3D || targetObj.object3D.children.includes(node) || node.parent === targetObj.object3D) {
+                node.layers.enable(1); // Enable Layer 1 so Ortho cams see it
+            }
+            // If it's a light, enable Layer 1 so the object is lit in the projection
+            if (node.isLight) {
+                node.layers.enable(1);
+            }
         });
 
-        lines.forEach(l => {
-            l.userData.origColor = l.material.color.getHex();
-            l.material.color.setHex(0xFFFFFF);
-        });
+        // ─── RENDERING ───
+        const originalClearAlpha = renderer.getClearAlpha();
+        const originalClearColor = new THREE.Color();
+        renderer.getClearColor(originalClearColor);
 
-        if(env) env.object3D.visible = false;
-        if(ui) ui.object3D.visible = false;
-        if(rig) rig.object3D.visible = false;
-        if(exit) exit.object3D.visible = false;
-        if(screens) screens.object3D.visible = false;
+        // Render black background for the projections
+        renderer.setClearColor(0x000000, 1);
 
+        // Render snapshots
         renderer.setRenderTarget(this.rtFront);
         renderer.render(scene, this.camFront);
         
@@ -292,23 +231,9 @@
         renderer.setRenderTarget(this.rtSide);
         renderer.render(scene, this.camSide);
 
+        // Restore renderer to normal for the Main Camera (The Player)
         renderer.setRenderTarget(null);
-        scene.background = originalBg;
-        
-        meshes.forEach(m => { 
-            m.material.color.setHex(m.userData.origColor);
-            m.material.polygonOffset = m.userData.origPolyOffset;
-            m.material.polygonOffsetFactor = m.userData.origPolyFactor;
-            m.material.polygonOffsetUnits = m.userData.origPolyUnits;
-        });
-
-        lines.forEach(l => { l.material.color.setHex(l.userData.origColor); });
-
-        if(env) env.object3D.visible = true;
-        if(ui) ui.object3D.visible = true;
-        if(rig) rig.object3D.visible = true;
-        if(exit) exit.object3D.visible = true;
-        if(screens) screens.object3D.visible = true;
+        renderer.setClearColor(originalClearColor, originalClearAlpha);
       }
     });
 
@@ -353,10 +278,11 @@
     <p>As you rotate the object, the walls will update in real-time to show the exact 2D Orthographic views.</p>
     
     <div class="controls-hint">
-        <div><strong>LEFT JOYSTICK:</strong> Rotate View</div>
-        <div><strong>RIGHT JOYSTICK:</strong> Move Around</div>
-        <div><strong>RIGHT GRIP:</strong> Pause / Play Rotation</div>
-        <div><strong>LEFT GRIP + MOVE HAND:</strong> Rotate Object Manually</div>
+        <div><strong>PC:</strong> WASD to Move, Mouse to Look</div>
+        <div><strong>VR LEFT JOYSTICK:</strong> Move</div>
+        <div><strong>VR RIGHT JOYSTICK:</strong> Look</div>
+        <div><strong>VR RIGHT GRIP:</strong> Pause / Play Rotation</div>
+        <div><strong>VR LEFT GRIP + MOVE:</strong> Rotate Object Manually</div>
     </div>
 
     <button class="btn" id="start-btn">ENTER LAB</button>
@@ -452,15 +378,18 @@
         </a-plane>
     </a-entity>
 
-    <a-entity id="rig">
+    <a-entity id="rig" movement-controls="speed: 0.15; controls: keyboard, touch, gamepad, trackpad">
+      
       <a-entity id="camera" camera position="0 1.6 1.5" look-controls></a-entity>
+      
       <a-entity id="left-controller" 
                 oculus-touch-controls="hand: left" 
-                ortho-vr-controls="hand: left"
+                ortho-interaction="hand: left"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
+      
       <a-entity id="right-controller" 
                 oculus-touch-controls="hand: right" 
-                ortho-vr-controls="hand: right"
+                ortho-interaction="hand: right"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
     </a-entity>
 
