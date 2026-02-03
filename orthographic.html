@@ -50,7 +50,7 @@
 
   <script>
     // ─── GLOBAL STATE ───────────────────────────────────────
-    window.isAnimationPaused = false; 
+    window.isAnimationPaused = false; // Controls the Pause/Play state
 
     // ─── COMPONENT: CLEAN EDGES (AutoCAD Style) ──────────────
     AFRAME.registerComponent('clean-edges', {
@@ -62,6 +62,7 @@
         createEdges: function() {
             const mesh = this.el.getObject3D('mesh');
             if (!mesh || this.edgesCreated) return;
+            // Threshold angle: 15 degrees
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ color: this.data.color });
             const line = new THREE.LineSegments(edges, material);
@@ -71,11 +72,12 @@
     });
 
     // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
+    // ─── COMPONENT: PROJECTION RENDERER ─────────────────────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
         
-        // Cameras
+        // CAMERAS
         this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camFront.position.set(0, 1.6, 2); 
         this.camFront.lookAt(0, 1.6, 0);
@@ -89,12 +91,13 @@
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
         
-        // Render Targets (512 + Anisotropy for thick but crisp lines)
+        // RENDER TARGET SETTINGS
+        // Resolution 512: Makes the 1px lines look effectively "thicker" than 1024.
         const res = 512; 
         const rtSettings = { 
             minFilter: THREE.LinearFilter, 
             magFilter: THREE.LinearFilter, 
-            samples: 4, 
+            samples: 4, // Anti-aliasing (smooths edges)
             type: THREE.HalfFloatType
         };
 
@@ -102,11 +105,14 @@
         this.rtTop   = new THREE.WebGLRenderTarget(res, res, rtSettings);
         this.rtSide  = new THREE.WebGLRenderTarget(res, res, rtSettings);
 
+        // TEXTURE SETTINGS (ANISOTROPY)
+        // This makes the lines look "HD" and crisp even when viewed from the side
         const maxAnisotropy = this.el.sceneEl.renderer.capabilities.getMaxAnisotropy();
         this.rtFront.texture.anisotropy = maxAnisotropy;
         this.rtTop.texture.anisotropy = maxAnisotropy;
         this.rtSide.texture.anisotropy = maxAnisotropy;
         
+        // Assign textures
         document.querySelector('#screen-front').getObject3D('mesh').material.map   = this.rtFront.texture;
         document.querySelector('#screen-top').getObject3D('mesh').material.map     = this.rtTop.texture;
         document.querySelector('#screen-side').getObject3D('mesh').material.map    = this.rtSide.texture;
@@ -119,9 +125,7 @@
         const scene = sceneEl.object3D;
         const targetObj = document.getElementById('target-object');
 
-        // GROUPS TO HIDE
-        // Critical: Hide the SKY (#sky-bg) to ensure black background in canvas
-        const sky = document.getElementById('sky-bg');
+        // Groups to hide
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
@@ -139,8 +143,8 @@
             });
         }
 
-        // 1. PREPARE SCENE
-        scene.background = new THREE.Color(0x000000); // Black Background
+        // Setup Projection Style
+        scene.background = new THREE.Color(0x000000); 
         
         // Z-Fighting Fix: Push black meshes back
         meshes.forEach(m => {
@@ -160,15 +164,14 @@
             l.material.color.setHex(0xFFFFFF);
         });
 
-        // Hide Everything Else
-        if(sky) sky.object3D.visible = false;  // <--- KEY FIX FOR BACKGROUND
+        // Hide UI/Env
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
         if(rig) rig.object3D.visible = false;
         if(exit) exit.object3D.visible = false;
         if(screens) screens.object3D.visible = false;
 
-        // 2. RENDER
+        // Render
         renderer.setRenderTarget(this.rtFront);
         renderer.render(scene, this.camFront);
         
@@ -178,7 +181,7 @@
         renderer.setRenderTarget(this.rtSide);
         renderer.render(scene, this.camSide);
 
-        // 3. RESTORE
+        // Restore
         renderer.setRenderTarget(null);
         scene.background = originalBg;
         
@@ -191,7 +194,6 @@
 
         lines.forEach(l => { l.material.color.setHex(l.userData.origColor); });
 
-        if(sky) sky.object3D.visible = true;
         if(env) env.object3D.visible = true;
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
@@ -200,7 +202,7 @@
       }
     });
 
-    // ─── COMPONENT: REMOTE ROTATE & PAUSE LOGIC ────────────────
+    // ─── COMPONENT: REMOTE ROTATE ───────────────────────────
     AFRAME.registerComponent('remote-rotate-model', {
       init: function () {
         this.rightController = document.getElementById('right-controller');
@@ -210,11 +212,12 @@
         this.isRotating      = false;
       },
       tick: function () {
-        // Manual Rotate via LEFT Grip
+        // If left grip is held, we manually rotate
         if (window.isLeftGripHeld && this.rightController) {
             if (!this.isRotating) {
                 this.isRotating = true;
                 this.lastRotation.copy(this.rightController.object3D.quaternion);
+                // Disable animation while manually turning
                 this.el.setAttribute('animation', 'enabled', false);
             }
             this.currentRotation.copy(this.rightController.object3D.quaternion);
@@ -223,8 +226,11 @@
             this.el.object3D.quaternion.premultiply(this.deltaRotation);
             this.lastRotation.copy(this.currentRotation);
         } else {
-            if (this.isRotating) { this.isRotating = false; }
-            // Respect Pause State
+            // Released manual control
+            if (this.isRotating) { 
+                this.isRotating = false; 
+            }
+            // Only resume animation if NOT paused globally
             const shouldAnimate = !window.isAnimationPaused;
             this.el.setAttribute('animation', 'enabled', shouldAnimate);
         }
@@ -243,8 +249,7 @@
     <div class="controls-hint">
         <div><strong>LEFT GRIP (Hold) + RIGHT HAND (Turn):</strong> Rotate Object Manually</div>
         <div><strong>LEFT STICK CLICK:</strong> Reset Orientation</div>
-        <div><strong>RIGHT GRIP (Press):</strong> Play / Pause Animation</div>
-        <div><strong>JOYSTICKS:</strong> Move (Walk/Fly)</div>
+        <div><strong>RIGHT GRIP (Toggle):</strong> Play / Pause Animation</div>
     </div>
 
     <button class="btn" id="start-btn">ENTER LAB</button>
@@ -263,7 +268,7 @@
       <img id="jute-tex"     src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
     </a-assets>
 
-    <a-sky id="sky-bg" src="#sky-panorama" rotation="0 -90 0"></a-sky>
+    <a-sky src="#sky-panorama" rotation="0 -90 0"></a-sky>
     
     <a-entity id="environment-group">
         <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="8 8"></a-plane>
@@ -284,16 +289,19 @@
                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box> 
             </a-plane>
         </a-entity>
+
         <a-entity position="0 0.05 0" rotation="-90 0 0">
             <a-plane id="screen-top" width="4.0" height="4.0" color="#FFF" shader="flat">
                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
             </a-plane>
         </a-entity>
+
         <a-entity position="0 5.0 0" rotation="90 0 0">
              <a-plane id="screen-ceiling" width="4.0" height="4.0" color="#FFF" shader="flat">
                   <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
              </a-plane>
         </a-entity>
+
         <a-entity position="4 2.5 0" rotation="0 -90 0">
             <a-plane id="screen-side" width="4.0" height="4.0" color="#FFF" shader="flat">
                  <a-box width="4.2" height="4.2" depth="0.05" position="0 0 -0.05" color="#111"></a-box>
@@ -337,15 +345,11 @@
         </a-plane>
     </a-entity>
 
-    <a-entity id="rig" movement-controls="speed: 0.15; controls: gamepad; fly: true">
+    <a-entity id="rig" movement-controls="speed: 0.15">
       <a-entity id="camera" camera position="0 1.6 1.5" look-controls></a-entity>
-      <a-entity id="left-controller" 
-                oculus-touch-controls="hand: left" 
-                vr-controller-module="hand: left"
+      <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
-      <a-entity id="right-controller" 
-                oculus-touch-controls="hand: right" 
-                vr-controller-module="hand: right"
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" vr-controller-module="hand: right"
                 raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
     </a-entity>
 
@@ -358,15 +362,15 @@
     scene.addEventListener('loaded', () => {
       document.getElementById('loading').style.display = 'none';
       
-      // QUEST 2: PAUSE / PLAY TOGGLE (RIGHT GRIP)
-      // We attach this listener manually here to handle the specific Pause logic
+      // Initialize controller listeners
       const rightCon = document.getElementById('right-controller');
       if (rightCon) {
           rightCon.addEventListener('gripdown', () => {
               window.isAnimationPaused = !window.isAnimationPaused;
               const target = document.getElementById('target-object');
-              // Force update state immediately
+              // Force update
               target.setAttribute('animation', 'enabled', !window.isAnimationPaused);
+              console.log("Animation Paused:", window.isAnimationPaused);
           });
       }
     });
