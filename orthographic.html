@@ -49,10 +49,8 @@
     // ─── GLOBAL FLAGS ───────────────────────────────────────
     window.isDirty = true; // Signals the renderer to update
 
-    // ─── COMPONENT: CLEAN EDGES ─────────────────────────────
-    // ─── COMPONENT: CLEAN EDGES (UPDATED) ───────────────────
+    // ─── COMPONENT: CLEAN EDGES (BLACK & THICK) ─────────────
     AFRAME.registerComponent('clean-edges', {
-        // Change 1: Default color is now Black (#000) for the 3D model
         schema: { color: {default: '#000000'} }, 
         init: function() {
             this.el.addEventListener('loaded', () => this.createEdges());
@@ -65,25 +63,21 @@
             const edges = new THREE.EdgesGeometry(mesh.geometry, 15); 
             const material = new THREE.LineBasicMaterial({ 
                 color: this.data.color,
-                // Change 2: Increased thickness for better projection visibility
-                linewidth: 5 
+                linewidth: 5 // Thick lines
             });
             const line = new THREE.LineSegments(edges, material);
-            
-            line.userData.isEdge = true; // Tag for the renderer
-            
+            line.userData.isEdge = true;
             this.el.object3D.add(line);
             this.edgesCreated = true;
         }
     });
 
-    // ─── COMPONENT: PROJECTION RENDERER (VR FIX APPLIED) ────
+    // ─── COMPONENT: PROJECTION RENDERER (VR SAFE) ───────────
     AFRAME.registerComponent('projection-renderer', {
       init: function () {
         const size = 1.3; 
         
         // ORTHOGRAPHIC CAMERAS
-        // We add them to the scene so they have a stable world position
         this.camFront = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 10);
         this.camFront.position.set(0, 1.6, 2); 
         this.camFront.lookAt(0, 1.6, 0);
@@ -97,7 +91,7 @@
         this.camSide.position.set(2, 1.6, 0);
         this.camSide.lookAt(0, 1.6, 0);
         
-        // Manually update matrices once to lock them in
+        // LOCK MATRICES
         this.camFront.updateMatrixWorld();
         this.camTop.updateMatrixWorld();
         this.camSide.updateMatrixWorld();
@@ -129,24 +123,21 @@
 
         if(!targetObj) return;
 
-        // 1. SAVE VR STATE (CRITICAL FIX)
+        // 1. DISABLE VR (Prevents Headset Hijack)
         const currentXREnabled = renderer.xr.enabled;
-        
-        // 2. DISABLE VR FOR SNAPSHOTS
-        // This stops the headset from hijacking the camera view!
         renderer.xr.enabled = false;
 
-        // 3. SAVE SCENE STATE
+        // 2. SAVE STATE
         const oldClearColor = renderer.getClearColor(new THREE.Color());
         const oldClearAlpha = renderer.getClearAlpha();
         
-        // 4. HIDE SCENERY
+        // 3. HIDE SCENERY (Includes Birds/Sky/Environment)
         const env = document.getElementById('environment-group');
         const ui = document.getElementById('exercise-ui');
         const rig = document.getElementById('rig');
         const screens = document.getElementById('screens-group');
         const sky = document.querySelector('a-sky');
-        const birds = document.getElementById('birds-container');
+        const birds = document.getElementById('birds'); // <-- HIDE BIRDS
         
         if(env) env.object3D.visible = false;
         if(ui) ui.object3D.visible = false;
@@ -155,7 +146,7 @@
         if(sky) sky.object3D.visible = false;
         if(birds) birds.object3D.visible = false;
 
-        // 5. BLUEPRINT SETUP
+        // 4. BLUEPRINT BACKGROUND
         const blueprintColor = 0x001133;
         renderer.setClearColor(blueprintColor, 1);
         
@@ -182,12 +173,12 @@
             }
         });
 
-        // 6. RENDER (Now strictly using the Ortho cameras)
+        // 5. RENDER
         renderer.setRenderTarget(this.rtFront); renderer.clear(); renderer.render(scene, this.camFront);
         renderer.setRenderTarget(this.rtTop);   renderer.clear(); renderer.render(scene, this.camTop);
         renderer.setRenderTarget(this.rtSide);  renderer.clear(); renderer.render(scene, this.camSide);
 
-        // 7. RESTORE SCENE
+        // 6. RESTORE
         renderer.setRenderTarget(null);
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         
@@ -199,15 +190,15 @@
         });
         lines.forEach(l => l.material.color.setHex(l.userData.origColor));
 
+        // SHOW EVERYTHING AGAIN
         if(env) env.object3D.visible = true;
         if(ui) ui.object3D.visible = true;
         if(rig) rig.object3D.visible = true;
         if(screens) screens.object3D.visible = true;
         if(sky) sky.object3D.visible = true;
-        if(birds) birds.object3D.visible = true;
+        if(birds) birds.object3D.visible = true; // <-- SHOW BIRDS
 
-        // 8. RESTORE VR STATE (CRITICAL)
-        // Give control back to the headset
+        // 7. RE-ENABLE VR
         renderer.xr.enabled = currentXREnabled;
       }
     });
@@ -246,7 +237,7 @@
 
   <div id="overlay">
     <h1>ORTHOGRAPHIC LAB</h1>
-    <p>Controls Updated</p>
+    <p>We have restored the environment audio and birds.</p>
     <div class="controls-hint">
         <div><strong>RIGHT GRIP (Click):</strong> Rotate Object 45°</div>
         <div><strong>RIGHT TRIGGER (Click):</strong> Press Menu Buttons</div>
@@ -265,6 +256,10 @@
       <img id="soil-tex"     src="https://cdn.architextures.org/textures/23/5/soil-none-5i4x9p.jpg" crossorigin="anonymous">
       <img id="jute-tex"     src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
       <img id="sisal-tex"    src="https://cdn.architextures.org/textures/21/07/sisal-weave-60e333df44d3b-1200.jpg" crossorigin="anonymous">
+
+      <a-asset-item id="parrot-model"   src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Parrot.glb"></a-asset-item>
+      <a-asset-item id="flamingo-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Flamingo.glb"></a-asset-item>
+      <a-asset-item id="stork-model"    src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/models/gltf/Stork.glb"></a-asset-item>
     </a-assets>
 
     <a-sky src="#sky-panorama" rotation="0 -90 0"></a-sky>
@@ -274,8 +269,12 @@
         <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="3 8"></a-ring>
     </a-entity>
     
-    <a-entity id="birds-container">
-       <a-cone color="#fff" position="0 20 -10" scale="0.1 0.1 0.3" bird-flight="radius: 20"></a-cone>
+    <a-entity id="birds">
+      <a-entity gltf-model="#parrot-model"   scale="0.02 0.02 0.02" animation-mixer="clip: *; timeScale: 1.2" bird-flight="speed: 5.5; radius: 30; heightRange: 8 15"></a-entity>
+      <a-entity gltf-model="#parrot-model"   scale="0.02 0.02 0.02" animation-mixer="clip: *; timeScale: 1.1" bird-flight="speed: 6.0; radius: 35; heightRange: 10 20"></a-entity>
+      <a-entity gltf-model="#flamingo-model" scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.8" bird-flight="speed: 3.5; radius: 40; heightRange: 15 25"></a-entity>
+      <a-entity gltf-model="#flamingo-model" scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.9" bird-flight="speed: 3.8; radius: 45; heightRange: 12 22"></a-entity>
+      <a-entity gltf-model="#stork-model"    scale="0.03 0.03 0.03" animation-mixer="clip: *; timeScale: 0.7" bird-flight="speed: 4.5; radius: 50; heightRange: 20 40"></a-entity>
     </a-entity>
 
     <a-entity light="type: ambient; intensity: 0.9; color: #FFF8DC"></a-entity>
