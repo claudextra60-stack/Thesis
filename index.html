@@ -453,17 +453,14 @@
 
         <!-- Module buttons — each is a clickable plane -->
         <a-plane id="mod-btn-1" class="interactive" position="0  0.38 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
-          <a-text value="1. Orthographic Projection" align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
+          <a-text value="1. Ortho & Isometric Drawing" align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
         </a-plane>
         <a-plane id="mod-btn-2" class="interactive" position="0  0.24 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
-          <a-text value="2. Isometric Drawing"       align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
+          <a-text value="2. Projection of Lines"       align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
         </a-plane>
-        <a-plane id="mod-btn-3" class="interactive" position="0  0.10 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.82">
-          <a-text value="3. Projection of Lines"     align="center" width="2.4" position="0 0 0.008" color="#fff"></a-text>
-        </a-plane>
-        <a-plane id="mod-btn-4" class="interactive" position="0 -0.04 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
-          <a-text value="4. Projection of Planes"    align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
-          <a-text value="Coming Soon"                 align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
+        <a-plane id="mod-btn-3" class="interactive" position="0  0.10 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
+          <a-text value="3. Projection of Planes"      align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
+          <a-text value="Coming Soon"                  align="center" width="1.4" position="0 -0.02 0.008" color="#5a5a7a"></a-text>
         </a-plane>
         <a-plane id="mod-btn-5" class="interactive" position="0 -0.18 0.02" width="0.7" height="0.1" color="#2B2B88" opacity="0.38">
           <a-text value="5. Projection of Solids"    align="center" width="2.4" position="0 0.01 0.008" color="#6a6a8a"></a-text>
@@ -658,8 +655,8 @@
     // ── MODULE BUTTON NAVIGATION ──────────────────────────
     const modulePages = {
       'mod-btn-1': 'orthographic.html',
-      'mod-btn-2': 'isometric.html',
-      'mod-btn-3': 'projection-lines.html',
+      'mod-btn-2': 'projection-lines.html',
+      'mod-btn-3': null,
       'mod-btn-4': null,
       'mod-btn-5': null,
       'mod-btn-6': null,
