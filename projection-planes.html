@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projection of Solids & Planes - Eng Draw VR</title>
+  <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
+  <meta name="theme-color" content="#2B2B88">
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+  <style>
+    body { font-family: sans-serif; margin: 0; overflow: hidden; background: #000; }
+    
+    #loading {
+      position: fixed; inset: 0; background: #111; z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; font-weight: 300; letter-spacing: 2px;
+    }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, rgba(15,15,20,0.95) 0%, rgba(30,30,60,0.92) 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; text-align: center;
+    }
+    h1 { font-weight: 800; font-size: 3rem; margin: 0 0 10px 0; letter-spacing: -1px; text-transform: uppercase; }
+    p { color: #aaa; font-size: 1.1rem; max-width: 600px; line-height: 1.6; margin-bottom: 30px; }
+    
+    .controls-hint {
+        background: rgba(255,255,255,0.1); padding: 15px 30px; border-radius: 8px;
+        text-align: left; font-size: 0.9rem; color: #ddd; margin-bottom: 30px;
+    }
+    .controls-hint strong { color: #fff; margin-right: 10px; }
+
+    .btn {
+      padding: 16px 48px; font-size: 1rem; font-weight: 600;
+      background: #2B2B88; color: white; border: none; border-radius: 6px;
+      cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+      transition: all 0.2s ease;
+    }
+    .btn:hover { background: #3d3db5; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(43,43,136,0.5); }
+  </style>
+
+  <script>
+    // ─── AUDIO MANAGER ──────────────────────────────────────
+    const AudioManager = {
+      waves: new Audio('waves.mp3'), birds: new Audio('birds.mp3'), waves2: new Audio('waves2.mp3'),
+      timers: [],
+      init: function () {
+        this.waves.loop = true; this.waves.volume = 0.4;
+        this.birds.volume = 0.6;
+        this.birds.addEventListener('ended', () => this.scheduleNextBird());
+        this.waves2.volume = 0; this.waves2.loop = true;
+      },
+      start: function () { this.waves.play().catch(()=>{}); this.scheduleNextBird(); this.scheduleWaves2(); },
+      stop: function () { this.waves.pause(); this.birds.pause(); this.waves2.pause(); this.timers.forEach(t=>clearTimeout(t)); this.timers=[]; },
+      scheduleNextBird: function () {
+        this.timers.push(setTimeout(() => { this.birds.currentTime=0; this.birds.play().catch(()=>{}); }, Math.random()*17000+8000));
+      },
+      scheduleWaves2: function () {
+        this.timers.push(setTimeout(() => this.playWaves2Swell(), Math.random()*20000+10000));
+      },
+      playWaves2Swell: function () {
+        this.waves2.currentTime=0; this.waves2.play().catch(()=>{});
+        const tv=Math.random()*0.5+0.3, dur=Math.random()*10000+8000, fi=Math.random()*3000+2000, fo=Math.random()*3000+2000;
+        this.fadeAudio(this.waves2, 0, tv, fi, () => {
+          this.timers.push(setTimeout(() => { this.fadeAudio(this.waves2, tv, 0, fo, () => { this.waves2.pause(); this.scheduleWaves2(); }); }, dur));
+        });
+      },
+      fadeAudio: function (audio, s, e, dur, cb) {
+        const steps=60, st=dur/steps, vs=(e-s)/steps; let c=0;
+        const iv=setInterval(() => { c++; audio.volume=Math.max(0,Math.min(1,s+vs*c)); if(c>=steps){clearInterval(iv);if(cb)cb();} }, st);
+        this.timers.push(iv);
+      }
+    };
+    AudioManager.init();
+
+    // ─── COMPONENT: DRAW THICK 3D LINE ──────────────────────
+    AFRAME.registerComponent('draw-line', {
+      schema: {
+        start: {type: 'vec3', default: {x:0, y:0, z:0}},
+        end:   {type: 'vec3', default: {x:1, y:1, z:1}},
+        color: {type: 'color', default: '#000'},
+        radius:{type: 'number', default: 0.012}
+      },
+      init: function () { this.update(); },
+      update: function () {
+        const d = this.data;
+        const p1 = new THREE.Vector3(d.start.x, d.start.y, d.start.z);
+        const p2 = new THREE.Vector3(d.end.x, d.end.y, d.end.z);
+        const distance = p1.distanceTo(p2);
+        
+        if(distance < 0.001) return; 
+
+        const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+
+        this.el.setAttribute('geometry', `primitive: cylinder; radius: ${d.radius}; height: ${distance}; segmentsRadial: 6`);
+        this.el.setAttribute('material', `color: ${d.color}; shader: flat`);
+        this.el.object3D.position.copy(midPoint);
+        
+        const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
+        this.el.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      }
+    });
+
+    // ─── COMPONENT: DRAW FILLED POLYGON ─────────────────────
+    AFRAME.registerComponent('draw-polygon', {
+      schema: {
+        vertices: {type: 'string', default: ''},
+        color: {type: 'color', default: '#FFFFFF'},
+        opacity: {type: 'number', default: 0.9}
+      },
+      init: function () {
+        const ptsStr = this.data.vertices.split('|');
+        if (ptsStr.length < 3) return;
+
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+
+        // Simple fan triangulation
+        const v0 = ptsStr[0].split(',').map(Number);
+        for(let i = 1; i < ptsStr.length - 1; i++) {
+            const v1 = ptsStr[i].split(',').map(Number);
+            const v2 = ptsStr[i+1].split(',').map(Number);
+            vertices.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshBasicMaterial({ 
+            color: this.data.color, 
+            side: THREE.DoubleSide, 
+            transparent: true, 
+            opacity: this.data.opacity,
+            depthWrite: false // Helps prevent Z-fighting in projections
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        this.el.setObject3D('mesh', mesh);
+      }
+    });
+
+    // ─── INTERACTION ────────────────────────────────────────
+    AFRAME.registerComponent('ortho-interaction', {
+      init: function () {
+        this.el.addEventListener('triggerdown', (e) => {
+            const raycaster = this.el.components.raycaster;
+            if (!raycaster) return;
+            const hits = raycaster.intersectedEls;
+            for (let i = 0; i < hits.length; i++) {
+                if (hits[i].classList.contains('interactive')) {
+                    hits[i].emit('click');
+                    if (this.el.components.haptics) this.el.components.haptics.pulse(0.5, 50);
+                    break; 
+                }
+            }
+        });
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <div id="loading">LOADING MODULE...</div>
+
+  <div id="overlay">
+    <h1>COMPLEX SOLIDS & PLANES</h1>
+    <p>Visualize the projection of complex 3D composite figures. Observe how distinctly colored faces and specific vertices map perfectly to their Top and Front 2D projections.</p>
+    <div class="controls-hint">
+        <div><strong>RIGHT TRIGGER (Click):</strong> Press Menu Buttons</div>
+    </div>
+    <button class="btn" id="start-btn">ENTER LAB</button>
+  </div>
+
+  <a-scene id="vr-scene" cursor="rayOrigin: mouse" raycaster="objects: .interactive">
+    <a-assets>
+      <img id="sky-panorama" src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
+      <img id="sand-tex"     src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="soil-tex"     src="https://cdn.architextures.org/textures/23/5/soil-none-5i4x9p.jpg" crossorigin="anonymous">
+      <img id="jute-tex"     src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
+      <img id="sisal-tex"    src="https://cdn.architextures.org/textures/21/07/sisal-weave-60e333df44d3b-1200.jpg" crossorigin="anonymous">
+    </a-assets>
+
+    <a-sky src="#sky-panorama" rotation="0 -90 0"></a-sky>
+    
+    <a-entity id="environment-group">
+        <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" src="#sand-tex" repeat="8 8"></a-plane>
+        <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="10" radius-outer="25" src="#soil-tex" repeat="3 8"></a-ring>
+    </a-entity>
+
+    <a-entity light="type: ambient; intensity: 0.9; color: #FFF8DC"></a-entity>
+    <a-entity light="type: directional; position: 3 8 3; intensity: 1.0;"></a-entity>
+
+    <a-entity id="projection-apparatus" position="0 0.5 -2.2">
+        <a-entity position="0 0 0">
+            <a-cylinder position="0 0 0" radius="0.015" height="4.0" rotation="0 0 90" color="#CF2027"></a-cylinder>
+            <a-text value="X" position="-2.1 0 0" align="center" color="#CF2027" font="roboto" scale="1.5 1.5 1.5"></a-text>
+            <a-text value="Y" position="2.1 0 0" align="center" color="#CF2027" font="roboto" scale="1.5 1.5 1.5"></a-text>
+        </a-entity>
+
+        <a-entity position="0 1.2 0">
+            <a-plane width="4.0" height="2.4" color="#2A5298" side="double" material="depthWrite: true"></a-plane>
+            <a-entity line="start: -2 1.2 0.005; end: 2 1.2 0.005; color: #FFF"></a-entity>
+            <a-entity line="start: -2 -1.2 0.005; end: -2 1.2 0.005; color: #FFF"></a-entity>
+            <a-entity line="start: 2 -1.2 0.005; end: 2 1.2 0.005; color: #FFF"></a-entity>
+            <a-text value="VP" position="1.7 1.0 0.015" color="#FFF" width="8" font="roboto"></a-text>
+        </a-entity>
+        <a-entity id="vp-drawings"></a-entity>
+
+        <a-entity position="0 0 1.2">
+            <a-plane width="4.0" height="2.4" rotation="-90 0 0" color="#1E6B3A" side="double" material="depthWrite: true"></a-plane>
+            <a-entity line="start: -2 0.005 1.2; end: 2 0.005 1.2; color: #FFF"></a-entity>
+            <a-entity line="start: -2 0.005 -1.2; end: -2 0.005 1.2; color: #FFF"></a-entity>
+            <a-entity line="start: 2 0.005 -1.2; end: 2 0.005 1.2; color: #FFF"></a-entity>
+            <a-text value="HP" position="1.7 0.015 1.0" rotation="-90 0 0" color="#FFF" width="8" font="roboto"></a-text>
+        </a-entity>
+        <a-entity id="hp-drawings"></a-entity>
+
+        <a-entity id="elements-3d"></a-entity>
+    </a-entity>
+
+    <a-entity id="exercise-ui" position="-2.8 1.4 -0.5" rotation="0 45 0">
+        <a-box width="2.2" height="1.4" depth="0.05" src="#jute-tex" repeat="1 1" color="#BBB">
+            <a-plane width="2.15" height="1.35" position="0 0 0.026" color="#111" opacity="0.95"></a-plane>
+            <a-text value="COMPLEX PROJECTIONS" position="0 0.55 0.05" align="center" width="2.8" font="roboto" color="#FFF" letter-spacing="1"></a-text>
+            <a-plane width="2.0" height="0.004" position="0 0.48 0.05" color="#2B2B88"></a-plane>
+            <a-text id="desc-text" value="Loading..." position="0 0.15 0.05" align="center" width="2.0" font="roboto" color="#AAA"></a-text>
+
+            <a-plane class="interactive" id="btn-prev" position="-0.6 -0.45 0.05" width="0.5" height="0.15" color="#333">
+                <a-text value="< PREV" align="center" width="1.8" position="0 0 0.01"></a-text>
+            </a-plane>
+            <a-plane class="interactive" id="btn-next" position="0.6 -0.45 0.05" width="0.5" height="0.15" color="#333">
+                <a-text value="NEXT >" align="center" width="1.8" position="0 0 0.01"></a-text>
+            </a-plane>
+
+            <a-text id="level-indicator" value="LEVEL 1 / 25" position="0 -0.2 0.05" align="center" width="2.5" color="#888"></a-text>
+        </a-box>
+    </a-entity>
+
+    <a-entity id="exit-door" position="0 1.6 4" rotation="0 180 0">
+        <a-plane class="interactive" id="btn-home" width="1.5" height="0.6" src="#sisal-tex" repeat="1 1" color="#999">
+             <a-box width="1.6" height="0.7" depth="0.1" position="0 0 -0.06" color="#333"></a-box>
+             <a-text value="EXIT TO MAIN MENU" align="center" width="3" position="0 0 0.02" color="#000" font="roboto"></a-text>
+        </a-plane>
+    </a-entity>
+
+    <a-entity id="rig" movement-controls="speed: 0.15">
+      <a-entity id="camera" camera position="0 1.5 1.5" look-controls></a-entity>
+      <a-entity id="left-controller" oculus-touch-controls="hand: left" vr-controller-module="hand: left" raycaster="objects: .interactive; far: 5; showLine: true; lineColor: cyan"></a-entity>
+      <a-entity id="right-controller" oculus-touch-controls="hand: right" ortho-interaction raycaster="objects: .interactive; far: 5; showLine: true; lineColor: red"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // ─── 3D MATH & GENERATOR ENGINE ──────────────────────────
+    const COLORS = ['#E63946', '#457B9D', '#F4A261', '#2A9D8F', '#E9C46A', '#9B5DE5', '#F15BB5', '#00BBF9'];
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    function rotPoint(x, y, z, rx, ry, rz) {
+        let x1 = x * Math.cos(rz) - y * Math.sin(rz);
+        let y1 = x * Math.sin(rz) + y * Math.cos(rz);
+        let z1 = z;
+        
+        let x2 = x1;
+        let y2 = y1 * Math.cos(rx) - z1 * Math.sin(rx);
+        let z2 = y1 * Math.sin(rx) + z1 * Math.cos(rx);
+        
+        let x3 = x2 * Math.cos(ry) + z2 * Math.sin(ry);
+        let y3 = y2;
+        let z3 = -x2 * Math.sin(ry) + z2 * Math.cos(ry);
+        return [x3, y3, z3];
+    }
+
+    function transformObj(pts, rx_deg, ry_deg, rz_deg, cx, cy, cz) {
+        const rx = rx_deg * Math.PI / 180;
+        const ry = ry_deg * Math.PI / 180;
+        const rz = rz_deg * Math.PI / 180;
+        let res = {};
+        for(let key in pts) {
+            let [nx, ny, nz] = rotPoint(pts[key][0], pts[key][1], pts[key][2], rx, ry, rz);
+            res[key] = [nx + cx, ny + cy, nz + cz];
+        }
+        return res;
+    }
+
+    // Geometry Generators returning { vertices, faces }
+    function genPlane(sides, radius, rx, ry, rz, cx, cy, cz) {
+        let pts = {};
+        let startAngle = (sides === 4) ? Math.PI/4 : (sides === 3) ? -Math.PI/2 : 0;
+        let faceVerts = [];
+        for(let i=0; i<sides; i++) {
+            let angle = startAngle + (i * 2 * Math.PI / sides);
+            pts[ALPHABET[i]] = [Math.cos(angle)*radius, 0, Math.sin(angle)*radius];
+            faceVerts.push(ALPHABET[i]);
+        }
+        return {
+            vertices: transformObj(pts, rx, ry, rz, cx, cy, cz),
+            faces: [{ v: faceVerts, color: COLORS[0] }]
+        };
+    }
+
+    function genPrism(sides, radius, height, rx, ry, rz, cx, cy, cz) {
+        let pts = {};
+        let startAngle = (sides === 4) ? Math.PI/4 : (sides === 3) ? -Math.PI/2 : 0;
+        let bottomFace = [], topFace = [];
+        
+        // Generate Vertices
+        for(let i=0; i<sides; i++) {
+            let angle = startAngle + (i * 2 * Math.PI / sides);
+            pts[ALPHABET[i]] = [Math.cos(angle)*radius, -height/2, Math.sin(angle)*radius]; // Bottom
+            pts[ALPHABET[i+sides]] = [Math.cos(angle)*radius, height/2, Math.sin(angle)*radius]; // Top
+            bottomFace.push(ALPHABET[i]);
+            topFace.push(ALPHABET[i+sides]);
+        }
+        
+        // Generate Faces
+        let faces = [
+            { v: bottomFace.reverse(), color: COLORS[0] }, // Reverse to fix normal
+            { v: topFace, color: COLORS[1] }
+        ];
+        for(let i=0; i<sides; i++) {
+            let next = (i+1)%sides;
+            faces.push({ 
+                v: [ALPHABET[i], ALPHABET[next], ALPHABET[next+sides], ALPHABET[i+sides]], 
+                color: COLORS[(i+2) % COLORS.length] 
+            });
+        }
+        return { vertices: transformObj(pts, rx, ry, rz, cx, cy, cz), faces: faces };
+    }
+
+    function genPyramid(sides, radius, height, rx, ry, rz, cx, cy, cz) {
+        let pts = {};
+        let startAngle = (sides === 4) ? Math.PI/4 : (sides === 3) ? -Math.PI/2 : 0;
+        let bottomFace = [];
+        
+        // Base Vertices
+        for(let i=0; i<sides; i++) {
+            let angle = startAngle + (i * 2 * Math.PI / sides);
+            pts[ALPHABET[i]] = [Math.cos(angle)*radius, -height/2, Math.sin(angle)*radius];
+            bottomFace.push(ALPHABET[i]);
+        }
+        // Apex
+        const apex = ALPHABET[sides];
+        pts[apex] = [0, height/2, 0];
+
+        let faces = [{ v: bottomFace.reverse(), color: COLORS[0] }];
+        for(let i=0; i<sides; i++) {
+            let next = (i+1)%sides;
+            faces.push({ v: [ALPHABET[i], ALPHABET[next], apex], color: COLORS[(i+1) % COLORS.length] });
+        }
+        return { vertices: transformObj(pts, rx, ry, rz, cx, cy, cz), faces: faces };
+    }
+
+    function genStepsBlock(rx, ry, rz, cx, cy, cz) {
+        // A complex 3D L-Shape / Steps block
+        const pts = {
+            A: [-0.3, -0.3,  0.2], B: [ 0.3, -0.3,  0.2], C: [ 0.3, -0.3, -0.2], D: [-0.3, -0.3, -0.2], // Bottom Base
+            E: [-0.3,  0.3,  0.2], F: [-0.1,  0.3,  0.2], G: [-0.1,  0.3, -0.2], H: [-0.3,  0.3, -0.2], // Top Tall Pillar
+            I: [-0.1, -0.1,  0.2], J: [ 0.3, -0.1,  0.2], K: [ 0.3, -0.1, -0.2], L: [-0.1, -0.1, -0.2]  // Step
+        };
+        const faces = [
+            { v: ['A','B','J','I'], color: COLORS[0] }, // Front Base
+            { v: ['I','F','E','A'], color: COLORS[0] }, // Front Pillar (Split to keep convex)
+            { v: ['D','C','K','L'], color: COLORS[1] }, // Back Base
+            { v: ['L','G','H','D'], color: COLORS[1] }, // Back Pillar
+            { v: ['A','B','C','D'], color: COLORS[2] }, // Bottom
+            { v: ['E','F','G','H'], color: COLORS[3] }, // Top Pillar
+            { v: ['I','J','K','L'], color: COLORS[4] }, // Top Step
+            { v: ['B','C','K','J'], color: COLORS[5] }, // Right face
+            { v: ['A','E','H','D'], color: COLORS[6] }, // Left face
+            { v: ['F','I','L','G'], color: COLORS[7] }  // Inner vertical face
+        ];
+        return { vertices: transformObj(pts, rx, ry, rz, cx, cy, cz), faces: faces };
+    }
+
+    // ─── 25 LEVELS CURRICULUM ────────────────────────────────
+    const levels = [
+        // Basics Planes (1-5)
+        { desc: "1. Square Plane parallel to HP. Top view shows true shape and color.", solid: genPlane(4, 0.4, 0, 0, 0, 0, 1.0, 1.0) },
+        { desc: "2. Hexagonal Plane parallel to VP. Front view shows true shape and color.", solid: genPlane(6, 0.4, 90, 0, 0, 0, 1.0, 1.0) },
+        { desc: "3. Triangular Plane inclined to HP, resting on an edge.", solid: genPlane(3, 0.4, 45, 0, 0, 0, 1.0, 1.0) },
+        { desc: "4. Square Plane doubly inclined. Resting on corner.", solid: genPlane(4, 0.4, 45, 30, 45, 0, 1.0, 1.0) },
+        { desc: "5. Hexagonal Plane doubly inclined.", solid: genPlane(6, 0.4, 45, 30, 30, 0, 1.0, 1.0) },
+
+        // Simple Solids Parallel/Perpendicular (6-10)
+        { desc: "6. Cube resting flat on HP. Note how top face maps to HP and front face maps to VP.", solid: genPrism(4, 0.3, 0.6, 0, 45, 0, 0, 1.0, 1.0) },
+        { desc: "7. Triangular Prism resting on rectangular base on HP.", solid: genPrism(3, 0.3, 0.8, 0, 0, 90, 0, 1.0, 1.0) },
+        { desc: "8. Hexagonal Prism axis perpendicular to VP.", solid: genPrism(6, 0.3, 0.6, 90, 0, 0, 0, 1.0, 1.0) },
+        { desc: "9. Square Pyramid resting on base on HP.", solid: genPyramid(4, 0.3, 0.6, 0, 45, 0, 0, 1.0, 1.0) },
+        { desc: "10. Triangular Pyramid (Tetrahedron) axis perpendicular to VP.", solid: genPyramid(3, 0.3, 0.6, 90, 0, 0, 0, 1.0, 1.0) },
+
+        // Inclined Solids (11-15)
+        { desc: "11. Cube inclined to HP, resting on an edge.", solid: genPrism(4, 0.3, 0.6, 30, 45, 0, 0, 1.0, 1.0) },
+        { desc: "12. Square Pyramid inclined to HP, resting on base edge.", solid: genPyramid(4, 0.3, 0.6, 45, 45, 0, 0, 1.0, 1.0) },
+        { desc: "13. Hexagonal Prism axis inclined to VP.", solid: genPrism(6, 0.3, 0.6, 90, 30, 0, 0, 1.0, 1.0) },
+        { desc: "14. Triangular Prism inclined to both planes.", solid: genPrism(3, 0.3, 0.8, 30, 30, 90, 0, 1.0, 1.0) },
+        { desc: "15. Square Pyramid freely suspended, axis inclined to both.", solid: genPyramid(4, 0.3, 0.6, 45, 30, 0, 0, 1.0, 1.0) },
+
+        // Advanced Inclinations (16-20)
+        { desc: "16. Hexagonal Pyramid resting on a corner, axis inclined to HP.", solid: genPyramid(6, 0.3, 0.6, 45, 0, 0, 0, 1.0, 1.0) },
+        { desc: "17. Cube resting on a corner, main diagonal perpendicular to HP.", solid: genPrism(4, 0.3, 0.6, 54.7, 45, 0, 0, 1.0, 1.0) },
+        { desc: "18. Triangular Pyramid resting on a triangular face on HP.", solid: genPyramid(3, 0.3, 0.6, 70.5, 0, 0, 0, 1.0, 1.0) },
+        { desc: "19. Pentagonal Prism (5 sides) axis inclined to HP.", solid: genPrism(5, 0.3, 0.6, 45, 0, 0, 0, 1.0, 1.0) },
+        { desc: "20. Pentagonal Pyramid inclined to VP.", solid: genPyramid(5, 0.3, 0.6, 90, 45, 0, 0, 1.0, 1.0) },
+
+        // Complex Composite Blocks (21-25)
+        { desc: "21. Stepped Block parallel to projection planes. See how parallel faces combine in 2D views.", solid: genStepsBlock(0, 0, 0, 0, 1.0, 1.0) },
+        { desc: "22. Stepped Block rotated 45° around Y axis. Multiple colored faces are now visible in projections.", solid: genStepsBlock(0, 45, 0, 0, 1.0, 1.0) },
+        { desc: "23. Stepped Block inclined to HP. Observe the distortion of the step proportions.", solid: genStepsBlock(30, 0, 0, 0, 1.0, 1.0) },
+        { desc: "24. Stepped Block inclined to VP.", solid: genStepsBlock(0, 0, 30, 0, 1.0, 1.0) },
+        { desc: "25. Stepped Block doubly inclined. A complete test of spatial visualization.", solid: genStepsBlock(30, 45, 0, 0, 1.0, 1.0) }
+    ];
+
+    let currentLevel = 0;
+    const elElements3D = document.getElementById('elements-3d');
+    const elVpDrawings = document.getElementById('vp-drawings');
+    const elHpDrawings = document.getElementById('hp-drawings');
+    const txtLevel = document.getElementById('level-indicator');
+    const txtDesc = document.getElementById('desc-text');
+
+    function createHTMLNode(tag, attributes) {
+        const el = document.createElement(tag);
+        for(let key in attributes) el.setAttribute(key, attributes[key]);
+        return el;
+    }
+
+    // Helper to calculate the average depth of a face for Z-fighting prevention
+    function getFaceDepth(vertices, faceVerts, axis) {
+        let sum = 0;
+        faceVerts.forEach(v => { sum += vertices[v][axis]; });
+        return sum / faceVerts.length;
+    }
+
+    function renderLevel(idx) {
+        elElements3D.innerHTML = '';
+        elVpDrawings.innerHTML = '';
+        elHpDrawings.innerHTML = '';
+
+        const data = levels[idx];
+        txtLevel.setAttribute('value', `LEVEL ${idx + 1} / 25`);
+        txtDesc.setAttribute('value', data.desc);
+
+        const solid = data.solid;
+        const colorChalk = '#FFFFFF';
+        const colorProj = '#AAAAAA';
+
+        // 1. Draw Faces and their Projections
+        solid.faces.forEach((face) => {
+            const faceVerts = face.v;
+            
+            // Generate vertex strings
+            let pts3D = faceVerts.map(v => `${solid.vertices[v][0]},${solid.vertices[v][1]},${solid.vertices[v][2]}`).join('|');
+            
+            // To prevent Z-fighting in 2D projections, we use a tiny offset based on the 3D depth of the face.
+            // VP looks down Z axis. HP looks down Y axis.
+            let avgZ = getFaceDepth(solid.vertices, faceVerts, 2);
+            let avgY = getFaceDepth(solid.vertices, faceVerts, 1);
+            let offsetVP = 0.015 + (avgZ * 0.005);
+            let offsetHP = 0.015 + (avgY * 0.005);
+
+            let ptsVP = faceVerts.map(v => `${solid.vertices[v][0]},${solid.vertices[v][1]},${offsetVP}`).join('|');
+            let ptsHP = faceVerts.map(v => `${solid.vertices[v][0]},${offsetHP},${solid.vertices[v][2]}`).join('|');
+
+            // Draw Filled Polygons
+            elElements3D.appendChild(createHTMLNode('a-entity', { 'draw-polygon': `vertices: ${pts3D}; color: ${face.color}; opacity: 0.95` }));
+            elVpDrawings.appendChild(createHTMLNode('a-entity', { 'draw-polygon': `vertices: ${ptsVP}; color: ${face.color}; opacity: 0.75` }));
+            elHpDrawings.appendChild(createHTMLNode('a-entity', { 'draw-polygon': `vertices: ${ptsHP}; color: ${face.color}; opacity: 0.75` }));
+
+            // Draw Edges
+            for(let i=0; i<faceVerts.length; i++) {
+                let p1 = solid.vertices[faceVerts[i]];
+                let p2 = solid.vertices[faceVerts[(i+1)%faceVerts.length]];
+                
+                elElements3D.appendChild(createHTMLNode('a-entity', { 'draw-line': `start: ${p1[0]} ${p1[1]} ${p1[2]}; end: ${p2[0]} ${p2[1]} ${p2[2]}; color: #111; radius: 0.008` }));
+                elVpDrawings.appendChild(createHTMLNode('a-entity', { 'draw-line': `start: ${p1[0]} ${p1[1]} ${offsetVP+0.002}; end: ${p2[0]} ${p2[1]} ${offsetVP+0.002}; color: ${colorChalk}; radius: 0.005` }));
+                elHpDrawings.appendChild(createHTMLNode('a-entity', { 'draw-line': `start: ${p1[0]} ${offsetHP+0.002} ${p1[2]}; end: ${p2[0]} ${offsetHP+0.002} ${p2[2]}; color: ${colorChalk}; radius: 0.005` }));
+            }
+        });
+
+        // 2. Draw Projectors and Labels
+        for(let key in solid.vertices) {
+            let p = solid.vertices[key];
+            
+            // 3D Vertex Label (A)
+            elElements3D.appendChild(createHTMLNode('a-sphere', { position: `${p[0]} ${p[1]} ${p[2]}`, radius: '0.02', color: '#111' }));
+            elElements3D.appendChild(createHTMLNode('a-text', { value: key, position: `${p[0]+0.06} ${p[1]+0.06} ${p[2]}`, color: '#FFF', align: 'center', scale: '0.7 0.7 0.7' }));
+
+            // Drop Lines
+            elElements3D.appendChild(createHTMLNode('a-entity', { line: `start: ${p[0]} ${p[1]} ${p[2]}; end: ${p[0]} ${p[1]} 0; color: ${colorProj}; opacity: 0.25` }));
+            elElements3D.appendChild(createHTMLNode('a-entity', { line: `start: ${p[0]} ${p[1]} ${p[2]}; end: ${p[0]} 0 ${p[2]}; color: ${colorProj}; opacity: 0.25` }));
+
+            // VP Front View Label (a')
+            elVpDrawings.appendChild(createHTMLNode('a-text', { value: `${key.toLowerCase()}'`, position: `${p[0]+0.06} ${p[1]-0.06} 0.04`, color: colorChalk, align: 'center', scale: '0.6 0.6 0.6' }));
+
+            // HP Top View Label (a)
+            elHpDrawings.appendChild(createHTMLNode('a-text', { value: key.toLowerCase(), position: `${p[0]+0.06} 0.04 ${p[2]+0.06}`, rotation: '-90 0 0', color: colorChalk, align: 'center', scale: '0.6 0.6 0.6' }));
+        }
+    }
+
+    function loadLevel(idx) {
+        if (idx < 0) idx = 0;
+        if (idx >= levels.length) idx = levels.length - 1;
+        currentLevel = idx;
+        renderLevel(currentLevel);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      document.getElementById('overlay').style.display = 'none';
+      if(AudioManager && AudioManager.start) AudioManager.start();
+      loadLevel(0);
+    });
+
+    document.getElementById('btn-home').addEventListener('click', () => { window.location.href = 'index.html'; });
+    document.getElementById('btn-next').addEventListener('click', () => loadLevel(currentLevel + 1));
+    document.getElementById('btn-prev').addEventListener('click', () => loadLevel(currentLevel - 1));
+
+    const scene = document.querySelector('a-scene');
+    if (scene.hasLoaded) {
+        document.getElementById('loading').style.display = 'none';
+    } else {
+        scene.addEventListener('loaded', () => { document.getElementById('loading').style.display = 'none'; });
+    }
+  </script>
+</body>
+</html>
