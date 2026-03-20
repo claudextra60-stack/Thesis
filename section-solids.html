@@ -151,6 +151,11 @@
               window.cutAngleDeg=Math.max(0,Math.min(75, window.cutAngleDeg - stickY*1.2));
               window._vrRenderNeeded=true;
             }
+            // left trigger + stick X = rotate model CW/CCW
+            if(Math.abs(stickX)>0.12){
+              window.userRotY=(window.userRotY||0) + stickX*2.5;
+              window._vrRenderNeeded=true;
+            }
           } else {
             // no trigger = locomotion
             if(Math.abs(stickX)>0.1){
@@ -167,9 +172,9 @@
               window.cutPos=Math.max(-1,Math.min(1, window.cutPos - stickY*0.04));
               window._vrRenderNeeded=true;
             }
-            // right trigger + stick X = tilt angle
+            // right trigger + stick X = rotate model CW/CCW
             if(Math.abs(stickX)>0.12){
-              window.cutAngleDeg=Math.max(0,Math.min(75, window.cutAngleDeg + stickX*1.2));
+              window.userRotY=(window.userRotY||0) + stickX*2.5;
               window._vrRenderNeeded=true;
             }
           }
@@ -211,7 +216,7 @@
       </div>
       <div class="info-cell">
         <div class="label">VR Controls (Meta Quest)</div>
-        <div class="val">Right trigger + stick up/down = Cut Position · Right trigger + stick left/right = Tilt · Left trigger + stick = Tilt · Left stick = move</div>
+        <div class="val">Right trigger + stick ↑↓ = Cut Position · Left trigger + stick ↑↓ = Tilt · Either trigger + stick ◀▶ = Rotate model · Left stick (no trigger) = Move</div>
       </div>
     </div>
     <button class="btn" id="start-btn">ENTER LAB</button>
@@ -333,75 +338,78 @@
     <!-- ═══ INFO / CONTROL PANEL — far right, angled ═══ -->
     <!-- Positioned at x=+9  so it never overlaps the TV board (x=+5.5 + 2.1 = 7.6 right edge)
          Panel is 3.0 wide.  Gap between TV right edge and panel left edge ≈ 0.4  -->
-    <a-entity id="info-panel" position="9.0 2.0 -4.0" rotation="0 -35 0">
-      <a-box width="3.2" height="5.8" depth="0.07" src="#jute-tex" color="#aaa">
-        <a-plane width="3.15" height="5.75" position="0 0 0.036" color="#0a0a18" opacity="0.97"></a-plane>
+    <a-entity id="info-panel" position="10.5 2.0 -4.0" rotation="0 -35 0">
+      <a-box width="3.8" height="6.8" depth="0.07" src="#jute-tex" color="#aaa">
+        <a-plane width="3.75" height="6.75" position="0 0 0.036" color="#0a0a18" opacity="0.97"></a-plane>
 
         <!-- Title bar -->
-        <a-text value="SECTION OF SOLIDS" position="0 2.64 0.05" align="center" width="4.8" color="#CF2027" font="roboto"></a-text>
-        <a-plane width="3.0" height="0.008" position="0 2.46 0.05" color="#CF2027"></a-plane>
+        <a-text value="SECTION OF SOLIDS" position="0 3.14 0.05" align="center" width="5.5" color="#CF2027" font="roboto"></a-text>
+        <a-plane width="3.5" height="0.008" position="0 2.96 0.05" color="#CF2027"></a-plane>
 
         <!-- Level -->
-        <a-text id="level-text" value="LEVEL 1 / 25" position="0 2.28 0.05" align="center" width="4" color="#888" font="roboto"></a-text>
+        <a-text id="level-text" value="LEVEL 1 / 25" position="0 2.78 0.05" align="center" width="4.5" color="#888" font="roboto"></a-text>
 
         <!-- Description -->
-        <a-text id="desc-text" value="Loading…" position="0 1.80 0.05" align="center" width="3.5" color="#eee" font="roboto" wrap-count="28"></a-text>
+        <a-text id="desc-text" value="Loading…" position="0 2.30 0.05" align="center" width="4.0" color="#eee" font="roboto" wrap-count="32"></a-text>
 
-        <a-plane width="2.9" height="0.005" position="0 1.26 0.05" color="#333"></a-plane>
+        <a-plane width="3.5" height="0.005" position="0 1.76 0.05" color="#333"></a-plane>
 
         <!-- How-to-solve -->
-        <a-text value="HOW TO SOLVE" position="0 1.14 0.05" align="center" width="4.2" color="#FFD700" font="roboto"></a-text>
-        <a-text id="steps-text" value="" position="0 0.60 0.05" align="center" width="3.3" color="#bbb" font="roboto" wrap-count="32"></a-text>
+        <a-text value="HOW TO SOLVE" position="0 1.64 0.05" align="center" width="4.8" color="#FFD700" font="roboto"></a-text>
+        <a-text id="steps-text" value="" position="0 1.10 0.05" align="center" width="3.8" color="#bbb" font="roboto" wrap-count="36"></a-text>
 
-        <a-plane width="2.9" height="0.005" position="0 0.10 0.05" color="#333"></a-plane>
+        <a-plane width="3.5" height="0.005" position="0 0.60 0.05" color="#333"></a-plane>
 
         <!-- TRUE SHAPE toggle -->
-        <a-plane class="interactive" id="btn-trueshape" position="0 -0.10 0.06" width="2.6" height="0.30" color="#2A0650">
-          <a-text id="ts-label" value="◇  SHOW TRUE SHAPE" align="center" width="5.5" position="0 0 0.015" color="#c77aff" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-trueshape" position="0 0.40 0.06" width="3.0" height="0.34" color="#2A0650">
+          <a-text id="ts-label" value="◇  SHOW TRUE SHAPE" align="center" width="6.0" position="0 0 0.015" color="#c77aff" font="roboto"></a-text>
         </a-plane>
 
-        <a-plane width="2.9" height="0.005" position="0 -0.32 0.05" color="#333"></a-plane>
+        <a-plane width="3.5" height="0.005" position="0 0.18 0.05" color="#333"></a-plane>
 
         <!-- VR CUT POSITION controls -->
-        <a-text value="CUT POSITION  (right trigger + stick ↑↓)" position="0 -0.52 0.05" align="center" width="4.0" color="#CF2027" font="roboto"></a-text>
-        <a-plane class="interactive" id="vr-cut-left"  position="-1.15 -0.78 0.06" width="0.50" height="0.34" color="#2B2B88">
+        <a-text value="CUT POSITION  (right trigger + stick ↑↓)" position="0 -0.02 0.05" align="center" width="4.5" color="#CF2027" font="roboto"></a-text>
+        <a-plane class="interactive" id="vr-cut-left"  position="-1.15 -0.28 0.06" width="0.50" height="0.34" color="#2B2B88">
           <a-text value="◀◀" align="center" width="3.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-plane id="vr-cut-track" position="0 -0.78 0.06" width="1.50" height="0.20" color="#111428">
+        <a-plane id="vr-cut-track" position="0 -0.28 0.06" width="1.50" height="0.20" color="#111428">
           <a-plane id="vr-cut-fill" position="-0.75 0 0.003" width="0.01" height="0.18" color="#CF2027"></a-plane>
         </a-plane>
-        <a-plane class="interactive" id="vr-cut-right" position="1.15 -0.78 0.06" width="0.50" height="0.34" color="#2B2B88">
+        <a-plane class="interactive" id="vr-cut-right" position="1.15 -0.28 0.06" width="0.50" height="0.34" color="#2B2B88">
           <a-text value="▶▶" align="center" width="3.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
 
         <!-- VR TILT ANGLE controls -->
-        <a-text value="TILT ANGLE  (right trigger + stick ◀▶)" position="0 -1.14 0.05" align="center" width="4.0" color="#8a2be2" font="roboto"></a-text>
-        <a-plane class="interactive" id="vr-ang-left"  position="-1.15 -1.40 0.06" width="0.50" height="0.34" color="#3a1060">
+        <a-text value="TILT ANGLE  (left trigger + stick ↑↓)" position="0 -0.64 0.05" align="center" width="4.5" color="#8a2be2" font="roboto"></a-text>
+        <a-plane class="interactive" id="vr-ang-left"  position="-1.15 -0.90 0.06" width="0.50" height="0.34" color="#3a1060">
           <a-text value="◀◀" align="center" width="3.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-plane id="vr-ang-track" position="0 -1.40 0.06" width="1.50" height="0.20" color="#111428">
+        <a-plane id="vr-ang-track" position="0 -0.90 0.06" width="1.50" height="0.20" color="#111428">
           <a-plane id="vr-ang-fill" position="-0.75 0 0.003" width="0.01" height="0.18" color="#8a2be2"></a-plane>
         </a-plane>
-        <a-plane class="interactive" id="vr-ang-right" position="1.15 -1.40 0.06" width="0.50" height="0.34" color="#3a1060">
+        <a-plane class="interactive" id="vr-ang-right" position="1.15 -0.90 0.06" width="0.50" height="0.34" color="#3a1060">
           <a-text value="▶▶" align="center" width="3.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
 
-        <a-plane width="2.9" height="0.005" position="0 -1.72 0.05" color="#333"></a-plane>
+        <!-- ROTATE label (info only, triggered by trigger+stickX on either controller) -->
+        <a-text value="ROTATE MODEL  (trigger + stick ◀▶)" position="0 -1.26 0.05" align="center" width="4.5" color="#44CCFF" font="roboto"></a-text>
+
+        <a-plane width="3.5" height="0.005" position="0 -1.52 0.05" color="#333"></a-plane>
 
         <!-- PREV / NEXT -->
-        <a-plane class="interactive" id="btn-prev" position="-0.95 -1.98 0.06" width="1.1" height="0.38" color="#1a1a1a">
-          <a-text value="◀  PREV" align="center" width="4.5" position="0 0 0.015" color="#fff" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-prev" position="-0.95 -1.78 0.06" width="1.3" height="0.42" color="#1a1a1a">
+          <a-text value="◀  PREV" align="center" width="5.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-plane class="interactive" id="btn-next" position=" 0.95 -1.98 0.06" width="1.1" height="0.38" color="#1a1a1a">
-          <a-text value="NEXT  ▶" align="center" width="4.5" position="0 0 0.015" color="#fff" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-next" position=" 0.95 -1.78 0.06" width="1.3" height="0.42" color="#1a1a1a">
+          <a-text value="NEXT  ▶" align="center" width="5.0" position="0 0 0.015" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-text id="nav-level" value="1 / 25" position="0 -1.98 0.06" align="center" width="2.5" color="#555" font="roboto"></a-text>
+        <a-text id="nav-level" value="1 / 25" position="0 -1.78 0.06" align="center" width="2.5" color="#555" font="roboto"></a-text>
 
-        <a-plane width="2.9" height="0.005" position="0 -2.22 0.05" color="#333"></a-plane>
+        <a-plane width="3.5" height="0.005" position="0 -2.06 0.05" color="#333"></a-plane>
 
         <!-- HOME -->
-        <a-plane class="interactive" id="btn-home-panel" position="0 -2.50 0.06" width="2.4" height="0.38" color="#300010">
-          <a-text value="⬅  MAIN MENU" align="center" width="5.0" position="0 0 0.015" color="#FF8888" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-home-panel" position="0 -2.38 0.06" width="2.8" height="0.42" color="#300010">
+          <a-text value="⬅  MAIN MENU" align="center" width="5.5" position="0 0 0.015" color="#FF8888" font="roboto"></a-text>
         </a-plane>
 
       </a-box>
@@ -726,6 +734,7 @@
   // ── GLOBAL STATE (also on window for VR component access) ─────────
   window.cutPos      = 0;
   window.cutAngleDeg = 30;
+  window.userRotY    = 0;
   window._vrRenderNeeded = false;
 
   let currentLevel   = 0;
@@ -758,6 +767,7 @@
   function render(){
     // Sync state from window (VR component writes to window.*)
     const CP=window.cutPos, CA=window.cutAngleDeg;
+    if(window.userRotY!==undefined) userRotY=window.userRotY;
 
     const lv    = LEVELS[currentLevel];
     const solid = lv.solidFn(userRotY);
@@ -918,12 +928,8 @@
     if(sect.sectionPts.length>=3){
       const tvSect=sect.sectionPts.map(p=>[p[0]*DS, -p[2]*DS]);
       const pStr=tvSect.map(p=>`${p[0].toFixed(4)},${p[1].toFixed(4)},0.04`).join('|');
-      elTV.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pStr};color:#CF2027;opacity:0.50`}));
-      const bb=tvSect.reduce((b,p)=>({minX:Math.min(b.minX,p[0]),maxX:Math.max(b.maxX,p[0]),minY:Math.min(b.minY,p[1]),maxY:Math.max(b.maxY,p[1])}),{minX:99,maxX:-99,minY:99,maxY:-99});
-      const hs=0.12;
-      for(let t=bb.minX-1;t<bb.maxX+1;t+=hs){
-        elTV.appendChild(mkEl('a-entity',{'draw-line':`start:${t} ${bb.minY-0.05} 0.06;end:${t+(bb.maxY-bb.minY+0.1)} ${bb.maxY+0.05} 0.06;color:#77FF99;radius:0.004`}));
-      }
+      elTV.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pStr};color:#CF2027;opacity:0.55`}));
+      // outline only — no hatch lines in TV (was visually distracting)
       for(let i=0;i<tvSect.length;i++){
         const a=tvSect[i],b=tvSect[(i+1)%tvSect.length];
         elTV.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} 0.05;end:${b[0]} ${b[1]} 0.05;color:#44FF88;radius:0.010`}));
@@ -1060,6 +1066,7 @@
   document.addEventListener('mousemove',e=>{
     if(!isDrag)return;
     userRotY+=(e.clientX-prevMX)*1.8;
+    window.userRotY=userRotY;
     prevMX=e.clientX;
     render();
     e.preventDefault();
