@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Section of Solids - Eng Draw VR</title>
+  <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
+  <meta name="theme-color" content="#2B2B88">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Rajdhani', sans-serif; overflow: hidden; background: #000; }
+
+    #loading {
+      position: fixed; inset: 0; background: #0d0d1a; z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; font-size: 1.8rem; font-weight: 600; letter-spacing: 4px;
+    }
+    #loading .sub { font-size: 0.8rem; color: #5a5a8a; margin-top: 10px; font-weight: 300; letter-spacing: 3px; }
+    .loading-bar { width: 200px; height: 3px; background: #1a1a3a; border-radius: 2px; margin-top: 20px; overflow: hidden; }
+    .loading-bar-fill { height: 100%; width: 0%; background: #CF2027; border-radius: 2px; animation: loadfill 1.5s ease-out forwards; }
+    @keyframes loadfill { to { width: 100%; } }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, rgba(13,13,26,0.97) 0%, rgba(30,20,60,0.95) 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: white; text-align: center; padding: 20px;
+    }
+    #overlay h1 {
+      font-size: 3rem; font-weight: 700; letter-spacing: 5px; text-transform: uppercase;
+      margin-bottom: 6px; background: linear-gradient(90deg, #CF2027, #8a2be2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #overlay .tagline { color: #7a7ab5; font-weight: 300; font-size: 1rem; letter-spacing: 2px; margin-bottom: 24px; }
+
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      max-width: 680px; margin-bottom: 28px; text-align: left;
+    }
+    .info-cell {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 12px 16px;
+    }
+    .info-cell .label { font-size: 0.7rem; color: #CF2027; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+    .info-cell .val { font-size: 0.9rem; color: #ccc; font-weight: 400; line-height: 1.5; }
+
+    .btn {
+      padding: 14px 52px; font-size: 1.1rem; font-family: 'Rajdhani', sans-serif;
+      background: #CF2027; color: white; border: none; border-radius: 4px;
+      cursor: pointer; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover { background: #2B2B88; box-shadow: 0 0 24px rgba(43,43,136,0.6); }
+
+    #hud {
+      position: fixed; bottom: 18px; left: 18px; z-index: 50;
+      background: rgba(10,10,20,0.88); color: #aaa; padding: 12px 16px;
+      border-radius: 6px; font-size: 12px; font-family: 'Rajdhani', sans-serif;
+      border: 1px solid rgba(255,255,255,0.07); letter-spacing: 0.5px;
+      display: none; line-height: 1.8;
+    }
+    #hud strong { color: #CF2027; }
+
+    #cut-slider-wrap {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 60; display: none; align-items: center; gap: 12px;
+      background: rgba(10,10,20,0.9); padding: 10px 20px; border-radius: 30px;
+      border: 1px solid rgba(207,32,39,0.3);
+    }
+    #cut-slider-wrap label { color: #CF2027; font-size: 0.85rem; font-weight: 600; letter-spacing: 1px; }
+    #cut-pos-slider { width: 200px; accent-color: #CF2027; cursor: pointer; }
+    #cut-angle-slider { width: 150px; accent-color: #8a2be2; cursor: pointer; }
+    #cut-slider-wrap .sl-label { color: #888; font-size: 0.75rem; }
+  </style>
+
+  <script>
+  // ════════════════════════════════════════════════════════════════
+  //  COMPONENTS — registered before scene
+  // ════════════════════════════════════════════════════════════════
+
+  // ── BIRD FLIGHT ─────────────────────────────────────────────────
+  AFRAME.registerComponent('bird-flight', {
+    schema: { speed:{type:'number',default:4}, radius:{type:'number',default:25}, heightRange:{type:'vec2',default:{x:10,y:20}} },
+    init: function () {
+      const a = Math.random()*Math.PI*2, d = Math.random()*this.data.radius;
+      this.el.object3D.position.set(Math.cos(a)*d, this.data.heightRange.x+Math.random()*(this.data.heightRange.y-this.data.heightRange.x), Math.sin(a)*d);
+      this.el.object3D.rotation.y = Math.random()*Math.PI*2;
+      this.turnSpeed = 0; this.targetTurnSpeed = (Math.random()-0.5)*0.02;
+    },
+    tick: function (t, dt) {
+      if (!dt) return;
+      this.el.object3D.translateZ(this.data.speed*(dt/1000));
+      const p = this.el.object3D.position, dist = Math.sqrt(p.x*p.x+p.z*p.z);
+      if (dist > this.data.radius) { this.turnSpeed = 0.015; }
+      else { if (Math.random()<0.01) this.targetTurnSpeed=(Math.random()-0.5)*0.02; this.turnSpeed+=(this.targetTurnSpeed-this.turnSpeed)*0.1; }
+      this.el.object3D.rotation.y += this.turnSpeed;
+      this.el.object3D.rotation.z = -this.turnSpeed*30;
+      this.el.object3D.position.y += Math.sin(t/500)*0.005;
+    }
+  });
+
+  // ── THICK CYLINDER LINE ─────────────────────────────────────────
+  AFRAME.registerComponent('draw-line', {
+    schema: { start:{type:'vec3',default:{x:0,y:0,z:0}}, end:{type:'vec3',default:{x:1,y:1,z:1}}, color:{type:'color',default:'#000'}, radius:{type:'number',default:0.012} },
+    init: function () { this.update(); },
+    update: function () {
+      const d=this.data, p1=new THREE.Vector3(d.start.x,d.start.y,d.start.z), p2=new THREE.Vector3(d.end.x,d.end.y,d.end.z);
+      const dist=p1.distanceTo(p2); if(dist<0.001) return;
+      const mid=new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);
+      this.el.setAttribute('geometry',`primitive:cylinder;radius:${d.radius};height:${dist};segmentsRadial:6`);
+      this.el.setAttribute('material',`color:${d.color};shader:flat`);
+      this.el.object3D.position.copy(mid);
+      this.el.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3().subVectors(p2,p1).normalize());
+    }
+  });
+
+  // ── FILLED POLYGON ──────────────────────────────────────────────
+  AFRAME.registerComponent('draw-polygon', {
+    schema: { vertices:{type:'string',default:''}, color:{type:'color',default:'#FFFFFF'}, opacity:{type:'number',default:0.9} },
+    init: function () {
+      const ptsStr=this.data.vertices.split('|');
+      if(ptsStr.length<3) return;
+      const geo=new THREE.BufferGeometry(), verts=[];
+      const v0=ptsStr[0].split(',').map(Number);
+      for(let i=1;i<ptsStr.length-1;i++) {
+        const v1=ptsStr[i].split(',').map(Number), v2=ptsStr[i+1].split(',').map(Number);
+        verts.push(v0[0],v0[1],v0[2],v1[0],v1[1],v1[2],v2[0],v2[1],v2[2]);
+      }
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3)); geo.computeVertexNormals();
+      const mat=new THREE.MeshBasicMaterial({color:this.data.color,side:THREE.DoubleSide,transparent:true,opacity:this.data.opacity,depthWrite:false});
+      this.el.setObject3D('mesh',new THREE.Mesh(geo,mat));
+    }
+  });
+
+  // ── CROSS HATCH ─────────────────────────────────────────────────
+  AFRAME.registerComponent('cross-hatch', {
+    schema: { vertices:{type:'string',default:''}, color:{type:'color',default:'#CF2027'}, spacing:{type:'number',default:0.04} },
+    init: function () {
+      const ptsStr=this.data.vertices.split('|');
+      if(ptsStr.length<3) return;
+      const pts=ptsStr.map(s=>{ const c=s.split(',').map(Number); return new THREE.Vector3(c[0],c[1],c[2]); });
+      // Compute bounding box
+      const bb=new THREE.Box3().setFromPoints(pts);
+      const geo=new THREE.BufferGeometry(), verts=[];
+      const sp=this.data.spacing;
+      const norm=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(pts[1],pts[0]),new THREE.Vector3().subVectors(pts[2],pts[0])).normalize();
+      const offset=norm.clone().multiplyScalar(0.003);
+      // Draw lines at 45deg across bounding box
+      const minX=bb.min.x-0.05, maxX=bb.max.x+0.05, minY=bb.min.y-0.05, maxY=bb.max.y+0.05;
+      for(let t=minX-maxY; t<maxX+maxY; t+=sp) {
+        const p1=new THREE.Vector3(t,minY,0), p2=new THREE.Vector3(t+maxY-minY, maxY, 0);
+        // clip to polygon (simplified — just add them, shader handles it)
+        verts.push(p1.x+offset.x,p1.y+offset.y,p1.z+offset.z, p2.x+offset.x,p2.y+offset.y,p2.z+offset.z);
+      }
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+      const mat=new THREE.LineBasicMaterial({color:this.data.color, transparent:true, opacity:0.8});
+      this.el.setObject3D('mesh',new THREE.LineSegments(geo,mat));
+    }
+  });
+
+  // ── VR CONTROLLER (module-light) ─────────────────────────────────
+  if (!AFRAME.components['vr-controller-module']) {
+    AFRAME.registerComponent('vr-controller-module', {
+      schema: { hand:{type:'string',default:'left'} },
+      init: function () {
+        this.el.addEventListener('triggerdown', ()=>{
+          const rc=this.el.components.raycaster; if(!rc) return;
+          rc.intersectedEls.forEach(h=>{ if(h.classList.contains('interactive')){ h.emit('click'); }});
+        });
+        this.el.addEventListener('gripdown', ()=>{
+          if(this.data.hand==='right') window.dispatchEvent(new CustomEvent('vr-recenter'));
+        });
+        this.el.addEventListener('axismove', (e)=>{
+          if(this.data.hand==='left'){
+            const ax=e.detail.axis; if(!ax||ax.length<2) return;
+            const x=ax[2]!==undefined?ax[2]:ax[0];
+            if(Math.abs(x)>0.1){ const rig=document.getElementById('rig'); if(rig) rig.object3D.rotation.y-=x*0.03; }
+          }
+        });
+      }
+    });
+  }
+  </script>
+</head>
+
+<body>
+  <div id="loading">
+    SECTION OF SOLIDS
+    <div class="sub">INITIALISING VR ENGINE</div>
+    <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+  </div>
+
+  <div id="overlay">
+    <h1>SECTION OF SOLIDS</h1>
+    <div class="tagline">INTERACTIVE CUTTING PLANE LAB · 25 LEVELS</div>
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="label">What You'll Learn</div>
+        <div class="val">How a cutting plane slices through prisms, pyramids, cylinders, cones &amp; spheres to produce sections</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Key Concepts</div>
+        <div class="val">Cutting Plane Line (CPL) · Apparent Section · True Shape · VP &amp; HP projections with hatching</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Desktop Controls</div>
+        <div class="val">Drag solid to rotate · Scroll to zoom · Sliders to move &amp; tilt cutting plane in real time</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">VR Controls</div>
+        <div class="val">Left stick = move · Right grip = recenter · Trigger = click buttons · Controller ray = interact</div>
+      </div>
+    </div>
+
+    <button class="btn" id="start-btn">ENTER LAB</button>
+  </div>
+
+  <!-- CUTTING PLANE SLIDERS (desktop HUD) -->
+  <div id="cut-slider-wrap">
+    <span class="sl-label">CUT POS</span>
+    <input type="range" id="cut-pos-slider" min="-90" max="90" value="0" step="1">
+    <span class="sl-label">TILT °</span>
+    <input type="range" id="cut-angle-slider" min="0" max="75" value="30" step="1">
+    <span id="cut-info" style="color:#CF2027;font-family:'Rajdhani',sans-serif;font-size:0.8rem;min-width:80px;"></span>
+  </div>
+
+  <div id="hud">
+    <strong>DRAG</strong> solid · <strong>SCROLL</strong> zoom · <strong>SLIDERS</strong> ↓ move cut plane<br>
+    <strong>← →</strong> next/prev level · <strong>T</strong> true shape · <strong>H</strong> toggle hatch
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--  A-FRAME SCENE                                              -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <a-scene id="vr-scene" cursor="rayOrigin: mouse" raycaster="objects: .interactive" vr-mode-ui="enterVRButton: #enter-vr-btn">
+
+    <a-assets>
+      <img id="sky-img"  src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
+      <img id="sand-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="jute-tex" src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
+    </a-assets>
+
+    <!-- SKY + GROUND -->
+    <a-sky src="#sky-img" rotation="0 -90 0"></a-sky>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="40" height="40" src="#sand-tex" repeat="12 12"></a-plane>
+    <a-entity light="type:ambient;intensity:1.0;color:#FFF8F0"></a-entity>
+    <a-entity light="type:directional;position:4 10 4;intensity:1.1"></a-entity>
+
+    <!-- BIRDS -->
+    <a-entity bird-flight="speed:3.5;radius:22;heightRange:12 20"><a-cone radius-bottom="0.12" radius-top="0.01" height="0.25" color="#555" rotation="90 0 0"></a-cone></a-entity>
+    <a-entity bird-flight="speed:4;radius:18;heightRange:14 22"><a-cone radius-bottom="0.10" radius-top="0.01" height="0.22" color="#666" rotation="90 0 0"></a-cone></a-entity>
+    <a-entity bird-flight="speed:3;radius:26;heightRange:11 19"><a-cone radius-bottom="0.11" radius-top="0.01" height="0.23" color="#444" rotation="90 0 0"></a-cone></a-entity>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MAIN APPARATUS  (centre of world, eye-level)
+         Layout:
+           [-2.5, 1.5, -3]  → LEFT board  = FRONT VIEW (VP)
+           [ 0.0, 1.5, -3]  → CENTRE      = 3D SOLID + CUT PLANE
+           [+2.5, 1.5, -3]  → RIGHT board = TOP VIEW (HP)
+           [ 0.0, 0.5, -3]  → BOTTOM      = TRUE SHAPE (unfold)
+    ═══════════════════════════════════════════════════════════ -->
+    <a-entity id="apparatus" position="0 0 0">
+
+      <!-- ── AXIS CROSS ── -->
+      <a-entity position="0 1.5 -3.0">
+        <a-cylinder radius="0.01" height="5.6" rotation="0 0 90" color="#CF2027" position="0 0 0.001"></a-cylinder>
+        <a-cylinder radius="0.01" height="4.0" rotation="0 0 0"  color="#CF2027" position="0 0 0.001"></a-cylinder>
+        <a-text value="X" position="-2.9 0 0.05" align="center" color="#CF2027" scale="1.2 1.2 1.2"></a-text>
+        <a-text value="Y" position="2.9 0 0.05"  align="center" color="#CF2027" scale="1.2 1.2 1.2"></a-text>
+        <a-text value="Y" position="0 2.1 0.05"  align="center" color="#CF2027" scale="1.2 1.2 1.2"></a-text>
+      </a-entity>
+
+      <!-- ── LEFT BOARD: FRONT VIEW (VP) ── -->
+      <a-entity id="vp-board" position="-2.55 1.5 -3.0">
+        <a-plane width="2.2" height="2.8" color="#1E3060" opacity="0.92" side="double"></a-plane>
+        <a-entity draw-line="start:-1.1 1.4 0.01; end:1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-entity draw-line="start:-1.1 -1.4 0.01; end:-1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-entity draw-line="start:1.1 -1.4 0.01; end:1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-text value="FRONT VIEW (VP)" position="0 1.25 0.02" align="center" width="5" color="#7aabff" font="roboto"></a-text>
+        <a-entity id="fv-content"></a-entity>
+      </a-entity>
+
+      <!-- ── CENTRE: 3D SOLID STAGE ── -->
+      <a-entity id="solid-stage" position="0 1.5 -3.0">
+        <!-- draggable solid container -->
+        <a-entity id="solid-root" position="0 0 0">
+          <a-entity id="solid-faces"></a-entity>
+          <a-entity id="solid-edges"></a-entity>
+          <a-entity id="cut-plane-mesh"></a-entity>
+          <a-entity id="section-face"></a-entity>
+          <a-entity id="projector-lines"></a-entity>
+          <a-entity id="vertex-labels"></a-entity>
+        </a-entity>
+        <!-- CPL label -->
+        <a-text id="cpl-label" value="CPL" position="0 1.5 0.05" align="center" color="#FFD700" width="4" visible="false"></a-text>
+      </a-entity>
+
+      <!-- ── RIGHT BOARD: TOP VIEW (HP) ── -->
+      <a-entity id="hp-board" position="2.55 1.5 -3.0">
+        <a-plane width="2.2" height="2.8" color="#1E4A2A" opacity="0.92" side="double"></a-plane>
+        <a-entity draw-line="start:-1.1 1.4 0.01; end:1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-entity draw-line="start:-1.1 -1.4 0.01; end:-1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-entity draw-line="start:1.1 -1.4 0.01; end:1.1 1.4 0.01; color:#FFFFFF; radius:0.007"></a-entity>
+        <a-text value="TOP VIEW (HP)" position="0 1.25 0.02" align="center" width="5" color="#7affab" font="roboto"></a-text>
+        <a-entity id="tv-content"></a-entity>
+      </a-entity>
+
+      <!-- ── BOTTOM BOARD: TRUE SHAPE ── -->
+      <a-entity id="ts-board" position="0 -0.9 -3.0" visible="false">
+        <a-plane width="1.8" height="1.2" color="#2A1A4A" opacity="0.92" side="double"></a-plane>
+        <a-entity draw-line="start:-0.9 0.6 0.01; end:0.9 0.6 0.01; color:#FFFFFF; radius:0.006"></a-entity>
+        <a-entity draw-line="start:-0.9 -0.6 0.01; end:-0.9 0.6 0.01; color:#FFFFFF; radius:0.006"></a-entity>
+        <a-entity draw-line="start:0.9 -0.6 0.01; end:0.9 0.6 0.01; color:#FFFFFF; radius:0.006"></a-entity>
+        <a-text value="TRUE SHAPE" position="0 0.46 0.02" align="center" width="4" color="#c77aff" font="roboto"></a-text>
+        <a-entity id="ts-content"></a-entity>
+      </a-entity>
+
+    </a-entity><!-- /apparatus -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         INFO PANEL (left floating board)
+    ═══════════════════════════════════════════════════════════ -->
+    <a-entity id="info-panel" position="-4.0 1.8 -2.5" rotation="0 30 0">
+      <a-box width="2.6" height="3.4" depth="0.06" src="#jute-tex" color="#999">
+        <a-plane width="2.55" height="3.35" position="0 0 0.031" color="#0d0d1a" opacity="0.96"></a-plane>
+
+        <!-- Title -->
+        <a-text value="SECTION OF SOLIDS" position="0 1.5 0.04" align="center" width="3.5" color="#CF2027" font="roboto"></a-text>
+        <a-plane width="2.4" height="0.006" position="0 1.36 0.04" color="#CF2027"></a-plane>
+
+        <!-- Level + description -->
+        <a-text id="level-text" value="LEVEL 1 / 25" position="0 1.22 0.04" align="center" width="3" color="#888" font="roboto"></a-text>
+        <a-text id="desc-text"  value="Loading..." position="0 0.88 0.04" align="center" width="2.6" color="#ddd" font="roboto" wrap-count="28"></a-text>
+
+        <a-plane width="2.3" height="0.004" position="0 0.60 0.04" color="#333"></a-plane>
+
+        <!-- Steps -->
+        <a-text value="HOW TO SOLVE" position="0 0.50 0.04" align="center" width="3" color="#FFD700" font="roboto"></a-text>
+        <a-text id="steps-text" value="" position="0 0.08 0.04" align="center" width="2.4" color="#aaa" font="roboto" wrap-count="30"></a-text>
+
+        <a-plane width="2.3" height="0.004" position="0 -0.38 0.04" color="#333"></a-plane>
+
+        <!-- Toggle buttons row 1 -->
+        <a-plane class="interactive" id="btn-hatch"      position="-0.62 -0.52 0.05" width="0.9" height="0.18" color="#6A2020">
+          <a-text id="hatch-label" value="■ HATCH ON" align="center" width="3.2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-trueshape"  position="0.62 -0.52 0.05" width="0.9" height="0.18" color="#3A1060">
+          <a-text id="ts-label" value="◆ TRUE SHAPE" align="center" width="3.2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+
+        <!-- Toggle buttons row 2 -->
+        <a-plane class="interactive" id="btn-projectors" position="-0.62 -0.75 0.05" width="0.9" height="0.18" color="#1A3A60">
+          <a-text id="proj-label" value="⟼ PROJ ON" align="center" width="3.2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-animate"    position="0.62 -0.75 0.05" width="0.9" height="0.18" color="#1A5A30">
+          <a-text value="▶ ANIMATE" align="center" width="3.2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+
+        <!-- VR Cut plane sliders (in-VR) -->
+        <a-text value="CUT POSITION" position="-0.62 -1.00 0.04" align="center" width="2.2" color="#CF2027" font="roboto"></a-text>
+        <a-plane class="interactive" id="vr-cut-left"  position="-1.0 -1.18 0.05" width="0.35" height="0.18" color="#2B2B88">
+          <a-text value="◀" align="center" width="2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane id="vr-cut-track" position="-0.62 -1.18 0.05" width="0.65" height="0.12" color="#1a1a2e">
+          <a-plane id="vr-cut-fill" position="-0.325 0 0.002" width="0.001" height="0.10" color="#CF2027"></a-plane>
+        </a-plane>
+        <a-plane class="interactive" id="vr-cut-right" position="-0.24 -1.18 0.05" width="0.35" height="0.18" color="#2B2B88">
+          <a-text value="▶" align="center" width="2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+
+        <a-text value="TILT ANGLE" position="0.62 -1.00 0.04" align="center" width="2.2" color="#8a2be2" font="roboto"></a-text>
+        <a-plane class="interactive" id="vr-ang-left"  position="0.24 -1.18 0.05" width="0.35" height="0.18" color="#3a1060">
+          <a-text value="◀" align="center" width="2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane id="vr-ang-track" position="0.62 -1.18 0.05" width="0.65" height="0.12" color="#1a1a2e">
+          <a-plane id="vr-ang-fill" position="-0.325 0 0.002" width="0.001" height="0.10" color="#8a2be2"></a-plane>
+        </a-plane>
+        <a-plane class="interactive" id="vr-ang-right" position="1.0 -1.18 0.05" width="0.35" height="0.18" color="#3a1060">
+          <a-text value="▶" align="center" width="2" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+
+        <a-plane width="2.3" height="0.004" position="0 -1.36 0.04" color="#333"></a-plane>
+
+        <!-- Nav -->
+        <a-plane class="interactive" id="btn-prev" position="-0.85 -1.52 0.05" width="0.7" height="0.20" color="#222">
+          <a-text value="◀ PREV" align="center" width="2.5" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-next" position="0.85 -1.52 0.05" width="0.7" height="0.20" color="#222">
+          <a-text value="NEXT ▶" align="center" width="2.5" position="0 0 0.01" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-text id="nav-level" value="1/25" position="0 -1.52 0.05" align="center" width="2" color="#555" font="roboto"></a-text>
+
+        <a-plane class="interactive" id="btn-home" position="0 -1.54 0.05" width="0" height="0" color="#000"></a-plane>
+      </a-box>
+    </a-entity>
+
+    <!-- HOME button (separate, back wall) -->
+    <a-entity position="0 1.0 2.5" rotation="0 180 0">
+      <a-plane class="interactive" id="btn-home-wall" width="1.8" height="0.5" color="#1a1a2e" opacity="0.9">
+        <a-plane width="1.85" height="0.55" position="0 0 -0.01" color="#CF2027" opacity="0.2"></a-plane>
+        <a-text value="⬅ MAIN MENU" align="center" width="4" position="0 0 0.02" color="#fff" font="roboto"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- RIG + CONTROLLERS -->
+    <a-entity id="rig" movement-controls="speed:0.15">
+      <a-entity id="camera" camera position="0 1.6 1.8" look-controls="pointerLockEnabled:false"></a-entity>
+      <a-entity id="left-controller"  oculus-touch-controls="hand:left"  vr-controller-module="hand:left"  raycaster="objects:.interactive;far:8;showLine:true;lineColor:cyan;lineOpacity:0.7"></a-entity>
+      <a-entity id="right-controller" oculus-touch-controls="hand:right" vr-controller-module="hand:right" raycaster="objects:.interactive;far:8;showLine:true;lineColor:red;lineOpacity:0.7"></a-entity>
+    </a-entity>
+
+  </a-scene>
+
+  <!-- ════════════════════════════════════════════════════════════
+       JAVASCRIPT ENGINE
+  ════════════════════════════════════════════════════════════ -->
+  <script>
+  // ── AUDIO ────────────────────────────────────────────────────────
+  const AudioManager = {
+    waves: new Audio('waves.mp3'), birds: new Audio('birds.mp3'), waves2: new Audio('waves2.mp3'), timers: [],
+    init() {
+      this.waves.loop=true; this.waves.volume=0.35;
+      this.birds.volume=0.5; this.birds.addEventListener('ended',()=>this.scheduleNextBird());
+      this.waves2.volume=0; this.waves2.loop=true;
+    },
+    start() { this.waves.play().catch(()=>{}); this.scheduleNextBird(); this.scheduleWaves2(); },
+    stop()  { this.waves.pause(); this.birds.pause(); this.waves2.pause(); this.timers.forEach(t=>clearTimeout(t)); this.timers=[]; },
+    scheduleNextBird() { this.timers.push(setTimeout(()=>{ this.birds.currentTime=0; this.birds.play().catch(()=>{}); }, Math.random()*17000+8000)); },
+    scheduleWaves2()   { this.timers.push(setTimeout(()=>this.playWaves2Swell(), Math.random()*20000+10000)); },
+    playWaves2Swell()  {
+      this.waves2.currentTime=0; this.waves2.play().catch(()=>{});
+      const tv=Math.random()*0.4+0.2, dur=Math.random()*8000+6000, fi=2000, fo=2000;
+      this.fadeAudio(this.waves2,0,tv,fi,()=>{
+        this.timers.push(setTimeout(()=>{ this.fadeAudio(this.waves2,tv,0,fo,()=>{ this.waves2.pause(); this.scheduleWaves2(); }); },dur));
+      });
+    },
+    fadeAudio(audio,s,e,dur,cb) {
+      const steps=50, st=dur/steps, vs=(e-s)/steps; let c=0;
+      const iv=setInterval(()=>{ c++; audio.volume=Math.max(0,Math.min(1,s+vs*c)); if(c>=steps){clearInterval(iv);if(cb)cb();} },st);
+      this.timers.push(iv);
+    }
+  };
+  AudioManager.init();
+
+  // ── MATH HELPERS ─────────────────────────────────────────────────
+  const DEG = Math.PI/180;
+  function rotPt(x,y,z, rx,ry,rz) {
+    // rz
+    let x1=x*Math.cos(rz)-y*Math.sin(rz), y1=x*Math.sin(rz)+y*Math.cos(rz), z1=z;
+    // rx
+    let x2=x1, y2=y1*Math.cos(rx)-z1*Math.sin(rx), z2=y1*Math.sin(rx)+z1*Math.cos(rx);
+    // ry
+    let x3=x2*Math.cos(ry)+z2*Math.sin(ry), y3=y2, z3=-x2*Math.sin(ry)+z2*Math.cos(ry);
+    return [x3,y3,z3];
+  }
+  function transformPts(pts, rx,ry,rz, cx,cy,cz) {
+    const r={};
+    for(let k in pts) { const [nx,ny,nz]=rotPt(pts[k][0],pts[k][1],pts[k][2],rx,ry,rz); r[k]=[nx+cx,ny+cy,nz+cz]; }
+    return r;
+  }
+
+  // ── SOLID GENERATORS ─────────────────────────────────────────────
+  const BA='ABCDEFGHIJKLMNO', TA='PQRSTUVWXYZ12345';
+  const C_BASE='#1a3a8a', C_TOP='#8a1a8a';
+  const C_LAT=['#3A86FF','#FF006E','#FB5607','#FFBE0B','#8338EC','#06D6A0','#F72585','#4CC9F0','#43AA8B','#F8961E','#90BE6D','#9D4EDD','#38B000','#00BBF9','#FF006E'];
+
+  function genPrism(sides, radius, height, rx,ry,rz, cx,cy,cz) {
+    const pts={}, sa=(sides===4)?Math.PI/4:(sides===3)?-Math.PI/2:0;
+    const bot=[], top=[];
+    for(let i=0;i<sides;i++) {
+      const a=sa+(i*2*Math.PI/sides);
+      pts[BA[i]]=[Math.cos(a)*radius, -height/2, Math.sin(a)*radius];
+      pts[TA[i]]=[Math.cos(a)*radius,  height/2, Math.sin(a)*radius];
+      bot.push(BA[i]); top.push(TA[i]);
+    }
+    const faces=[{v:[...bot].reverse(),c:C_BASE},{v:[...top],c:C_TOP}];
+    for(let i=0;i<sides;i++) { const n=(i+1)%sides; faces.push({v:[BA[i],BA[n],TA[n],TA[i]],c:C_LAT[i%C_LAT.length]}); }
+    const lbl=sides>6?Object.keys(pts).filter((_,i)=>i%3===0):Object.keys(pts);
+    return {vertices:transformPts(pts,rx,ry,rz,cx,cy,cz), faces, sides, shape:'prism', lbl};
+  }
+
+  function genPyramid(sides, radius, height, rx,ry,rz, cx,cy,cz) {
+    const pts={}, sa=(sides===4)?Math.PI/4:(sides===3)?-Math.PI/2:0;
+    const bot=[];
+    for(let i=0;i<sides;i++) {
+      const a=sa+(i*2*Math.PI/sides);
+      pts[BA[i]]=[Math.cos(a)*radius,-height/2,Math.sin(a)*radius];
+      bot.push(BA[i]);
+    }
+    pts['O']=[0,height/2,0];
+    const faces=[{v:[...bot].reverse(),c:C_BASE}];
+    for(let i=0;i<sides;i++) { const n=(i+1)%sides; faces.push({v:[BA[i],BA[n],'O'],c:C_LAT[i%C_LAT.length]}); }
+    const lbl=sides>6?Object.keys(pts).filter((_,i)=>i%3===0||pts[_]==='O'?true:false):Object.keys(pts);
+    return {vertices:transformPts(pts,rx,ry,rz,cx,cy,cz), faces, sides, shape:'pyramid', lbl};
+  }
+
+  function genFrustum(sides, rBot, rTop, height, rx,ry,rz, cx,cy,cz) {
+    const pts={}, sa=(sides===4)?Math.PI/4:0;
+    const bot=[], top=[];
+    for(let i=0;i<sides;i++) {
+      const a=sa+(i*2*Math.PI/sides);
+      pts[BA[i]]=[Math.cos(a)*rBot,-height/2,Math.sin(a)*rBot];
+      pts[TA[i]]=[Math.cos(a)*rTop, height/2,Math.sin(a)*rTop];
+      bot.push(BA[i]); top.push(TA[i]);
+    }
+    const faces=[{v:[...bot].reverse(),c:C_BASE},{v:[...top],c:C_TOP}];
+    for(let i=0;i<sides;i++) { const n=(i+1)%sides; faces.push({v:[BA[i],BA[n],TA[n],TA[i]],c:C_LAT[i%C_LAT.length]}); }
+    const lbl=sides>6?Object.keys(pts).filter((_,i)=>i%3===0):Object.keys(pts);
+    return {vertices:transformPts(pts,rx,ry,rz,cx,cy,cz), faces, sides, shape:'frustum', lbl};
+  }
+
+  // ── CUTTING PLANE ENGINE ─────────────────────────────────────────
+  // cutPos ∈ [-1,1]  (fraction along height axis)
+  // cutAngleDeg: tilt of CPL from horizontal (0 = horizontal cut, 90 = vertical)
+  // returns { sectionPts: [[x,y,z]...], belowFaces, aboveFaces, cpNormal }
+
+  function clipFaceByPlane(faceVerts, planeNorm, planePt) {
+    // Sutherland–Hodgman for one plane
+    const dot = v => (v[0]-planePt[0])*planeNorm[0]+(v[1]-planePt[1])*planeNorm[1]+(v[2]-planePt[2])*planeNorm[2];
+    const inside = v => dot(v) >= -1e-5;
+    const intersect = (a,b) => {
+      const da=dot(a), db=dot(b), t=da/(da-db);
+      return [a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1]), a[2]+t*(b[2]-a[2])];
+    };
+    const out=[];
+    for(let i=0;i<faceVerts.length;i++) {
+      const cur=faceVerts[i], prv=faceVerts[(i+faceVerts.length-1)%faceVerts.length];
+      const cIn=inside(cur), pIn=inside(prv);
+      if(cIn && pIn) { out.push(cur); }
+      else if(cIn && !pIn) { out.push(intersect(prv,cur)); out.push(cur); }
+      else if(!cIn && pIn) { out.push(intersect(cur,prv)); }
+    }
+    return out;
+  }
+
+  function computeSection(solid, cutPos, cutAngleDeg) {
+    // Plane defined by normal = [sin(angle),cos(angle),0] passing through centroid_y + cutPos offset
+    const allY = Object.values(solid.vertices).map(v=>v[1]);
+    const minY=Math.min(...allY), maxY=Math.max(...allY);
+    const midY=(minY+maxY)/2;
+    const planePt=[0, midY + cutPos*(maxY-minY)*0.5, 0];
+
+    const ang = cutAngleDeg*DEG;
+    // Normal points "above" the cut (upward + tilted in z)
+    const planeNorm = [0, Math.cos(ang), Math.sin(ang)];
+
+    // Collect intersection points on edges
+    const sectionPts=[];
+    const edgeMap=new Set();
+    const dot = v => (v[0]-planePt[0])*planeNorm[0]+(v[1]-planePt[1])*planeNorm[1]+(v[2]-planePt[2])*planeNorm[2];
+
+    solid.faces.forEach(face=>{
+      const fverts = face.v.map(k=>solid.vertices[k]);
+      for(let i=0;i<fverts.length;i++) {
+        const a=fverts[i], b=fverts[(i+1)%fverts.length];
+        const da=dot(a), db=dot(b);
+        if((da>=0&&db<0)||(da<0&&db>=0)) {
+          const t=da/(da-db);
+          const ip=[a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1]), a[2]+t*(b[2]-a[2])];
+          const key=`${ip[0].toFixed(3)},${ip[1].toFixed(3)},${ip[2].toFixed(3)}`;
+          if(!edgeMap.has(key)) { edgeMap.add(key); sectionPts.push(ip); }
+        }
+      }
+    });
+
+    // Sort section points in order (project onto plane, angle-sort)
+    if(sectionPts.length>2) {
+      const cx=sectionPts.reduce((a,b)=>a+b[0],0)/sectionPts.length;
+      const cy=sectionPts.reduce((a,b)=>a+b[1],0)/sectionPts.length;
+      const cz=sectionPts.reduce((a,b)=>a+b[2],0)/sectionPts.length;
+      const u=new THREE.Vector3(1,0,0), vv=new THREE.Vector3(0,planeNorm[2],-planeNorm[1]).normalize();
+      sectionPts.sort((a,b)=>{
+        const ax=a[0]-cx, ay=a[1]-cy, az=a[2]-cz;
+        const bx=b[0]-cx, by=b[1]-cy, bz=b[2]-cz;
+        const angA=Math.atan2(ay*vv.y+az*vv.z, ax);
+        const angB=Math.atan2(by*vv.y+bz*vv.z, bx);
+        return angA-angB;
+      });
+    }
+
+    // Clip each face above and below
+    const aboveFaces=[], belowFaces=[];
+    solid.faces.forEach(face=>{
+      const fverts=face.v.map(k=>solid.vertices[k]);
+      const above=clipFaceByPlane(fverts, planeNorm, planePt);
+      const below=clipFaceByPlane(fverts, [-planeNorm[0],-planeNorm[1],-planeNorm[2]], planePt);
+      if(above.length>=3) aboveFaces.push({verts:above, c:face.c});
+      if(below.length>=3) belowFaces.push({verts:below, c:face.c});
+    });
+
+    // True shape: project sectionPts onto the cut plane
+    const trueShapePts=[];
+    if(sectionPts.length>=3) {
+      const cx=sectionPts.reduce((a,b)=>a+b[0],0)/sectionPts.length;
+      const cy=sectionPts.reduce((a,b)=>a+b[1],0)/sectionPts.length;
+      const cz=sectionPts.reduce((a,b)=>a+b[2],0)/sectionPts.length;
+      const right=new THREE.Vector3(1,0,0);
+      const up=new THREE.Vector3(0,planeNorm[2],-planeNorm[1]).normalize();
+      sectionPts.forEach(p=>{
+        const dx=p[0]-cx, dy=p[1]-cy, dz=p[2]-cz;
+        trueShapePts.push([dx*right.x+dy*right.y+dz*right.z, dx*up.x+dy*up.y+dz*up.z]);
+      });
+    }
+
+    return { sectionPts, aboveFaces, belowFaces, planeNorm, planePt, trueShapePts };
+  }
+
+  // ── CURRICULUM (25 LEVELS) ──────────────────────────────────────
+  const LEVELS = [
+    // PHASE 1: PRISMS (1-5)
+    { desc:'1. Square Prism — Horizontal Cut\nAxis ⊥ HP. Cutting plane parallel to HP.', steps:'① Draw FV: rectangle with CPL line\n② Project down to get TV\n③ Section is a square', solidFn:(rot)=>genPrism(4,0.55,1.1,0,45+rot,0,0,0,0), cutPos:0,    cutAngle:0,  phase:'basic'   },
+    { desc:'2. Square Prism — Oblique Cut\nAxis ⊥ HP. CPL inclined 45° to HP.', steps:'① CPL appears as inclined line in FV\n② Project points 1-4 to HP\n③ Rotate 90° to get true shape (rectangle)', solidFn:(rot)=>genPrism(4,0.55,1.1,0,45+rot,0,0,0,0), cutPos:0.1,  cutAngle:40, phase:'basic'   },
+    { desc:'3. Hexagonal Prism — Horizontal Cut\nAxis ⊥ HP, flat face on HP.', steps:'① TV shows hexagon\n② FV shows rectangle with CPL\n③ Section = hexagon (true shape = hexagon)', solidFn:(rot)=>genPrism(6,0.45,1.0,0,30+rot,0,0,0,0), cutPos:-0.1, cutAngle:0,  phase:'basic'   },
+    { desc:'4. Hexagonal Prism — AIP Cut\nAxis ⊥ HP. Plane inclined to HP (AIP) at 30°.', steps:'① CPL in FV is oblique\n② Mark 6 points where CPL meets edges\n③ Project to TV → elongated hexagon', solidFn:(rot)=>genPrism(6,0.45,1.0,0,30+rot,0,0,0,0), cutPos:0.05, cutAngle:30, phase:'basic'   },
+    { desc:'5. Triangular Prism — Vertical Cut\nAxis ⊥ HP. CPL parallel to VP (AVP).', steps:'① CPL appears as vertical line in TV\n② Section in FV: rectangle\n③ True shape = rectangle', solidFn:(rot)=>genPrism(3,0.5,1.0,0,rot,0,0,0,0), cutPos:-0.2, cutAngle:0,  phase:'basic'   },
+
+    // PHASE 2: PYRAMIDS (6-10)
+    { desc:'6. Square Pyramid — Horizontal Cut\nAxis ⊥ HP. Plane ∥ to base. Section = Square.', steps:'① CPL in FV is horizontal\n② All 4 slant edges cut equally\n③ TV shows smaller square inside bigger square', solidFn:(rot)=>genPyramid(4,0.5,1.1,0,45+rot,0,0,0,0), cutPos:0.2,  cutAngle:0,  phase:'pyramid' },
+    { desc:'7. Square Pyramid — AIP Cut\nPlane inclined to HP, parallel to a slant edge.', steps:'① Mark where CPL cuts 4 edges in FV\n② Project to TV for apparent section\n③ True shape: use edge-length method', solidFn:(rot)=>genPyramid(4,0.5,1.1,0,45+rot,0,0,0,0), cutPos:0.15, cutAngle:35, phase:'pyramid' },
+    { desc:'8. Hexagonal Pyramid — AIP Cut\nAxis ⊥ HP. CPL inclined 45° to HP.', steps:'① CPL cuts 6 slant edges in FV\n② Project 6 points to TV\n③ Join in TV = apparent section', solidFn:(rot)=>genPyramid(6,0.48,1.0,0,30+rot,0,0,0,0), cutPos:0.1,  cutAngle:40, phase:'pyramid' },
+    { desc:'9. Pentagonal Pyramid — Through Apex\nCPL passes through apex: section is a triangle.', steps:'① CPL passes through apex point O\n② Only 2 base edges are cut\n③ Section = triangle (apex + 2 base pts)', solidFn:(rot)=>genPyramid(5,0.48,1.0,0,18+rot,0,0,0,0), cutPos:0.48, cutAngle:50, phase:'pyramid' },
+    { desc:'10. Cone — Horizontal Cut → Circle\nAxis ⊥ HP. Plane ∥ base. Section = Circle.', steps:'① In FV: CPL horizontal → cuts circle\n② TV: concentric circle\n③ True shape = circle (scaled)', solidFn:(rot)=>genPyramid(16,0.48,1.0,0,rot,0,0,0,0), cutPos:0.2,  cutAngle:0,  phase:'cone'   },
+
+    // PHASE 3: CONIC SECTIONS (11-15)
+    { desc:'11. Cone — Ellipse Section\nPlane inclined to HP, cuts all generators.', steps:'① CPL inclined (not ∥ to any generator)\n② Points on each generator projected\n③ True shape = ellipse', solidFn:(rot)=>genPyramid(16,0.48,1.0,0,rot,0,0,0,0), cutPos:0.0,  cutAngle:30, phase:'cone'   },
+    { desc:'12. Cone — Parabola Section\nPlane parallel to one generator. Section = Parabola.', steps:'① CPL ∥ to one slant generator in FV\n② Cuts opposite half of cone\n③ True shape = parabola (open curve)', solidFn:(rot)=>genPyramid(16,0.48,1.0,0,rot,0,0,0,0), cutPos:-0.1, cutAngle:55, phase:'cone'   },
+    { desc:'13. Cylinder — Horizontal Cut\nAxis ⊥ HP. Section = Circle.', steps:'① CPL horizontal in FV\n② Circle projects as circle in TV\n③ True shape = perfect circle', solidFn:(rot)=>genPrism(16,0.45,1.1,0,rot,0,0,0,0), cutPos:0.1,  cutAngle:0,  phase:'cylinder'},
+    { desc:'14. Cylinder — Oblique Cut → Ellipse\nCPL inclined to HP.', steps:'① CPL inclined line in FV\n② Mark 8 points on circumference\n③ True shape = ellipse (semi-axes a & b)', solidFn:(rot)=>genPrism(16,0.45,1.1,0,rot,0,0,0,0), cutPos:0.0,  cutAngle:40, phase:'cylinder'},
+    { desc:'15. Sphere — Any Section = Circle\nAny plane through a sphere gives a circle.', steps:'① CPL anywhere in FV\n② Section always a circle\n③ Radius = √(R²–d²), d=dist from centre', solidFn:(rot)=>genPrism(16,0.5,0.05,0,rot,0,0,0,0), cutPos:0.0,  cutAngle:0,  phase:'sphere' },
+
+    // PHASE 4: INCLINED SOLIDS (16-20)
+    { desc:'16. Square Prism axis ∥ HP — AIP Cut\nSolid on HP, axis parallel to VP.', steps:'① FV shows rectangular solid axis-horizontal\n② CPL cuts obliquely in TV\n③ Project to FV for section', solidFn:(rot)=>genPrism(4,0.45,1.0,90,45+rot,0,0,0,0), cutPos:0.0,  cutAngle:35, phase:'inclined'},
+    { desc:'17. Hexagonal Prism axis ∥ VP — AVP Cut\nCPL perpendicular to VP (appears as point in VP).', steps:'① FV: CPL appears as vertical line\n② TV: CPL full length\n③ Section = hexagon', solidFn:(rot)=>genPrism(6,0.42,1.0,90,30+rot,0,0,0,0), cutPos:0.1,  cutAngle:0,  phase:'inclined'},
+    { desc:'18. Square Pyramid axis ∥ HP — Cut\nPyramid lying on its side, axis to VP.', steps:'① Pyramid on rectangular face in FV\n② CPL inclined in FV\n③ Section: trapezoid or triangle', solidFn:(rot)=>genPyramid(4,0.48,1.0,90,45+rot,0,0,0,0), cutPos:0.2,  cutAngle:30, phase:'inclined'},
+    { desc:'19. Cone axis ∥ HP — Ellipse Cut\nAxis parallel to HP. CPL cuts all generators.', steps:'① In FV: cone appears as triangle\n② CPL intersects both sides in FV\n③ True shape = ellipse', solidFn:(rot)=>genPyramid(16,0.45,1.0,90,rot,0,0,0,0), cutPos:0.0,  cutAngle:25, phase:'inclined'},
+    { desc:'20. Tetrahedron — Section through midpoints\nRegular tetrahedron. CPL through mid-edges.', steps:'① Mark midpoints of 3 edges in 3D\n② Project to FV and TV\n③ True shape = equilateral triangle', solidFn:(rot)=>genPyramid(3,0.55,0.9,0,rot,0,0,0,0), cutPos:0.2,  cutAngle:0,  phase:'advanced'},
+
+    // PHASE 5: ADVANCED (21-25)
+    { desc:'21. Frustum — Inclined Cut\nFrustum of square pyramid, CPL at 40° to HP.', steps:'① CPL inclined in FV\n② 4 edge intersections found\n③ True shape = trapezoid', solidFn:(rot)=>genFrustum(4,0.5,0.25,1.0,0,45+rot,0,0,0,0), cutPos:0.1,  cutAngle:40, phase:'advanced'},
+    { desc:'22. Frustum of Cone — Ellipse Cut\nInclined plane cuts all generators of frustum.', steps:'① 12-point method in FV\n② Project all to TV\n③ True shape = ellipse', solidFn:(rot)=>genFrustum(16,0.48,0.25,1.0,0,rot,0,0,0,0), cutPos:0.05, cutAngle:35, phase:'advanced'},
+    { desc:'23. Square Prism — Double Inclined Cut\nCPL inclined to BOTH HP and VP.', steps:'① CPL oblique in both FV and TV\n② Project intersection points\n③ True shape by auxiliary plane', solidFn:(rot)=>genPrism(4,0.48,1.0,20,45+rot,15,0,0,0), cutPos:0.0,  cutAngle:40, phase:'advanced'},
+    { desc:'24. Hexagonal Pyramid — Extreme Cut\nPlane through one base edge and opposite apex slant.', steps:'① CPL in FV through apex side\n② 3 intersections on edges\n③ True shape = triangle', solidFn:(rot)=>genPyramid(6,0.48,1.0,0,30+rot,0,0,0,0), cutPos:0.35, cutAngle:60, phase:'advanced'},
+    { desc:'25. Cylinder — Two Cuts\nTwo parallel inclined planes create a slice.', steps:'① Two CPL lines in FV\n② Both cut at same angle\n③ Removed portion = elliptic prism slice', solidFn:(rot)=>genPrism(16,0.45,1.1,0,rot,0,0,0,0), cutPos:0.0,  cutAngle:45, phase:'advanced'},
+  ];
+
+  // Phase colour badges
+  const PHASE_COLOR = { basic:'#2B2B88', pyramid:'#7B3F00', cone:'#006B3C', cylinder:'#4A0080', sphere:'#003366', inclined:'#8B0000', advanced:'#CF2027' };
+
+  // ── STATE ────────────────────────────────────────────────────────
+  let currentLevel = 0;
+  let userRotY     = 0;          // user drag rotation offset (degrees)
+  let cutPos       = 0;          // -1..1
+  let cutAngleDeg  = 30;         // 0..75
+  let showHatch    = true;
+  let showTrueShape= false;
+  let showProj     = true;
+  let animating    = false;
+  let animTimer    = null;
+
+  // ── DOM REFS ─────────────────────────────────────────────────────
+  const elFV    = document.getElementById('fv-content');
+  const elTV    = document.getElementById('tv-content');
+  const elTS    = document.getElementById('ts-content');
+  const elFaces = document.getElementById('solid-faces');
+  const elEdges = document.getElementById('solid-edges');
+  const elCutPl = document.getElementById('cut-plane-mesh');
+  const elSectF = document.getElementById('section-face');
+  const elProj  = document.getElementById('projector-lines');
+  const elVlbl  = document.getElementById('vertex-labels');
+  const elCPLlb = document.getElementById('cpl-label');
+  const elTsBoard=document.getElementById('ts-board');
+  const elSolidRoot=document.getElementById('solid-root');
+
+  // UI text refs
+  const txtLevel = document.getElementById('level-text');
+  const txtDesc  = document.getElementById('desc-text');
+  const txtSteps = document.getElementById('steps-text');
+  const txtNav   = document.getElementById('nav-level');
+  const hatchLbl = document.getElementById('hatch-label');
+  const tsLbl    = document.getElementById('ts-label');
+  const projLbl  = document.getElementById('proj-label');
+
+  // ── AFRAME HELPERS ───────────────────────────────────────────────
+  function mkEl(tag, attrs) {
+    const el=document.createElement(tag);
+    for(let k in attrs) el.setAttribute(k,attrs[k]);
+    return el;
+  }
+  function clearEl(el) { while(el.firstChild) el.removeChild(el.firstChild); }
+
+  // ── RENDER ENGINE ────────────────────────────────────────────────
+  function render() {
+    const lv   = LEVELS[currentLevel];
+    const solid= lv.solidFn(userRotY);
+    const sect = computeSection(solid, cutPos, cutAngleDeg);
+
+    clearEl(elFaces); clearEl(elEdges); clearEl(elCutPl);
+    clearEl(elSectF); clearEl(elProj);  clearEl(elVlbl);
+    clearEl(elFV);    clearEl(elTV);    clearEl(elTS);
+
+    // Scale factor to keep solid nicely sized in 1-unit space
+    const sf = 1.0;
+
+    // ── 3D SOLID (above-cut = semi-transparent, below = full) ──
+    const renderFaces = (faces, alphaMod) => {
+      faces.forEach(f=>{
+        if(f.verts) {
+          // clipped polygon (array of [x,y,z])
+          if(f.verts.length<3) return;
+          const pts=f.verts.map(v=>`${(v[0]*sf).toFixed(4)},${(v[1]*sf).toFixed(4)},${(v[2]*sf).toFixed(4)}`).join('|');
+          const op=alphaMod;
+          elFaces.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pts};color:${f.c};opacity:${op}`}));
+          // edges
+          for(let i=0;i<f.verts.length;i++) {
+            const a=f.verts[i], b=f.verts[(i+1)%f.verts.length];
+            elEdges.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]*sf} ${a[1]*sf} ${a[2]*sf};end:${b[0]*sf} ${b[1]*sf} ${b[2]*sf};color:#111;radius:0.008`}));
+          }
+        } else {
+          // un-clipped
+          const pts=f.v.map(k=>{ const v=solid.vertices[k]; return `${(v[0]*sf).toFixed(4)},${(v[1]*sf).toFixed(4)},${(v[2]*sf).toFixed(4)}`; }).join('|');
+          elFaces.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pts};color:${f.c};opacity:${alphaMod}`}));
+          for(let i=0;i<f.v.length;i++) {
+            const a=solid.vertices[f.v[i]], b=solid.vertices[f.v[(i+1)%f.v.length]];
+            elEdges.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]*sf} ${a[1]*sf} ${a[2]*sf};end:${b[0]*sf} ${b[1]*sf} ${b[2]*sf};color:#111;radius:0.008`}));
+          }
+        }
+      });
+    };
+
+    renderFaces(sect.aboveFaces, 0.22);   // above cut = ghost
+    renderFaces(sect.belowFaces, 0.92);   // below cut = solid
+
+    // ── SECTION POLYGON ──
+    if(sect.sectionPts.length>=3) {
+      const pts=sect.sectionPts.map(v=>`${(v[0]*sf).toFixed(4)},${(v[1]*sf).toFixed(4)},${(v[2]*sf).toFixed(4)}`).join('|');
+      elSectF.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pts};color:#CF2027;opacity:0.88`}));
+      // Hatch
+      if(showHatch) {
+        for(let i=0;i<sect.sectionPts.length;i++) {
+          const a=sect.sectionPts[i], b=sect.sectionPts[(i+1)%sect.sectionPts.length];
+          const nm=sect.planeNorm;
+          const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
+          // draw diagonal hatch lines across bounding box on the plane
+          for(let h=-0.8;h<0.8;h+=0.06) {
+            const lA=[mid[0]+h-0.3, mid[1]+nm[1]*h, mid[2]+nm[2]*h];
+            const lB=[mid[0]+h+0.3, mid[1]+nm[1]*(h+0.01), mid[2]+nm[2]*(h+0.01)];
+            elSectF.appendChild(mkEl('a-entity',{'draw-line':`start:${lA[0]} ${lA[1]} ${lA[2]};end:${lB[0]} ${lB[1]} ${lB[2]};color:#CF2027;radius:0.004`}));
+          }
+        }
+      }
+      // section edges
+      for(let i=0;i<sect.sectionPts.length;i++) {
+        const a=sect.sectionPts[i], b=sect.sectionPts[(i+1)%sect.sectionPts.length];
+        elSectF.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} ${a[2]};end:${b[0]} ${b[1]} ${b[2]};color:#FF4444;radius:0.012`}));
+      }
+    }
+
+    // ── CUTTING PLANE QUAD ──
+    {
+      const n=sect.planeNorm, p=sect.planePt;
+      const sz=0.9;
+      const right=[1,0,0];
+      const up=[0,n[2],-n[1]]; const upL=Math.sqrt(up[0]*up[0]+up[1]*up[1]+up[2]*up[2]);
+      if(upL>0.001) { up[0]/=upL; up[1]/=upL; up[2]/=upL; }
+      else { up[0]=0; up[1]=1; up[2]=0; }
+      const corners=[
+        [p[0]-right[0]*sz+up[0]*sz, p[1]-right[1]*sz+up[1]*sz, p[2]-right[2]*sz+up[2]*sz],
+        [p[0]+right[0]*sz+up[0]*sz, p[1]+right[1]*sz+up[1]*sz, p[2]+right[2]*sz+up[2]*sz],
+        [p[0]+right[0]*sz-up[0]*sz, p[1]+right[1]*sz-up[1]*sz, p[2]+right[2]*sz-up[2]*sz],
+        [p[0]-right[0]*sz-up[0]*sz, p[1]-right[1]*sz-up[1]*sz, p[2]-right[2]*sz-up[2]*sz],
+      ];
+      const pts=corners.map(c=>`${c[0].toFixed(4)},${c[1].toFixed(4)},${c[2].toFixed(4)}`).join('|');
+      elCutPl.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pts};color:#4488FF;opacity:0.18`}));
+      // Border of cutting plane
+      for(let i=0;i<corners.length;i++) {
+        const a=corners[i], b=corners[(i+1)%corners.length];
+        elCutPl.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} ${a[2]};end:${b[0]} ${b[1]} ${b[2]};color:#FFD700;radius:0.009`}));
+      }
+      // CPL line in 3D (the trace on VP - vertical plane at z=0)
+      elCutPl.appendChild(mkEl('a-entity',{'draw-line':`start:${-sz} ${p[1]+up[1]*sz} ${p[2]+up[2]*sz};end:${sz} ${p[1]+up[1]*sz} ${p[2]+up[2]*sz};color:#FFD700;radius:0.014`}));
+    }
+
+    // ── PROJECTOR LINES from section corners ──
+    if(showProj && sect.sectionPts.length>=2) {
+      sect.sectionPts.forEach(p=>{
+        // to VP (z=0 wall — represented at z=+0.7)
+        elProj.appendChild(mkEl('a-entity',{line:`start:${p[0]} ${p[1]} ${p[2]};end:${p[0]} ${p[1]} 0.72;color:#888;opacity:0.25`}));
+        // to HP (y=0 floor — represented at y=-0.6)
+        elProj.appendChild(mkEl('a-entity',{line:`start:${p[0]} ${p[1]} ${p[2]};end:${p[0]} -0.62 ${p[2]};color:#888;opacity:0.25`}));
+      });
+    }
+
+    // ── VERTEX LABELS ──
+    if(solid.lbl) {
+      solid.lbl.forEach(k=>{
+        const v=solid.vertices[k];
+        elVlbl.appendChild(mkEl('a-sphere',{position:`${v[0]} ${v[1]} ${v[2]}`,radius:'0.022',color:'#111'}));
+        elVlbl.appendChild(mkEl('a-text',{value:k,position:`${v[0]+0.06} ${v[1]+0.06} ${v[2]}`,color:'#FFF',align:'center',scale:'0.7 0.7 0.7'}));
+      });
+    }
+
+    // ── FRONT VIEW (VP) DRAWING ──
+    // Project onto z=0 plane (x,y)
+    const drawVP = (pts2d, color, label, alpha=0.8) => {
+      if(pts2d.length<2) return;
+      // draw polygon
+      const pStr=pts2d.map(p=>`${p[0].toFixed(4)},${p[1].toFixed(4)},0.01`).join('|');
+      if(pts2d.length>=3) elFV.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pStr};color:${color};opacity:${alpha*0.5}`}));
+      for(let i=0;i<pts2d.length;i++) {
+        const a=pts2d[i], b=pts2d[(i+1)%pts2d.length];
+        elFV.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} 0.02;end:${b[0]} ${b[1]} 0.02;color:${color};radius:0.007`}));
+      }
+    };
+
+    // Draw all faces projected to FV (outline only - pick visible edges)
+    const fvEdges=new Map();
+    solid.faces.forEach(face=>{
+      const vk=face.v||[];
+      for(let i=0;i<vk.length;i++) {
+        const a=solid.vertices[vk[i]], b=solid.vertices[vk[(i+1)%vk.length]];
+        const key=[vk[i],vk[(i+1)%vk.length]].sort().join('-');
+        if(!fvEdges.has(key)) fvEdges.set(key,{a,b,c:face.c});
+      }
+    });
+    fvEdges.forEach(e=>{
+      elFV.appendChild(mkEl('a-entity',{'draw-line':`start:${e.a[0]} ${e.a[1]} 0.02;end:${e.b[0]} ${e.b[1]} 0.02;color:#FFFFFF;radius:0.005`}));
+    });
+
+    // CPL on VP (the line where cutting plane meets VP)
+    {
+      const p=sect.planePt, n=sect.planeNorm;
+      const sz=0.85;
+      const x1=-sz, y1=p[1]+n[1]*(-p[2])/Math.max(0.01,Math.abs(n[2]||1));
+      const x2= sz, y2=p[1]+n[1]*( sz-p[2])/Math.max(0.01,Math.abs(n[2]||1));
+      // Simplified: CPL on VP = horizontal line at cutPos height, tilted by angle
+      const baseY=p[1];
+      const tilt=Math.tan(cutAngleDeg*DEG);
+      elFV.appendChild(mkEl('a-entity',{'draw-line':`start:${-sz} ${baseY-tilt*sz} 0.04;end:${sz} ${baseY+tilt*sz} 0.04;color:#FFD700;radius:0.012`}));
+      // CPL label
+      elFV.appendChild(mkEl('a-text',{value:'CPL',position:`${sz+0.08} ${baseY+tilt*sz} 0.04`,color:'#FFD700',align:'left',scale:'0.55 0.55 0.55'}));
+    }
+
+    // Section hatch on FV (where section polygon projects to FV)
+    if(sect.sectionPts.length>=3 && showHatch) {
+      const fvSect=sect.sectionPts.map(p=>[p[0],p[1]]);
+      const pStr=fvSect.map(p=>`${p[0].toFixed(4)},${p[1].toFixed(4)},0.03`).join('|');
+      elFV.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pStr};color:#CF2027;opacity:0.55`}));
+      for(let i=0;i<fvSect.length;i++) {
+        const a=fvSect[i], b=fvSect[(i+1)%fvSect.length];
+        elFV.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} 0.03;end:${b[0]} ${b[1]} 0.03;color:#FF4444;radius:0.009`}));
+      }
+    }
+
+    // ── TOP VIEW (HP) DRAWING ──
+    // Project onto y=0 plane (x,z) → shown as (x,z) in the board
+    const tvEdges=new Map();
+    solid.faces.forEach(face=>{
+      const vk=face.v||[];
+      for(let i=0;i<vk.length;i++) {
+        const a=solid.vertices[vk[i]], b=solid.vertices[vk[(i+1)%vk.length]];
+        const key=[vk[i],vk[(i+1)%vk.length]].sort().join('-');
+        if(!tvEdges.has(key)) tvEdges.set(key,{a,b,c:face.c});
+      }
+    });
+    tvEdges.forEach(e=>{
+      elTV.appendChild(mkEl('a-entity',{'draw-line':`start:${e.a[0]} ${-e.a[2]} 0.02;end:${e.b[0]} ${-e.b[2]} 0.02;color:#FFFFFF;radius:0.005`}));
+    });
+    // Section on TV
+    if(sect.sectionPts.length>=3 && showHatch) {
+      const tvSect=sect.sectionPts.map(p=>[p[0],-p[2]]);
+      const pStr=tvSect.map(p=>`${p[0].toFixed(4)},${p[1].toFixed(4)},0.03`).join('|');
+      elTV.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${pStr};color:#CF2027;opacity:0.55`}));
+      for(let i=0;i<tvSect.length;i++) {
+        const a=tvSect[i], b=tvSect[(i+1)%tvSect.length];
+        elTV.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]} ${a[1]} 0.03;end:${b[0]} ${b[1]} 0.03;color:#FF4444;radius:0.009`}));
+      }
+      // CPL trace on TV (vertical line = where plane normal meets HP)
+      const p=sect.planePt;
+      elTV.appendChild(mkEl('a-entity',{'draw-line':`start:${p[0]} ${-0.85} 0.04;end:${p[0]} ${0.85} 0.04;color:#FFD700;radius:0.01`}));
+    }
+
+    // ── TRUE SHAPE BOARD ──
+    elTsBoard.setAttribute('visible', showTrueShape);
+    if(showTrueShape && sect.trueShapePts.length>=3) {
+      const scale=1.0;
+      const tsStr=sect.trueShapePts.map(p=>`${(p[0]*scale).toFixed(4)},${(p[1]*scale).toFixed(4)},0.01`).join('|');
+      elTS.appendChild(mkEl('a-entity',{'draw-polygon':`vertices:${tsStr};color:#9B5DE5;opacity:0.7`}));
+      for(let i=0;i<sect.trueShapePts.length;i++) {
+        const a=sect.trueShapePts[i], b=sect.trueShapePts[(i+1)%sect.trueShapePts.length];
+        elTS.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]*scale} ${a[1]*scale} 0.02;end:${b[0]*scale} ${b[1]*scale} 0.02;color:#c77aff;radius:0.01`}));
+      }
+      if(showHatch) {
+        sect.trueShapePts.forEach((p,i)=>{
+          if(i%2===0) return;
+          const a=sect.trueShapePts[i], b=sect.trueShapePts[(i+1)%sect.trueShapePts.length];
+          elTS.appendChild(mkEl('a-entity',{'draw-line':`start:${a[0]*scale} ${a[1]*scale} 0.025;end:${b[0]*scale} ${b[1]*scale} 0.025;color:#CF2027;radius:0.005`}));
+        });
+      }
+    }
+
+    // ── UPDATE INFO PANEL ──
+    const lv2=LEVELS[currentLevel];
+    txtLevel.setAttribute('value',`LEVEL ${currentLevel+1} / ${LEVELS.length}`);
+    txtDesc.setAttribute('value', lv2.desc);
+    txtSteps.setAttribute('value', lv2.steps);
+    txtNav.setAttribute('value',`${currentLevel+1}/${LEVELS.length}`);
+
+    // Update VR cut fill bars
+    const posFrac=(cutPos+1)/2;
+    const angFrac=cutAngleDeg/75;
+    const fillEl=document.getElementById('vr-cut-fill');
+    const angEl =document.getElementById('vr-ang-fill');
+    if(fillEl) fillEl.setAttribute('scale',`${Math.max(0.01,posFrac*0.65)/0.001} 1 1`);
+    if(angEl)  angEl.setAttribute('scale', `${Math.max(0.01,angFrac*0.65)/0.001} 1 1`);
+
+    // update desktop sliders
+    const posSlider=document.getElementById('cut-pos-slider');
+    const angSlider=document.getElementById('cut-angle-slider');
+    if(posSlider) posSlider.value=Math.round(cutPos*90);
+    if(angSlider) angSlider.value=Math.round(cutAngleDeg);
+    const info=document.getElementById('cut-info');
+    if(info) info.textContent=`pos:${Math.round(cutPos*100)}% angle:${Math.round(cutAngleDeg)}°`;
+  }
+
+  // ── LEVEL LOAD ───────────────────────────────────────────────────
+  function loadLevel(idx) {
+    if(idx<0) idx=0;
+    if(idx>=LEVELS.length) idx=LEVELS.length-1;
+    currentLevel=idx;
+    userRotY=0;
+    cutPos=LEVELS[idx].cutPos;
+    cutAngleDeg=LEVELS[idx].cutAngle;
+    render();
+  }
+
+  // ── ANIMATION: sweep cut plane ────────────────────────────────────
+  function animateCut() {
+    if(animating) { clearInterval(animTimer); animating=false; return; }
+    animating=true;
+    const start=-0.85, end=0.85;
+    let pos=start;
+    const step=0.03;
+    animTimer=setInterval(()=>{
+      pos+=step;
+      if(pos>end) { pos=start; }
+      cutPos=pos;
+      const slider=document.getElementById('cut-pos-slider');
+      if(slider) slider.value=Math.round(pos*90);
+      render();
+    }, 60);
+  }
+
+  // ── BUTTON WIRING ────────────────────────────────────────────────
+  const scene=document.querySelector('a-scene');
+
+  scene.addEventListener('loaded', ()=>{
+    document.getElementById('loading').style.display='none';
+  });
+
+  document.getElementById('start-btn').addEventListener('click',()=>{
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('hud').style.display='block';
+    document.getElementById('cut-slider-wrap').style.display='flex';
+    AudioManager.start();
+    loadLevel(0);
+  });
+
+  // Prev / Next
+  document.getElementById('btn-prev').addEventListener('click',()=>loadLevel(currentLevel-1));
+  document.getElementById('btn-next').addEventListener('click',()=>loadLevel(currentLevel+1));
+
+  // Hatch toggle
+  document.getElementById('btn-hatch').addEventListener('click',()=>{
+    showHatch=!showHatch;
+    hatchLbl.setAttribute('value', showHatch ? '■ HATCH ON' : '□ HATCH OFF');
+    document.getElementById('btn-hatch').setAttribute('color', showHatch ? '#6A2020' : '#333');
+    render();
+  });
+
+  // True shape toggle
+  document.getElementById('btn-trueshape').addEventListener('click',()=>{
+    showTrueShape=!showTrueShape;
+    tsLbl.setAttribute('value', showTrueShape ? '◆ TRUE SHAPE' : '◇ TRUE SHAPE');
+    document.getElementById('btn-trueshape').setAttribute('color', showTrueShape ? '#5A10A0' : '#1A0040');
+    render();
+  });
+
+  // Projectors toggle
+  document.getElementById('btn-projectors').addEventListener('click',()=>{
+    showProj=!showProj;
+    projLbl.setAttribute('value', showProj ? '⟼ PROJ ON' : '⟼ PROJ OFF');
+    document.getElementById('btn-projectors').setAttribute('color', showProj ? '#1A3A60' : '#111');
+    render();
+  });
+
+  // Animate
+  document.getElementById('btn-animate').addEventListener('click', animateCut);
+
+  // VR cut buttons
+  document.getElementById('vr-cut-left').addEventListener('click',()=>{ cutPos=Math.max(-1,cutPos-0.1); render(); });
+  document.getElementById('vr-cut-right').addEventListener('click',()=>{ cutPos=Math.min(1, cutPos+0.1); render(); });
+  document.getElementById('vr-ang-left').addEventListener('click',()=>{ cutAngleDeg=Math.max(0,cutAngleDeg-10); render(); });
+  document.getElementById('vr-ang-right').addEventListener('click',()=>{ cutAngleDeg=Math.min(75,cutAngleDeg+10); render(); });
+
+  // Home
+  document.getElementById('btn-home-wall').addEventListener('click',()=>{ AudioManager.stop(); window.location.href='index.html'; });
+  document.getElementById('btn-home').addEventListener('click',()=>{ AudioManager.stop(); window.location.href='index.html'; });
+
+  // Desktop sliders
+  document.getElementById('cut-pos-slider').addEventListener('input',(e)=>{
+    cutPos=parseInt(e.target.value)/90;
+    render();
+  });
+  document.getElementById('cut-angle-slider').addEventListener('input',(e)=>{
+    cutAngleDeg=parseInt(e.target.value);
+    render();
+  });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown',(e)=>{
+    if(document.getElementById('overlay').style.display!=='none') return;
+    if(e.key==='ArrowRight') loadLevel(currentLevel+1);
+    if(e.key==='ArrowLeft')  loadLevel(currentLevel-1);
+    if(e.key==='t'||e.key==='T') document.getElementById('btn-trueshape').emit('click');
+    if(e.key==='h'||e.key==='H') document.getElementById('btn-hatch').emit('click');
+    if(e.key==='p'||e.key==='P') document.getElementById('btn-projectors').emit('click');
+    if(e.key==='a'||e.key==='A') animateCut();
+  });
+
+  // ── MOUSE DRAG ON SOLID ───────────────────────────────────────────
+  let isDrag=false, prevMX=0;
+  const solidStage=document.getElementById('solid-stage');
+
+  solidStage.addEventListener('mousedown',(e)=>{
+    isDrag=true; prevMX=e.clientX; e.preventDefault();
+    const cam=document.getElementById('camera');
+    if(cam&&cam.components['look-controls']) cam.components['look-controls'].pause();
+  });
+  document.addEventListener('mouseup',()=>{
+    if(isDrag) {
+      isDrag=false;
+      const cam=document.getElementById('camera');
+      if(cam&&cam.components['look-controls']) cam.components['look-controls'].play();
+    }
+  });
+  document.addEventListener('mousemove',(e)=>{
+    if(!isDrag) return;
+    const dx=e.clientX-prevMX; prevMX=e.clientX;
+    userRotY+=dx*1.5;  // degrees
+    render();
+    e.preventDefault();
+  });
+
+  // Scroll zoom
+  window.addEventListener('wheel',(e)=>{
+    if(document.getElementById('overlay').style.display!=='none') return;
+    const stage=document.getElementById('solid-stage');
+    const sc=stage.object3D.scale;
+    const delta=e.deltaY>0 ? 0.9 : 1.1;
+    const ns=Math.max(0.3,Math.min(2.5,sc.x*delta));
+    stage.object3D.scale.set(ns,ns,ns);
+    e.preventDefault();
+  },{passive:false});
+
+  // VR recenter
+  window.addEventListener('vr-recenter',()=>{
+    const cam=document.getElementById('camera');
+    if(!cam) return;
+    const cp=new THREE.Vector3(), cd=new THREE.Vector3();
+    cam.object3D.getWorldPosition(cp);
+    cam.object3D.getWorldDirection(cd);
+    cd.y=0; cd.normalize();
+    ['info-panel'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) { el.object3D.position.copy(cp.clone().add(cd.multiplyScalar(2.5))); el.object3D.lookAt(cp); }
+    });
+  });
+
+  </script>
+</body>
+</html>
