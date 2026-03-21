@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Development of Surfaces – Eng Draw VR</title>
+  <link rel="icon" type="image/png" href="https://i.ibb.co/v4FSdxGv/cropped-circle-image.png">
+  <meta name="theme-color" content="#2B2B88">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Rajdhani',sans-serif; overflow:hidden; background:#000; }
+
+    #loading {
+      position:fixed; inset:0; background:#0a0a18; z-index:999;
+      display:flex; flex-direction:column; justify-content:center; align-items:center;
+      color:#fff; font-size:2rem; font-weight:700; letter-spacing:5px;
+    }
+    #loading .sub { font-size:0.85rem; color:#4a4a7a; margin-top:12px; letter-spacing:3px; text-transform:uppercase; }
+    .loading-bar { width:280px; height:4px; background:#1a1a3a; border-radius:2px; margin-top:20px; overflow:hidden; }
+    .loading-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,#CF2027,#8a2be2); border-radius:2px; animation:loadfill 2.2s ease-out forwards; }
+    @keyframes loadfill { to { width:100%; } }
+
+    #overlay {
+      position:fixed; inset:0; z-index:100;
+      background:linear-gradient(135deg,rgba(8,8,20,0.98) 0%,rgba(25,15,55,0.97) 100%);
+      display:flex; flex-direction:column; justify-content:center; align-items:center;
+      color:#fff; text-align:center; padding:24px; overflow-y:auto;
+    }
+    #overlay h1 {
+      font-size:3.2rem; font-weight:700; letter-spacing:6px; text-transform:uppercase; margin-bottom:6px;
+      background:linear-gradient(90deg,#CF2027,#8a2be2,#00bbf9); -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    #overlay .tagline { color:#6a6a9a; font-weight:300; font-size:1rem; letter-spacing:3px; margin-bottom:26px; text-transform:uppercase; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:760px; width:100%; margin-bottom:28px; text-align:left; }
+    .info-cell { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:14px 18px; }
+    .info-cell .label { font-size:0.68rem; color:#CF2027; letter-spacing:2px; text-transform:uppercase; font-weight:700; margin-bottom:5px; }
+    .info-cell .val { font-size:0.92rem; color:#ccc; font-weight:400; line-height:1.6; }
+    .btn { padding:15px 56px; font-size:1.15rem; font-family:'Rajdhani',sans-serif; background:#CF2027; color:#fff; border:none; border-radius:5px; cursor:pointer; font-weight:700; letter-spacing:4px; text-transform:uppercase; transition:background 0.2s,box-shadow 0.2s; }
+    .btn:hover { background:#2B2B88; box-shadow:0 0 28px rgba(43,43,136,0.7); }
+
+    /* Desktop unfold progress bar */
+    #unfold-bar {
+      position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+      z-index:60; display:none; align-items:center; gap:18px;
+      background:rgba(6,6,16,0.94); padding:13px 30px; border-radius:44px;
+      border:1px solid rgba(207,32,39,0.4); white-space:nowrap;
+    }
+    #unfold-bar .sl-label { color:#CF2027; font-size:0.84rem; font-weight:700; letter-spacing:1px; }
+    #unfold-btn { padding:8px 22px; font-family:'Rajdhani',sans-serif; font-size:0.88rem; font-weight:700; letter-spacing:2px; background:#2B2B88; color:#fff; border:none; border-radius:4px; cursor:pointer; transition:background 0.2s; }
+    #unfold-btn:hover { background:#CF2027; }
+    #unfold-info { color:#666; font-size:0.78rem; min-width:120px; font-family:'Rajdhani',sans-serif; }
+    #unfold-slider { width:200px; accent-color:#CF2027; cursor:pointer; }
+
+    #hud {
+      position:fixed; bottom:22px; left:22px; z-index:50;
+      background:rgba(6,6,16,0.92); color:#aaa; padding:13px 17px;
+      border-radius:9px; font-size:12.5px; font-family:'Rajdhani',sans-serif;
+      border:1px solid rgba(255,255,255,0.07); letter-spacing:0.4px;
+      display:none; line-height:2.0;
+    }
+    #hud strong { color:#CF2027; }
+  </style>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       A-FRAME CUSTOM COMPONENTS  (register before scene)
+  ═══════════════════════════════════════════════════════════════ -->
+  <script>
+  // ── BIRD FLIGHT ────────────────────────────────────────────────────
+  AFRAME.registerComponent('bird-flight',{
+    schema:{speed:{type:'number',default:4},radius:{type:'number',default:28},heightRange:{type:'vec2',default:{x:12,y:22}}},
+    init:function(){
+      const a=Math.random()*Math.PI*2,d=Math.random()*this.data.radius;
+      this.el.object3D.position.set(Math.cos(a)*d,this.data.heightRange.x+Math.random()*(this.data.heightRange.y-this.data.heightRange.x),Math.sin(a)*d);
+      this.el.object3D.rotation.y=Math.random()*Math.PI*2;
+      this.turnSpeed=0;this.targetTurnSpeed=(Math.random()-0.5)*0.02;
+    },
+    tick:function(t,dt){
+      if(!dt)return;
+      this.el.object3D.translateZ(this.data.speed*(dt/1000));
+      const p=this.el.object3D.position,dist=Math.sqrt(p.x*p.x+p.z*p.z);
+      if(dist>this.data.radius){this.turnSpeed=0.015;}
+      else{if(Math.random()<0.01)this.targetTurnSpeed=(Math.random()-0.5)*0.02;this.turnSpeed+=(this.targetTurnSpeed-this.turnSpeed)*0.1;}
+      this.el.object3D.rotation.y+=this.turnSpeed;
+      this.el.object3D.rotation.z=-this.turnSpeed*30;
+      this.el.object3D.position.y+=Math.sin(t/500)*0.005;
+    }
+  });
+
+  // ── DRAW-LINE (thick cylinder between two points) ─────────────────
+  AFRAME.registerComponent('draw-line',{
+    schema:{start:{type:'vec3',default:{x:0,y:0,z:0}},end:{type:'vec3',default:{x:1,y:0,z:0}},color:{type:'color',default:'#fff'},radius:{type:'number',default:0.013}},
+    init:function(){this.update();},
+    update:function(){
+      const d=this.data;
+      const p1=new THREE.Vector3(d.start.x,d.start.y,d.start.z);
+      const p2=new THREE.Vector3(d.end.x,d.end.y,d.end.z);
+      const dist=p1.distanceTo(p2); if(dist<0.001)return;
+      this.el.setAttribute('geometry',`primitive:cylinder;radius:${d.radius};height:${dist};segmentsRadial:7`);
+      this.el.setAttribute('material',`color:${d.color};shader:flat`);
+      this.el.object3D.position.copy(new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5));
+      this.el.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3().subVectors(p2,p1).normalize());
+    }
+  });
+
+  // ── DRAW-POLYGON (filled mesh) ─────────────────────────────────────
+  AFRAME.registerComponent('draw-polygon',{
+    schema:{vertices:{type:'string',default:''},color:{type:'color',default:'#fff'},opacity:{type:'number',default:0.88}},
+    init:function(){
+      const ptsStr=this.data.vertices.split('|');
+      if(ptsStr.length<3)return;
+      const geo=new THREE.BufferGeometry(),verts=[];
+      const v0=ptsStr[0].split(',').map(Number);
+      for(let i=1;i<ptsStr.length-1;i++){
+        const v1=ptsStr[i].split(',').map(Number),v2=ptsStr[i+1].split(',').map(Number);
+        verts.push(v0[0],v0[1],v0[2],v1[0],v1[1],v1[2],v2[0],v2[1],v2[2]);
+      }
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+      geo.computeVertexNormals();
+      this.el.setObject3D('mesh',new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:this.data.color,side:THREE.DoubleSide,transparent:true,opacity:this.data.opacity,depthWrite:false})));
+    }
+  });
+
+  // ── VR DEVELOPMENT CONTROLLER ─────────────────────────────────────
+  // Left stick (free)    = locomotion X
+  // Right trigger + stickY = unfold progress
+  // Either trigger + stickX = rotate solid
+  // Right grip = recenter panel
+  AFRAME.registerComponent('vr-dev-ctrl',{
+    schema:{hand:{type:'string',default:'left'}},
+    init:function(){
+      this.triggerHeld=false;
+      this.el.addEventListener('triggerdown',()=>{this.triggerHeld=true;});
+      this.el.addEventListener('triggerup',  ()=>{this.triggerHeld=false;});
+      this.el.addEventListener('gripdown',()=>{
+        if(this.data.hand==='right') window.dispatchEvent(new CustomEvent('vr-recenter'));
+      });
+      this.el.addEventListener('axismove',e=>{
+        const ax=e.detail.axis; if(!ax||ax.length<2)return;
+        const stickX=ax[2]!==undefined?ax[2]:ax[0];
+        const stickY=ax[3]!==undefined?ax[3]:ax[1];
+
+        if(this.data.hand==='left'){
+          if(this.triggerHeld){
+            // left trigger + stickX = rotate model
+            if(Math.abs(stickX)>0.12){
+              window.devUserRotY=(window.devUserRotY||0)+stickX*2.5;
+              window._devRenderNeeded=true;
+            }
+          } else {
+            // free locomotion
+            if(Math.abs(stickX)>0.1){
+              const rig=document.getElementById('rig');
+              if(rig) rig.object3D.rotation.y-=stickX*0.03;
+            }
+          }
+        }
+
+        if(this.data.hand==='right'){
+          if(this.triggerHeld){
+            // right trigger + stickY = unfold amount
+            if(Math.abs(stickY)>0.12){
+              window.devUnfold=Math.max(0,Math.min(1,(window.devUnfold||0)-stickY*0.025));
+              window._devRenderNeeded=true;
+            }
+            // right trigger + stickX = rotate
+            if(Math.abs(stickX)>0.12){
+              window.devUserRotY=(window.devUserRotY||0)+stickX*2.5;
+              window._devRenderNeeded=true;
+            }
+          }
+        }
+      });
+      this.el.addEventListener('triggerdown',()=>{
+        const rc=this.el.components.raycaster; if(!rc)return;
+        rc.intersectedEls.forEach(h=>{if(h.classList.contains('interactive'))h.emit('click');});
+      });
+    }
+  });
+  </script>
+</head>
+
+<body>
+  <div id="loading">
+    DEVELOPMENT OF SURFACES
+    <div class="sub">Initialising VR Engine · 30 Models</div>
+    <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+  </div>
+
+  <div id="overlay">
+    <h1>DEVELOPMENT OF SURFACES</h1>
+    <div class="tagline">Sheet Metal Unfolding Lab &nbsp;·&nbsp; 30 Progressive Models</div>
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="label">What You'll Master</div>
+        <div class="val">Parallel-line, radial-line &amp; triangulation methods for prisms, cylinders, pyramids, cones, frustums &amp; composite solids</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Key Concepts</div>
+        <div class="val">Stretch-out line · Generator lines · True lengths · Seam line · Base circles · Slant height arcs · Triangulation</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Desktop Controls</div>
+        <div class="val">Drag solid = rotate · Scroll = zoom · Slider below = unfold progress · ← → keys = prev / next model · U = toggle unfold</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">VR Controls (Meta Quest 2)</div>
+        <div class="val">Right trigger + stick ↑↓ = Unfold · Left/Right trigger + stick ◀▶ = Rotate model · Left stick (free) = Move · Right grip = Recentre panel</div>
+      </div>
+    </div>
+    <button class="btn" id="start-btn">ENTER LAB</button>
+  </div>
+
+  <!-- Desktop unfold control bar -->
+  <div id="unfold-bar">
+    <span class="sl-label">✦ UNFOLD</span>
+    <input type="range" id="unfold-slider" min="0" max="100" value="0" step="1">
+    <button id="unfold-btn">▶ ANIMATE</button>
+    <span id="unfold-info">0%</span>
+  </div>
+
+  <!-- Desktop HUD -->
+  <div id="hud">
+    <strong>DRAG</strong> solid to rotate &nbsp;·&nbsp; <strong>SCROLL</strong> to zoom<br>
+    <strong>← →</strong> prev / next model &nbsp;·&nbsp; <strong>U</strong> toggle full unfold<br>
+    <strong>SLIDER</strong> below = manual unfold progress
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       A-FRAME SCENE
+  ═══════════════════════════════════════════════════════════════ -->
+  <a-scene id="vr-scene" cursor="rayOrigin:mouse" raycaster="objects:.interactive">
+
+    <a-assets>
+      <img id="sky-img"  src="https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/secluded_beach.jpg" crossorigin="anonymous">
+      <img id="sand-tex" src="https://cdn.architextures.org/textures/24/5/sand-j9sy8a.jpg" crossorigin="anonymous">
+      <img id="jute-tex" src="https://cdn.architextures.org/textures/21/07/hyacinth-weave-60e33404a3929-1200.jpg?s=400&q=60" crossorigin="anonymous">
+    </a-assets>
+
+    <a-sky src="#sky-img" rotation="0 -90 0"></a-sky>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="60" height="60" src="#sand-tex" repeat="16 16"></a-plane>
+    <a-entity light="type:ambient;intensity:1.05;color:#FFF8F0"></a-entity>
+    <a-entity light="type:directional;position:6 14 6;intensity:1.2"></a-entity>
+
+    <!-- Birds -->
+    <a-entity bird-flight="speed:3.5;radius:24;heightRange:13 22"><a-cone radius-bottom="0.13" radius-top="0.01" height="0.27" color="#555" rotation="90 0 0"></a-cone></a-entity>
+    <a-entity bird-flight="speed:4.2;radius:19;heightRange:15 24"><a-cone radius-bottom="0.11" radius-top="0.01" height="0.23" color="#666" rotation="90 0 0"></a-cone></a-entity>
+    <a-entity bird-flight="speed:3.1;radius:28;heightRange:12 20"><a-cone radius-bottom="0.12" radius-top="0.01" height="0.25" color="#444" rotation="90 0 0"></a-cone></a-entity>
+
+    <!--
+      LAYOUT  (z = -5.5 from camera at z=2)
+      ┌─────────────────────┬──────────────────────┐
+      │  3-D SOLID           │  DEVELOPMENT (flat)  │
+      │  x = -3.5  y = 2.2  │  x = +4.5  y = 2.2  │
+      └─────────────────────┴──────────────────────┘
+      Info panel: x=+12, angled -30°  (never overlaps)
+    -->
+
+    <!-- ═══ REFERENCE AXIS LINE (x-y ground, behind solid) ═══ -->
+    <a-entity position="0 2.1 -5.5">
+      <a-cylinder radius="0.014" height="14" rotation="0 0 90" color="#CF2027" opacity="0.4" position="0 0 0.01"></a-cylinder>
+      <a-cylinder radius="0.014" height="5.5" color="#CF2027" opacity="0.4" position="0 0 0.01"></a-cylinder>
+      <a-text value="X" position="-7.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+      <a-text value="X" position=" 7.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+      <a-text value="Y" position="0.05 2.9 0.1"  align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+    </a-entity>
+
+    <!-- ═══ SOLID STAGE (left) ═══ -->
+    <a-entity id="solid-stage" position="-3.5 2.2 -5.5">
+      <a-text value="3-D SOLID" position="0 2.8 0.05" align="center" width="7" color="#FFD700" font="roboto"></a-text>
+      <a-entity id="solid-root">
+        <a-entity id="solid-faces"></a-entity>
+        <a-entity id="solid-edges"></a-entity>
+        <a-entity id="solid-labels"></a-entity>
+        <a-entity id="solid-dims"></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- ═══ DEVELOPMENT BOARD (right) ═══ -->
+    <a-entity id="dev-board" position="4.5 2.2 -5.5">
+      <!-- Board background -->
+      <a-plane width="7.0" height="6.0" color="#08101C" opacity="0.97" side="double"></a-plane>
+      <!-- Border -->
+      <a-entity draw-line="start:-3.5 3.0 0.02;end:3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:-3.5 -3.0 0.02;end:3.5 -3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:-3.5 -3.0 0.02;end:-3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:3.5 -3.0 0.02;end:3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <!-- Title -->
+      <a-text value="DEVELOPMENT  (Flat Pattern)" position="0 2.72 0.04" align="center" width="9" color="#5599dd" font="roboto"></a-text>
+      <a-plane width="6.6" height="0.008" position="0 2.52 0.03" color="#3366aa" opacity="0.7"></a-plane>
+      <!-- Content injected here -->
+      <a-entity id="dev-content"></a-entity>
+      <!-- Stretch-out line label (shown by render fn) -->
+      <a-entity id="dev-sol-label"></a-entity>
+    </a-entity>
+
+    <!-- ═══ FORMULA STRIP (below dev board) ═══ -->
+    <a-entity id="formula-board" position="4.5 -1.2 -5.5">
+      <a-plane width="7.0" height="1.6" color="#080C18" opacity="0.95" side="double"></a-plane>
+      <a-entity draw-line="start:-3.5 0.8 0.02;end:3.5 0.8 0.02;color:#ffcc00;radius:0.009"></a-entity>
+      <a-text value="KEY FORMULAE" position="0 0.58 0.04" align="center" width="8" color="#FFD700" font="roboto"></a-text>
+      <a-text id="formula-text" value="" position="0 0.08 0.04" align="center" width="8.5" color="#cccccc" font="roboto" wrap-count="60"></a-text>
+    </a-entity>
+
+    <!-- ═══ INFO / CONTROL PANEL — far right, angled ═══ -->
+    <a-entity id="info-panel" position="12.0 2.2 -4.5" rotation="0 -32 0">
+      <a-box width="4.2" height="7.5" depth="0.08" src="#jute-tex" color="#aaa">
+        <a-plane width="4.15" height="7.45" position="0 0 0.041" color="#08080f" opacity="0.98"></a-plane>
+
+        <!-- ── Title ── -->
+        <a-text value="DEVELOPMENT OF SURFACES" position="0 3.47 0.06" align="center" width="5.8" color="#CF2027" font="roboto"></a-text>
+        <a-plane width="3.9" height="0.009" position="0 3.26 0.06" color="#CF2027"></a-plane>
+
+        <!-- ── Model counter ── -->
+        <a-text id="txt-level" value="MODEL  1 / 30" position="0 3.06 0.06" align="center" width="4.8" color="#777" font="roboto"></a-text>
+
+        <!-- ── Model title ── -->
+        <a-text id="txt-title" value="Square Prism" position="0 2.74 0.06" align="center" width="5.2" color="#FFD700" font="roboto"></a-text>
+
+        <!-- ── Method badge ── -->
+        <a-text id="txt-method" value="METHOD: PARALLEL-LINE" position="0 2.48 0.06" align="center" width="4.8" color="#00bbf9" font="roboto"></a-text>
+
+        <!-- ── Description ── -->
+        <a-text id="txt-desc" value="Loading…" position="0 2.08 0.06" align="center" width="4.6" color="#ddd" font="roboto" wrap-count="38"></a-text>
+
+        <a-plane width="3.9" height="0.006" position="0 1.60 0.06" color="#222"></a-plane>
+
+        <!-- ── How to solve ── -->
+        <a-text value="HOW TO DRAW" position="0 1.44 0.06" align="center" width="5.2" color="#FFD700" font="roboto"></a-text>
+        <a-text id="txt-steps" value="" position="0 0.82 0.06" align="center" width="4.4" color="#bbb" font="roboto" wrap-count="42"></a-text>
+
+        <a-plane width="3.9" height="0.006" position="0 0.26 0.06" color="#222"></a-plane>
+
+        <!-- ── UNFOLD controls ── -->
+        <a-text value="UNFOLD  (right trigger + stick ↑↓)" position="0 0.10 0.06" align="center" width="5.0" color="#CF2027" font="roboto"></a-text>
+        <a-plane class="interactive" id="vr-unfold-left"  position="-1.30 -0.20 0.07" width="0.55" height="0.40" color="#2B2B88">
+          <a-text value="◀" align="center" width="3.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane id="vr-unfold-track" position="0 -0.20 0.07" width="1.80" height="0.22" color="#111428">
+          <a-plane id="vr-unfold-fill" position="-0.90 0 0.003" width="0.01" height="0.20" color="#CF2027"></a-plane>
+        </a-plane>
+        <a-plane class="interactive" id="vr-unfold-right" position="1.30 -0.20 0.07" width="0.55" height="0.40" color="#2B2B88">
+          <a-text value="▶" align="center" width="3.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+
+        <!-- ── Unfold full / reset ── -->
+        <a-plane class="interactive" id="btn-unfold-full"  position="-0.70 -0.68 0.07" width="1.20" height="0.40" color="#1a1060">
+          <a-text value="⬛ UNFOLD ALL" align="center" width="5.2" position="0 0 0.016" color="#c77aff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-unfold-reset" position=" 0.90 -0.68 0.07" width="1.10" height="0.40" color="#1a0010">
+          <a-text value="↺ RESET" align="center" width="4.5" position="0 0 0.016" color="#ff8888" font="roboto"></a-text>
+        </a-plane>
+
+        <!-- ── Rotate info ── -->
+        <a-text value="ROTATE  (trigger + stick ◀▶)" position="0 -1.12 0.06" align="center" width="5.0" color="#44CCFF" font="roboto"></a-text>
+
+        <a-plane width="3.9" height="0.006" position="0 -1.38 0.06" color="#222"></a-plane>
+
+        <!-- ── PREV / NEXT ── -->
+        <a-plane class="interactive" id="btn-prev" position="-1.10 -1.66 0.07" width="1.55" height="0.48" color="#181828">
+          <a-text value="◀  PREV" align="center" width="5.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-next" position=" 1.10 -1.66 0.07" width="1.55" height="0.48" color="#181828">
+          <a-text value="NEXT  ▶" align="center" width="5.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-text id="txt-nav" value="1 / 30" position="0 -1.66 0.07" align="center" width="2.2" color="#444" font="roboto"></a-text>
+
+        <a-plane width="3.9" height="0.006" position="0 -1.98 0.06" color="#222"></a-plane>
+
+        <!-- ── HOME ── -->
+        <a-plane class="interactive" id="btn-home-panel" position="0 -2.30 0.07" width="3.2" height="0.48" color="#280008">
+          <a-text value="⬅  MAIN MENU" align="center" width="6.0" position="0 0 0.016" color="#FF8888" font="roboto"></a-text>
+        </a-plane>
+
+      </a-box>
+    </a-entity>
+
+    <!-- Back-wall HOME -->
+    <a-entity position="0 1.1 2.6" rotation="0 180 0">
+      <a-plane class="interactive" id="btn-home-wall" width="2.2" height="0.60" color="#1a0505" opacity="0.92">
+        <a-plane width="2.3" height="0.67" position="0 0 -0.01" color="#CF2027" opacity="0.16"></a-plane>
+        <a-text value="⬅ MAIN MENU" align="center" width="5.0" position="0 0 0.025" color="#fff" font="roboto"></a-text>
+      </a-plane>
+    </a-entity>
+
+    <!-- RIG + CONTROLLERS -->
+    <a-entity id="rig" movement-controls="speed:0.18">
+      <a-entity id="camera" camera position="0 1.6 2.2" look-controls="pointerLockEnabled:false"></a-entity>
+      <a-entity id="left-controller"  oculus-touch-controls="hand:left"  vr-dev-ctrl="hand:left"
+                raycaster="objects:.interactive;far:14;showLine:true;lineColor:cyan;lineOpacity:0.75"></a-entity>
+      <a-entity id="right-controller" oculus-touch-controls="hand:right" vr-dev-ctrl="hand:right"
+                raycaster="objects:.interactive;far:14;showLine:true;lineColor:red;lineOpacity:0.75"></a-entity>
+    </a-entity>
+
+  </a-scene>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       JAVASCRIPT ENGINE
+  ═══════════════════════════════════════════════════════════════ -->
+  <script>
+  // ── AUDIO ─────────────────────────────────────────────────────────
+  const AudioManager={
+    waves:new Audio('waves.mp3'),birds:new Audio('birds.mp3'),waves2:new Audio('waves2.mp3'),timers:[],
+    init(){this.waves.loop=true;this.waves.volume=0.36;this.birds.volume=0.55;this.birds.addEventListener('ended',()=>this.scheduleNextBird());this.waves2.volume=0;this.waves2.loop=true;},
+    start(){this.waves.play().catch(()=>{});this.scheduleNextBird();this.scheduleWaves2();},
+    stop(){this.waves.pause();this.birds.pause();this.waves2.pause();this.timers.forEach(t=>clearTimeout(t));this.timers=[];},
+    scheduleNextBird(){this.timers.push(setTimeout(()=>{this.birds.currentTime=0;this.birds.play().catch(()=>{});},Math.random()*18000+8000));},
+    scheduleWaves2(){this.timers.push(setTimeout(()=>this.playWaves2Swell(),Math.random()*22000+12000));},
+    playWaves2Swell(){
+      this.waves2.currentTime=0;this.waves2.play().catch(()=>{});
+      const tv=Math.random()*0.45+0.2,dur=Math.random()*9000+7000,fi=2500,fo=2500;
+      this.fadeAudio(this.waves2,0,tv,fi,()=>{this.timers.push(setTimeout(()=>{this.fadeAudio(this.waves2,tv,0,fo,()=>{this.waves2.pause();this.scheduleWaves2();});},dur));});
+    },
+    fadeAudio(audio,s,e,dur,cb){
+      const steps=55,st=dur/steps,vs=(e-s)/steps;let c=0;
+      const iv=setInterval(()=>{c++;audio.volume=Math.max(0,Math.min(1,s+vs*c));if(c>=steps){clearInterval(iv);if(cb)cb();}},st);
+      this.timers.push(iv);
+    }
+  };
+  AudioManager.init();
+
+  // ── GLOBALS ───────────────────────────────────────────────────────
+  const DEG=Math.PI/180;
+  window.devUnfold=0;          // 0=folded, 1=fully unfolded
+  window.devUserRotY=0;
+  window._devRenderNeeded=false;
+  let currentModel=0;
+  let animHandle=null;         // animation interval handle
+
+  // colour palette – each face gets a distinct colour
+  const FACE_COLS=['#3A86FF','#FF006E','#FB5607','#FFBE0B','#8338EC','#06D6A0','#F72585','#4CC9F0','#43AA8B','#F8961E','#90BE6D','#9D4EDD','#38B000','#00BBF9','#FF3860','#FFD700','#48CAE4','#E63946','#2EC4B6','#FF9F1C'];
+
+  // ── HELPER: create a-entity with attributes ────────────────────────
+  function mk(tag,attrs={}){
+    const el=document.createElement(tag);
+    for(const[k,v] of Object.entries(attrs)) el.setAttribute(k,String(v));
+    return el;
+  }
+  function clearEl(id){ const el=document.getElementById(id); while(el&&el.firstChild)el.removeChild(el.firstChild); }
+
+  // ── TRIG HELPERS ──────────────────────────────────────────────────
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function vecLerp(a,b,t){return{x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),z:lerp(a.z||0,b.z||0,t)};}
+
+  // ── GEOMETRY PRIMITIVES for 3D solid ──────────────────────────────
+  // Returns {vertices:[{id,x,y,z}], faces:[{verts:[ids], col}], edges:[[id,id]], labelVerts:[ids]}
+
+  // Polygon ring at y=yVal, n sides, radius r
+  function polyRing(n,r,yVal,prefix,startAngle=0){
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const a=startAngle+(i/n)*Math.PI*2;
+      pts.push({id:`${prefix}${i}`,x:Math.cos(a)*r,y:yVal,z:Math.sin(a)*r});
+    }
+    return pts;
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  30 MODEL DEFINITIONS
+  //  Each model has:
+  //    title, method, desc, steps, formula
+  //    buildSolid(rot)  → {verts, faces, edges, labelVerts}
+  //    buildDev(t)      → array of dev elements [{type,args,col,opacity,label}]
+  //       type: 'poly' (filled polygon), 'line', 'text', 'arc'
+  //       t: unfold progress 0→1
+  // ══════════════════════════════════════════════════════════════════
+  const MODELS=[];
+
+  // ── convenience: build a prism solid ──────────────────────────────
+  function mkPrismSolid(n,r,h,rot,sa=0){
+    const bot=polyRing(n,r,-h/2,'B',sa);
+    const top=polyRing(n,r, h/2,'T',sa);
+    const verts=[...bot,...top];
+    const faces=[];
+    // base
+    faces.push({verts:bot.map(v=>v.id).reverse(),col:'#1a3a8a'});
+    // top
+    faces.push({verts:top.map(v=>v.id),col:'#7a1a7a'});
+    // lateral faces
+    for(let i=0;i<n;i++){
+      const j=(i+1)%n;
+      faces.push({verts:[`B${i}`,`B${j}`,`T${j}`,`T${i}`],col:FACE_COLS[i%FACE_COLS.length]});
+    }
+    const edges=[];
+    for(let i=0;i<n;i++){const j=(i+1)%n;edges.push([`B${i}`,`B${j}`],[`T${i}`,`T${j}`],[`B${i}`,`T${i}`]);}
+    // rotate about Y
+    const ry=rot*DEG;
+    verts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+    return{verts,faces,edges,labelVerts:verts.map(v=>v.id)};
+  }
+
+  function mkPyramidSolid(n,r,h,rot,sa=0){
+    const bot=polyRing(n,r,-h/2,'B',sa);
+    const apex={id:'O',x:0,y:h/2,z:0};
+    const verts=[...bot,apex];
+    const faces=[];
+    faces.push({verts:bot.map(v=>v.id).reverse(),col:'#1a3a8a'});
+    for(let i=0;i<n;i++){const j=(i+1)%n;faces.push({verts:[`B${i}`,`B${j}`,'O'],col:FACE_COLS[i%FACE_COLS.length]});}
+    const edges=[];
+    for(let i=0;i<n;i++){const j=(i+1)%n;edges.push([`B${i}`,`B${j}`],[`B${i}`,'O']);}
+    const ry=rot*DEG;
+    verts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+    return{verts,faces,edges,labelVerts:verts.map(v=>v.id)};
+  }
+
+  function mkFrustumSolid(n,rb,rt,h,rot,sa=0){
+    const bot=polyRing(n,rb,-h/2,'B',sa);
+    const top=polyRing(n,rt, h/2,'T',sa);
+    const verts=[...bot,...top];
+    const faces=[];
+    faces.push({verts:bot.map(v=>v.id).reverse(),col:'#1a3a8a'});
+    faces.push({verts:top.map(v=>v.id),col:'#7a1a7a'});
+    for(let i=0;i<n;i++){const j=(i+1)%n;faces.push({verts:[`B${i}`,`B${j}`,`T${j}`,`T${i}`],col:FACE_COLS[i%FACE_COLS.length]});}
+    const edges=[];
+    for(let i=0;i<n;i++){const j=(i+1)%n;edges.push([`B${i}`,`B${j}`],[`T${i}`,`T${j}`],[`B${i}`,`T${i}`]);}
+    const ry=rot*DEG;
+    verts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+    return{verts,faces,edges,labelVerts:verts.map(v=>v.id)};
+  }
+
+  // cylinder ≈ 20-gon
+  function mkCylSolid(r,h,rot){return mkPrismSolid(20,r,h,rot);}
+  // cone ≈ 20-gon pyramid
+  function mkConeSolid(r,h,rot){return mkPyramidSolid(20,r,h,rot);}
+  // frustum cylinder
+  function mkFrustCylSolid(rb,rt,h,rot){return mkFrustumSolid(20,rb,rt,h,rot);}
+
+  // ── DEVELOPMENT BUILDERS ──────────────────────────────────────────
+  // All coordinates in the development board space.
+  // t=0 → everything stacked (folded), t=1 → fully unrolled.
+  // The development plane centre is at (0,0) in board space.
+
+  // Colour constants for development
+  const DC_BASE='#3A86FF',DC_TOP='#c77aff',DC_LAT=FACE_COLS,DC_SEAM='#CF2027',DC_SOL='#FFD700',DC_DIM='#888888';
+
+  // ── Square Prism development (parallel-line) ───────────────────────
+  // Stretch-out length = 4 × a (side length)
+  function devSquarePrism(t,a,h){
+    // a = side, h = height
+    const W=4*a, H=h;
+    const items=[];
+    // Lateral surface: unfolds to rectangle W × H
+    // At t=0 all faces stacked at x=0; at t=1 spread out
+    const y0=-H/2, y1=H/2;
+    for(let i=0;i<4;i++){
+      const x0=lerp(0,-W/2+i*a,t);
+      const x1=lerp(0,-W/2+(i+1)*a,t);
+      items.push({type:'poly',pts:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],col:FACE_COLS[i],opacity:0.82});
+      // edge lines
+      items.push({type:'line',x1:x0,y1:y0,x2:x0,y2:y1,col:'#fff',r:0.012});
+    }
+    items.push({type:'line',x1:-W/2,y1:y0,x2:-W/2,y2:y1,col:DC_SEAM,r:0.016,z:0.08}); // seam
+    items.push({type:'line',x1: W/2,y1:y0,x2: W/2,y2:y1,col:DC_SEAM,r:0.016,z:0.08});
+    // Top and bottom base – unfold outward
+    const baseY0=lerp(0,-H/2-a*0.9,t);
+    const baseY1=lerp(0, H/2+a*0.9,t);
+    const bx0=lerp(0,-a/2,t), bx1=lerp(0, a/2,t);
+    items.push({type:'poly',pts:[[bx0,baseY0],[bx1,baseY0],[bx1,bx0+a*0.5-(baseY0-(-H/2))],[bx0,bx0+a*0.5-(baseY0-(-H/2))]],col:DC_BASE,opacity:0.75});
+    // correct: square base at bottom
+    items.push({type:'poly',pts:[[lerp(0,-a/2,t),lerp(0,-H/2-a,t)],[lerp(0, a/2,t),lerp(0,-H/2-a,t)],[lerp(0, a/2,t),lerp(0,-H/2,t)],[lerp(0,-a/2,t),lerp(0,-H/2,t)]],col:DC_BASE,opacity:0.78});
+    items.push({type:'poly',pts:[[lerp(0,-a/2,t),lerp(0, H/2,t)],[lerp(0, a/2,t),lerp(0, H/2,t)],[lerp(0, a/2,t),lerp(0, H/2+a,t)],[lerp(0,-a/2,t),lerp(0, H/2+a,t)]],col:DC_TOP,opacity:0.78});
+    // Stretch-out line
+    items.push({type:'line',x1:-W/2,y1:y0,x2:W/2,y2:y0,col:DC_SOL,r:0.018,z:0.09});
+    items.push({type:'text',val:`S.O.L = 4a = ${(4*a).toFixed(2)}`,x:0,y:y0-0.22,col:DC_SOL,scale:0.7});
+    // Top/bottom base labels
+    items.push({type:'text',val:`h = ${h.toFixed(2)}`,x:W/2+0.2,y:0,col:DC_DIM,scale:0.6});
+    items.push({type:'text',val:`a = ${a.toFixed(2)}`,x:lerp(0,-W/2+a*0.5,t),y:y0-0.12,col:DC_DIM,scale:0.55});
+    // bottom horiz line
+    items.push({type:'line',x1:-W/2,y1:y1,x2:W/2,y2:y1,col:'#aaa',r:0.010});
+    return items;
+  }
+
+  // ── Generic n-sided prism dev (parallel-line) ─────────────────────
+  function devNPrism(t,n,a,h){
+    const W=n*a, items=[];
+    const y0=-h/2, y1=h/2;
+    for(let i=0;i<n;i++){
+      const x0=lerp(0,-W/2+i*a,t);
+      const x1=lerp(0,-W/2+(i+1)*a,t);
+      items.push({type:'poly',pts:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],col:FACE_COLS[i%FACE_COLS.length],opacity:0.82});
+      items.push({type:'line',x1:x0,y1:y0,x2:x0,y2:y1,col:'#fff',r:0.010});
+    }
+    items.push({type:'line',x1:-W/2,y1:y0,x2: W/2,y2:y0,col:DC_SOL,r:0.018,z:0.09});
+    items.push({type:'line',x1:-W/2,y1:y1,x2: W/2,y2:y1,col:'#aaa',r:0.010});
+    items.push({type:'line',x1:-W/2,y1:y0,x2:-W/2,y2:y1,col:DC_SEAM,r:0.016,z:0.08});
+    items.push({type:'line',x1: W/2,y1:y0,x2: W/2,y2:y1,col:DC_SEAM,r:0.016,z:0.08});
+    items.push({type:'text',val:`S.O.L = ${n}a = ${(n*a).toFixed(2)}`,x:0,y:y0-0.22,col:DC_SOL,scale:0.68});
+    items.push({type:'text',val:`h = ${h.toFixed(2)}`,x:W/2+0.18,y:0,col:DC_DIM,scale:0.58});
+    return items;
+  }
+
+  // ── Cylinder development (parallel-line) ──────────────────────────
+  function devCylinder(t,r,h){
+    const W=2*Math.PI*r, items=[];
+    const y0=-h/2, y1=h/2;
+    // lateral rectangle
+    const x0=lerp(0,-W/2,t), x1=lerp(0,W/2,t);
+    items.push({type:'poly',pts:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],col:FACE_COLS[0],opacity:0.72});
+    items.push({type:'line',x1:x0,y1:y0,x2:x1,y2:y0,col:DC_SOL,r:0.018,z:0.09});
+    items.push({type:'line',x1:x0,y1:y1,x2:x1,y2:y1,col:'#aaa',r:0.010});
+    items.push({type:'line',x1:x0,y1:y0,x2:x0,y2:y1,col:DC_SEAM,r:0.016,z:0.08});
+    items.push({type:'line',x1:x1,y1:y0,x2:x1,y2:y1,col:DC_SEAM,r:0.016,z:0.08});
+    // generator lines every 30°
+    for(let i=1;i<12;i++){
+      const gx=lerp(0,-W/2+(i/12)*W,t);
+      items.push({type:'line',x1:gx,y1:y0,x2:gx,y2:y1,col:'rgba(255,255,255,0.2)',r:0.006});
+    }
+    // top/bottom circles (drawn as arcs approximated with poly-circle)
+    const cyBot=lerp(0,y0-r-0.1,t), cyTop=lerp(0,y1+r+0.1,t);
+    items.push({type:'circle',cx:lerp(0,0,t),cy:cyBot,r:r,col:DC_BASE,opacity:0.75,t});
+    items.push({type:'circle',cx:lerp(0,0,t),cy:cyTop,r:r,col:DC_TOP,opacity:0.75,t});
+    items.push({type:'text',val:`S.O.L = πd = ${(2*Math.PI*r).toFixed(2)}`,x:0,y:y0-0.25,col:DC_SOL,scale:0.68});
+    items.push({type:'text',val:`h = ${h.toFixed(2)}`,x:x1+0.18,y:0,col:DC_DIM,scale:0.58});
+    items.push({type:'text',val:`r = ${r.toFixed(2)}`,x:lerp(0,r*0.5,t),y:cyBot-0.15,col:DC_DIM,scale:0.55});
+    return items;
+  }
+
+  // ── Pyramid development (radial-line) ─────────────────────────────
+  // n = sides, a = base side, l = slant height
+  function devNPyramid(t,n,a,l){
+    const items=[];
+    const arcAngle=(a/l); // angle subtended per base edge in radians
+    const totalArc=n*arcAngle;
+    const startAng=-totalArc/2;
+    // fan of triangles around apex
+    const apexX=lerp(0,0,t), apexY=lerp(0,l*0.6,t);
+    for(let i=0;i<n;i++){
+      const ang0=lerp(0,startAng+i*arcAngle,t);
+      const ang1=lerp(0,startAng+(i+1)*arcAngle,t);
+      const bx0=apexX+Math.sin(ang0)*l, by0=apexY-Math.cos(ang0)*l;
+      const bx1=apexX+Math.sin(ang1)*l, by1=apexY-Math.cos(ang1)*l;
+      items.push({type:'poly',pts:[[apexX,apexY],[bx0,by0],[bx1,by1]],col:FACE_COLS[i%FACE_COLS.length],opacity:0.82});
+      items.push({type:'line',x1:apexX,y1:apexY,x2:bx0,y2:by0,col:'#fff',r:0.010});
+    }
+    // last edge (seam)
+    const angLast=lerp(0,startAng+n*arcAngle,t);
+    const bxL=apexX+Math.sin(angLast)*l, byL=apexY-Math.cos(angLast)*l;
+    items.push({type:'line',x1:apexX,y1:apexY,x2:bxL,y2:byL,col:DC_SEAM,r:0.016,z:0.08});
+    // first edge (seam)
+    const bxF=apexX+Math.sin(lerp(0,startAng,t))*l, byF=apexY-Math.cos(lerp(0,startAng,t))*l;
+    items.push({type:'line',x1:apexX,y1:apexY,x2:bxF,y2:byF,col:DC_SEAM,r:0.016,z:0.08});
+    // arc along base
+    items.push({type:'arc',cx:apexX,cy:apexY,r:l,angStart:lerp(-0.001,startAng,t),angEnd:lerp(0.001,startAng+n*arcAngle,t),col:DC_SOL,r2:0.014});
+    // base polygon (unfolded down)
+    const baseAngs=[];
+    for(let i=0;i<n;i++) baseAngs.push(lerp(0,startAng+i*arcAngle+arcAngle/2,t));
+    // draw base outline from apex as separate polygon
+    items.push({type:'text',val:`Slant Height l = ${l.toFixed(2)}`,x:0,y:apexY+0.2,col:DC_DIM,scale:0.62});
+    items.push({type:'text',val:`Arc = perimeter of base`,x:0,y:apexY-l-0.26,col:DC_SOL,scale:0.62});
+    items.push({type:'text',val:`O (Apex)`,x:apexX+0.18,y:apexY,col:'#FFD700',scale:0.62});
+    return items;
+  }
+
+  // ── Cone development (radial-line) ────────────────────────────────
+  // R = base radius, l = slant height
+  function devCone(t,R,l){
+    const items=[];
+    const sectorAngle=lerp(0.001,(R/l)*2*Math.PI,t);
+    const startAng=-sectorAngle/2;
+    const apexX=0, apexY=lerp(0,l*0.5,t);
+    // filled sector poly (approximated with many pts)
+    const secPts=[[apexX,apexY]];
+    const segs=36;
+    for(let i=0;i<=segs;i++){
+      const a=startAng+(i/segs)*sectorAngle;
+      secPts.push([apexX+Math.sin(a)*l, apexY-Math.cos(a)*l]);
+    }
+    items.push({type:'poly',pts:secPts,col:FACE_COLS[0],opacity:0.70});
+    // generator lines
+    for(let i=0;i<=8;i++){
+      const a=startAng+(i/8)*sectorAngle;
+      const bx=apexX+Math.sin(a)*l, by=apexY-Math.cos(a)*l;
+      items.push({type:'line',x1:apexX,y1:apexY,x2:bx,y2:by,col:'rgba(255,255,255,0.25)',r:0.007});
+    }
+    // seam lines
+    const bxS0=apexX+Math.sin(startAng)*l, byS0=apexY-Math.cos(startAng)*l;
+    const bxS1=apexX+Math.sin(startAng+sectorAngle)*l, byS1=apexY-Math.cos(startAng+sectorAngle)*l;
+    items.push({type:'line',x1:apexX,y1:apexY,x2:bxS0,y2:byS0,col:DC_SEAM,r:0.016,z:0.08});
+    items.push({type:'line',x1:apexX,y1:apexY,x2:bxS1,y2:byS1,col:DC_SEAM,r:0.016,z:0.08});
+    // arc
+    items.push({type:'arc',cx:apexX,cy:apexY,r:l,angStart:startAng,angEnd:startAng+sectorAngle,col:DC_SOL,r2:0.015});
+    // base circle
+    const circCy=lerp(0,apexY-l-R-0.12,t);
+    items.push({type:'circle',cx:0,cy:circCy,r:R,col:DC_BASE,opacity:0.75,t});
+    items.push({type:'text',val:`l (Slant) = ${l.toFixed(2)}`,x:0,y:apexY+0.22,col:DC_DIM,scale:0.64});
+    items.push({type:'text',val:`θ = R/l × 360° = ${((R/l)*360).toFixed(1)}°`,x:0,y:apexY-l-0.26,col:DC_SOL,scale:0.64});
+    items.push({type:'text',val:`O`,x:apexX+0.15,y:apexY,col:'#FFD700',scale:0.70});
+    return items;
+  }
+
+  // ── Frustum development (radial-line) ─────────────────────────────
+  function devFrustum(t,Rb,Rt,h){
+    const l=Math.sqrt((Rb-Rt)*(Rb-Rt)+h*h); // slant height
+    const lTotal=Rb*l/(Rb-Rt);               // total slant to apex
+    const lTop=lTotal-l;
+    const items=[];
+    const sectorAngle=lerp(0.001,(Rb/lTotal)*2*Math.PI,t);
+    const startAng=-sectorAngle/2;
+    const apexX=0, apexY=lerp(0,lTotal*0.4,t);
+    // outer arc sector
+    const outerPts=[];
+    const segs=40;
+    for(let i=0;i<=segs;i++){
+      const a=startAng+(i/segs)*sectorAngle;
+      outerPts.push([apexX+Math.sin(a)*lTotal,apexY-Math.cos(a)*lTotal]);
+    }
+    // inner arc (top circle arc)
+    const innerPts=[];
+    const innerSector=lerp(0.001,(Rt/lTop)*2*Math.PI,t);
+    const innerStart=-innerSector/2;
+    for(let i=segs;i>=0;i--){
+      const a=innerStart+(i/segs)*innerSector;
+      innerPts.push([apexX+Math.sin(a)*lTop,apexY-Math.cos(a)*lTop]);
+    }
+    const allPts=[...outerPts,...innerPts];
+    items.push({type:'poly',pts:allPts,col:FACE_COLS[2],opacity:0.72});
+    // slant lines
+    for(let i=0;i<=6;i++){
+      const a=startAng+(i/6)*sectorAngle;
+      const oa=innerStart+(i/6)*innerSector;
+      items.push({type:'line',x1:apexX+Math.sin(oa)*lTop,y1:apexY-Math.cos(oa)*lTop,x2:apexX+Math.sin(a)*lTotal,y2:apexY-Math.cos(a)*lTotal,col:'rgba(255,255,255,0.25)',r:0.007});
+    }
+    // arcs
+    items.push({type:'arc',cx:apexX,cy:apexY,r:lTotal,angStart:startAng,angEnd:startAng+sectorAngle,col:DC_SOL,r2:0.015});
+    items.push({type:'arc',cx:apexX,cy:apexY,r:lTop,angStart:innerStart,angEnd:innerStart+innerSector,col:DC_TOP,r2:0.013});
+    // seam lines
+    const bxO=apexX+Math.sin(startAng)*lTotal, byO=apexY-Math.cos(startAng)*lTotal;
+    const bxI=apexX+Math.sin(innerStart)*lTop,  byI=apexY-Math.cos(innerStart)*lTop;
+    items.push({type:'line',x1:bxI,y1:byI,x2:bxO,y2:byO,col:DC_SEAM,r:0.016});
+    items.push({type:'text',val:`l = ${l.toFixed(2)}`,x:0,y:apexY-lTotal-0.26,col:DC_SOL,scale:0.64});
+    items.push({type:'text',val:`θ = Rb/Ltotal × 360° = ${((Rb/lTotal)*360).toFixed(1)}°`,x:0,y:apexY+0.22,col:DC_DIM,scale:0.60});
+    return items;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  DEFINE ALL 30 MODELS
+  // ─────────────────────────────────────────────────────────────────
+
+  // ── PHASE 1: PRISMS (1–6) ─────────────────────────────────────────
+
+  MODELS.push({ // 1
+    title:'Square Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Axis ⊥ HP. Side a=1.0 m, Height h=2.0 m.\nLateral surface unfolds into a rectangle. Stretch-out line = perimeter = 4a.',
+    steps:'① Draw FV & TV of prism\n② Draw stretch-out line = 4a\n③ Erect perpendiculars of height h at each fold\n④ Attach top & bottom square bases',
+    formula:'S.O.L = 4a   |   Lateral Area = 4a × h   |   Total Area = 4ah + 2a²',
+    buildSolid:(rot)=>mkPrismSolid(4,0.85,1.9,rot,Math.PI/4),
+    buildDev:(t)=>devSquarePrism(t,0.7,1.9)
+  });
+
+  MODELS.push({ // 2
+    title:'Triangular Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Equilateral triangular prism. Side a=1.0 m, h=2.0 m.\nS.O.L = perimeter = 3a. Three rectangular lateral faces + 2 triangular ends.',
+    steps:'① Mark corners 1-2-3-4 on stretch-out\n② Space = a between each (3 panels)\n③ Add equilateral triangles at ends',
+    formula:'S.O.L = 3a   |   Lateral Area = 3a × h   |   End Area = (√3/4)a²',
+    buildSolid:(rot)=>mkPrismSolid(3,0.85,1.9,rot,-Math.PI/2),
+    buildDev:(t)=>devNPrism(t,3,0.80,1.9)
+  });
+
+  MODELS.push({ // 3
+    title:'Hexagonal Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Regular hexagonal prism. Side a=0.75 m, h=2.0 m.\nS.O.L = 6a. Six identical rectangles + 2 hexagonal ends.',
+    steps:'① S.O.L = 6a horizontal baseline\n② 6 equal divisions each width = a\n③ Rectangles of height h\n④ Regular hexagons attached at ends',
+    formula:'S.O.L = 6a   |   Lateral Area = 6ah   |   End Area = (3√3/2)a²',
+    buildSolid:(rot)=>mkPrismSolid(6,0.82,1.9,rot),
+    buildDev:(t)=>devNPrism(t,6,0.52,1.9)
+  });
+
+  MODELS.push({ // 4
+    title:'Pentagonal Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Regular pentagonal prism. Side a=0.80 m, h=1.9 m.\nS.O.L = 5a. Five equal rectangular lateral faces.',
+    steps:'① S.O.L = 5a baseline\n② 5 divisions, each = a\n③ h-height perpendiculars\n④ Pentagon ends (interior angle = 108°)',
+    formula:'S.O.L = 5a   |   Area = 5ah   |   Pentagon end = (5a²)/(4 tan 36°)',
+    buildSolid:(rot)=>mkPrismSolid(5,0.82,1.9,rot),
+    buildDev:(t)=>devNPrism(t,5,0.62,1.9)
+  });
+
+  MODELS.push({ // 5
+    title:'Oblique Square Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Square prism with axis inclined 30° to HP.\nLateral faces become parallelograms; use auxiliary planes to find true lengths.',
+    steps:'① Find true length of lateral edges via aux view\n② S.O.L = 4a on baseline (true perimeter)\n③ Transfer true-length heights to each division\n④ Connect oblique top and bottom lines',
+    formula:'True Length = h / sin(θ_inclination)   |   S.O.L = 4a unchanged',
+    buildSolid:(rot)=>{const s=mkPrismSolid(4,0.85,1.9,rot,Math.PI/4);s.verts.forEach(v=>{v.y+=v.x*0.35;});return s;},
+    buildDev:(t)=>devNPrism(t,4,0.70,1.9)
+  });
+
+  MODELS.push({ // 6
+    title:'Truncated Square Prism',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Square prism cut by a plane inclined 45° to HP.\nTop edges at different heights → unrolled rectangle has a stepped/sloped top.',
+    steps:'① Plot heights of all 8 vertices in FV\n② S.O.L = 4a; unroll\n③ Height at each division = intercept in FV\n④ Join top points with straight lines between divisions',
+    formula:'S.O.L = 4a   |   Heights h₁, h₂, h₃, h₄ from FV intercepts',
+    buildSolid:(rot)=>{
+      const s=mkPrismSolid(4,0.85,1.9,rot,Math.PI/4);
+      // tilt top ring
+      s.verts.forEach(v=>{if(v.id.startsWith('T'))v.y-=v.x*0.55;});
+      return s;
+    },
+    buildDev:(t)=>{
+      const items=devNPrism(t,4,0.70,1.9);
+      // add sloped top line overlay
+      const W=4*0.70, y0=-1.9/2, y1=1.9/2;
+      const offs=[0.6,0,-0.6,0];
+      for(let i=0;i<4;i++){
+        const x0=lerp(0,-W/2+i*0.70,t);
+        const x1=lerp(0,-W/2+(i+1)*0.70,t);
+        const yA=y1+lerp(0,offs[i]*0.6,t);
+        const yB=y1+lerp(0,offs[(i+1)%4]*0.6,t);
+        items.push({type:'line',x1:x0,y1:yA,x2:x1,y2:yB,col:'#FFD700',r:0.014,z:0.10});
+      }
+      return items;
+    }
+  });
+
+  // ── PHASE 2: CYLINDERS (7–10) ─────────────────────────────────────
+
+  MODELS.push({ // 7
+    title:'Right Circular Cylinder',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Right cylinder. Radius r=0.6 m, Height h=2.0 m.\nUnrolls to rectangle: width = πd, height = h. Exact standard method.',
+    steps:'① Divide circle into 12 equal parts (30° each)\n② S.O.L = πd = 12 equal chord divisions\n③ Erect perpendiculars of height h\n④ Circles of radius r attached top & bottom',
+    formula:'S.O.L = πd = 2πr   |   Lateral Area = πdh   |   Total Area = πdh + 2πr²',
+    buildSolid:(rot)=>mkCylSolid(0.78,1.9,rot),
+    buildDev:(t)=>devCylinder(t,0.72,1.9)
+  });
+
+  MODELS.push({ // 8
+    title:'Oblique Cylinder (Axis Inclined 30°)',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Cylinder with axis at 30° to HP. True shape of cross-section is ellipse.\nUse auxiliary right section method to develop.',
+    steps:'① Find auxiliary right section (perpendicular to axis)\n② S.O.L from right section perimeter = πd\n③ Transfer intercept lengths from FV\n④ Connect points to get oblique cylinder development',
+    formula:'Right section perimeter = πd   |   Oblique height = h/sin α   (α = inclination)',
+    buildSolid:(rot)=>{const s=mkCylSolid(0.78,1.9,rot);s.verts.forEach(v=>{v.y+=v.x*0.30;});return s;},
+    buildDev:(t)=>devCylinder(t,0.72,1.9)
+  });
+
+  MODELS.push({ // 9
+    title:'Cylinder – Oblique Cut (Elliptic Section)',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Right cylinder cut by plane inclined 40° to HP.\nDevelopment has sinusoidal top edge curve (not a straight line).',
+    steps:'① Divide cylinder into 12 generators\n② Mark intersection height of CPL for each generator in FV\n③ Unroll: x-axis = S.O.L, y-heights from FV\n④ Join 12 points with smooth curve → top edge of development',
+    formula:'S.O.L = πd   |   y_i = h_i (height of CPL intercept at generator i)',
+    buildSolid:(rot)=>{const s=mkCylSolid(0.78,1.9,rot);return s;},
+    buildDev:(t)=>{
+      const r=0.72, h=1.9, W=2*Math.PI*r;
+      const items=devCylinder(t,r,h);
+      // add sinusoidal top edge to show oblique cut
+      const pts=[];
+      const segs=24;
+      for(let i=0;i<=segs;i++){
+        const x=lerp(0,-W/2+(i/segs)*W,t);
+        const angle=(i/segs)*Math.PI*2;
+        const y=lerp(0,-h/2+h*0.5+Math.sin(angle)*0.6,t);
+        pts.push([x,y]);
+      }
+      for(let i=0;i<pts.length-1;i++){
+        items.push({type:'line',x1:pts[i][0],y1:pts[i][1],x2:pts[i+1][0],y2:pts[i+1][1],col:'#FFD700',r:0.013,z:0.10});
+      }
+      items.push({type:'text',val:'CPL trace (ellipse edge)',x:0,y:lerp(0,h/2+0.18,t),col:'#FFD700',scale:0.60});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 10
+    title:'Hollow Cylinder (Pipe Section)',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'Hollow cylinder — both inner and outer surfaces developed.\nUsed for pipe elbow and duct connections in HVAC engineering.',
+    steps:'① Develop outer surface: W_out = π×D_out\n② Develop inner surface: W_in = π×D_in\n③ Sheet thickness visible as seam strip\n④ Add flanges (rectangles at top & bottom)',
+    formula:'W_outer = πD_outer   |   W_inner = πD_inner   |   Sheet thickness = (D_out−D_in)/2',
+    buildSolid:(rot)=>{
+      const s1=mkCylSolid(0.88,1.9,rot);
+      const s2=mkCylSolid(0.62,1.9,rot);
+      return{...s1,faces:[...s1.faces.slice(0,1),...s1.faces.slice(1).map((f,i)=>({...f,col:FACE_COLS[i%8]})),...s2.faces.slice(1).map((f)=>({...f,col:'#22222a'}))]};
+    },
+    buildDev:(t)=>{
+      const items=devCylinder(t,0.88,1.9);
+      // inner dev overlaid in dark
+      const W2=2*Math.PI*0.62, h=1.9;
+      const x0=lerp(0,-W2/2,t), x1=lerp(0,W2/2,t);
+      items.push({type:'poly',pts:[[x0,-h/2],[x1,-h/2],[x1,h/2],[x0,h/2]],col:'#1a1a3a',opacity:0.65});
+      items.push({type:'line',x1:x0,y1:-h/2,x2:x0,y2:h/2,col:'#aaa',r:0.009});
+      items.push({type:'line',x1:x1,y1:-h/2,x2:x1,y2:h/2,col:'#aaa',r:0.009});
+      items.push({type:'text',val:'Inner surface (π×D_inner)',x:0,y:-h/2-0.35,col:'#aaa',scale:0.58});
+      return items;
+    }
+  });
+
+  // ── PHASE 3: PYRAMIDS (11–15) ─────────────────────────────────────
+
+  MODELS.push({ // 11
+    title:'Square Pyramid',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Right square pyramid. Base a=1.0 m, Height h=1.8 m.\nSlant height l = √(h²+(a/2)²). Fan of 4 isosceles triangles + square base.',
+    steps:'① Find slant height l = √(h²+(a/2)²)\n② Draw arc of radius l\n③ Step off 4 × a along arc with compass\n④ Connect to apex O; attach square base',
+    formula:'l = √(h² + (a/2)²)   |   Sector angle θ = (na)/(l) × (180/π)   |   Lateral Area = 2al',
+    buildSolid:(rot)=>mkPyramidSolid(4,0.85,1.8,rot,Math.PI/4),
+    buildDev:(t)=>devNPyramid(t,4,0.75,1.55)
+  });
+
+  MODELS.push({ // 12
+    title:'Triangular Pyramid (Tetrahedron)',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Regular tetrahedron: all 4 faces equilateral triangles. Side a=1.2 m.\nSlant height = (√3/2) × a for lateral faces.',
+    steps:'① All 4 faces identical equilateral triangles\n② Unfold 3 lateral faces around base triangle\n③ Slant height l = (√3/2)a\n④ Arc radius = l from apex',
+    formula:'l = (√3/2)a   |   Total Area = √3 × a²   |   All edges equal = a',
+    buildSolid:(rot)=>mkPyramidSolid(3,0.85,1.40,rot,-Math.PI/2),
+    buildDev:(t)=>devNPyramid(t,3,0.90,1.35)
+  });
+
+  MODELS.push({ // 13
+    title:'Hexagonal Pyramid',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Right hexagonal pyramid. Side a=0.65 m, Height h=1.8 m.\nSlant height l = √(h² + (a√3/2)²). Six triangular faces fan out.',
+    steps:'① Slant height l = true length of slant edge from FV\n② Arc radius = l; step off 6 × a\n③ Six triangular sectors\n④ Attach regular hexagon base',
+    formula:'l = √(h² + (a√3/2)²)   |   Sector θ = 6a/l × (180°/π)',
+    buildSolid:(rot)=>mkPyramidSolid(6,0.82,1.8,rot),
+    buildDev:(t)=>devNPyramid(t,6,0.50,1.52)
+  });
+
+  MODELS.push({ // 14
+    title:'Pentagonal Pyramid',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Right pentagonal pyramid. Side a=0.72 m, Height h=1.8 m.\nSlant height l from FV true length. Five triangular faces.',
+    steps:'① l = slant height from FV (midpoint of base edge to apex)\n② Arc R = l; step 5×a chord along arc\n③ 5 triangular panels\n④ Pentagon base attached',
+    formula:'l = √(h² + (a/(2tan36°))²)   |   Lateral Area = 5 × (a×l)/2',
+    buildSolid:(rot)=>mkPyramidSolid(5,0.82,1.8,rot),
+    buildDev:(t)=>devNPyramid(t,5,0.58,1.50)
+  });
+
+  MODELS.push({ // 15
+    title:'Oblique Pyramid',
+    method:'TRIANGULATION METHOD',
+    desc:'Pyramid with apex not over centroid of base. Lateral faces are scalene triangles.\nMust find TRUE LENGTH of every slant edge individually.',
+    steps:'① Draw plan & elevation of oblique pyramid\n② Find true length of each slant edge via TL diagram\n③ Construct each triangular face using compass & TL\n④ Fan development with triangulated faces',
+    formula:'TL of edge = √(plan-distance² + height²)',
+    buildSolid:(rot)=>{
+      const s=mkPyramidSolid(4,0.85,1.8,rot,Math.PI/4);
+      // shift apex off-centre
+      s.verts.forEach(v=>{if(v.id==='O'){v.x+=0.4;v.z+=0.3;}});
+      return s;
+    },
+    buildDev:(t)=>{
+      const items=devNPyramid(t,4,0.75,1.60);
+      items.push({type:'text',val:'TL of each edge found separately',x:0,y:-1.8,col:'#FF9900',scale:0.62});
+      return items;
+    }
+  });
+
+  // ── PHASE 4: CONES (16–19) ────────────────────────────────────────
+
+  MODELS.push({ // 16
+    title:'Right Circular Cone',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Right cone. Base radius R=0.75 m, Height h=1.8 m.\nSlant height l=√(R²+h²). Unrolls to sector of circle with arc = 2πR.',
+    steps:'① l = √(R² + h²) = slant height\n② Sector radius = l\n③ Sector angle θ = (R/l) × 360°\n④ Arc length of sector = circumference of base = 2πR',
+    formula:'l = √(R²+h²)   |   θ = (R/l)×360°   |   Lateral Area = πRl   |   Arc = 2πR',
+    buildSolid:(rot)=>mkConeSolid(0.78,1.8,rot),
+    buildDev:(t)=>devCone(t,0.72,1.65)
+  });
+
+  MODELS.push({ // 17
+    title:'Oblique Cone',
+    method:'TRIANGULATION METHOD',
+    desc:'Apex not over centre of base circle. All generators have DIFFERENT true lengths.\nDivide base into 12 parts → 12 generator true lengths → triangulate.',
+    steps:'① Divide base circle into 12 equal parts\n② Find TL of each generator from FV\n③ Build development fan: each strip = triangle\n④ Connect arc points for curved edge',
+    formula:'TL_i = √(plan_i² + height²)   |   Each fan-triangle: base = chord, 2 sides = TL_i & TL_(i+1)',
+    buildSolid:(rot)=>{const s=mkConeSolid(0.78,1.8,rot);s.verts.forEach(v=>{if(v.id==='O'){v.x+=0.5;}});return s;},
+    buildDev:(t)=>{
+      const items=devCone(t,0.72,1.65);
+      items.push({type:'text',val:'Variable slant heights (TL method)',x:0,y:-2.1,col:'#FF9900',scale:0.60});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 18
+    title:'Truncated Cone (Frustum)',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Frustum: base R=0.75 m, top r=0.38 m, h=1.6 m.\nDevelopment = annular sector (ring sector). Apex extended virtually.',
+    steps:'① Extend cone to apex: l_total=R×l/(R−r)\n② Sector θ = (R/l_total)×360°\n③ Two arcs: outer R=l_total, inner R=l_top\n④ Two base circles attached (annular sector ring)',
+    formula:'l = √((R-r)²+h²)   |   l_total = R×l/(R-r)   |   θ = (R/l_total)×360°',
+    buildSolid:(rot)=>mkFrustumSolid(20,0.78,0.40,1.6,rot),
+    buildDev:(t)=>devFrustum(t,0.75,0.38,1.6)
+  });
+
+  MODELS.push({ // 19
+    title:'Cone – Inclined Cut (Ellipse)',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Right cone truncated by plane inclined to HP.\nOnly part of the development is retained. Cut edge = part of ellipse in true shape.',
+    steps:'① Develop full cone development\n② Project CPL intercepts for each generator to S.O.L\n③ Mark heights on development fan\n④ Connect curve → elliptic cut edge in development',
+    formula:'Generator lengths below CPL = actual lengths transferred to fan',
+    buildSolid:(rot)=>mkConeSolid(0.78,1.8,rot),
+    buildDev:(t)=>{
+      const items=devCone(t,0.72,1.65);
+      // add partial elliptic cut curve on fan
+      const l=1.65, R=0.72, sectorAngle=(R/l)*2*Math.PI;
+      const startAng=-sectorAngle/2;
+      const apexY=lerp(0,l*0.5,t);
+      const cutPts=[];
+      const segs=20;
+      for(let i=0;i<=segs;i++){
+        const a=startAng+(i/segs)*sectorAngle;
+        const fr=l*(0.3+0.3*Math.cos(a));
+        cutPts.push([Math.sin(a)*fr, apexY-Math.cos(a)*fr]);
+      }
+      for(let i=0;i<cutPts.length-1;i++){
+        items.push({type:'line',x1:cutPts[i][0],y1:cutPts[i][1],x2:cutPts[i+1][0],y2:cutPts[i+1][1],col:'#FFD700',r:0.013,z:0.10});
+      }
+      items.push({type:'text',val:'Cut-edge (ellipse arc)',x:0,y:apexY-l*0.5,col:'#FFD700',scale:0.60});
+      return items;
+    }
+  });
+
+  // ── PHASE 5: COMPOSITE SOLIDS (20–30) ────────────────────────────
+
+  MODELS.push({ // 20
+    title:'Cylinder + Cone (Rocket Nose)',
+    method:'PARALLEL-LINE + RADIAL-LINE (COMBINED)',
+    desc:'Cylinder of r=0.6 m, h=1.4 m topped by a cone of same r, h=1.0 m.\nDevelop each part separately; join along shared base circle.',
+    steps:'① Develop cylinder: rectangle W=πd, H=1.4 m\n② Develop cone: sector R=l, θ=R/l×360°\n③ Join developments along common circumference\n④ Common edge = seam line',
+    formula:'Cylinder: W=πd, H=1.4   |   Cone: l=√(r²+h²), θ=r/l×360°',
+    buildSolid:(rot)=>{
+      const cy=mkCylSolid(0.72,1.4,rot);
+      const co=mkConeSolid(0.72,1.0,rot);
+      co.verts.forEach(v=>{v.y+=1.2;});
+      return{verts:[...cy.verts,...co.verts],faces:[...cy.faces,...co.faces.slice(1)],edges:[...cy.edges,...co.edges],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const r=0.72, h1=1.4, h2=1.0;
+      const W=2*Math.PI*r;
+      const l=Math.sqrt(r*r+h2*h2);
+      const items=[];
+      // cylinder part below
+      const x0=lerp(0,-W/2,t), x1=lerp(0,W/2,t);
+      const cy0=-h1/2-h2*0.5, cy1=-h1/2-h2*0.5+h1;
+      items.push({type:'poly',pts:[[x0,cy0],[x1,cy0],[x1,cy1],[x0,cy1]],col:FACE_COLS[0],opacity:0.72});
+      items.push({type:'line',x1:x0,y1:cy0,x2:x1,y2:cy0,col:DC_SOL,r:0.018,z:0.09});
+      items.push({type:'line',x1:x0,y1:cy1,x2:x1,y2:cy1,col:'#aaa',r:0.012});
+      items.push({type:'line',x1:x0,y1:cy0,x2:x0,y2:cy1,col:DC_SEAM,r:0.016});
+      items.push({type:'line',x1:x1,y1:cy0,x2:x1,y2:cy1,col:DC_SEAM,r:0.016});
+      items.push({type:'text',val:'Cylinder (πd × h₁)',x:0,y:(cy0+cy1)/2,col:'#ddd',scale:0.60});
+      // cone sector above
+      const sectorAngle=(r/l)*2*Math.PI;
+      const startAng=-sectorAngle/2;
+      const apexY=lerp(0,cy1+l*0.7+0.1,t);
+      const secPts=[[0,apexY]];
+      const segs=36;
+      for(let i=0;i<=segs;i++){const a=startAng+(i/segs)*sectorAngle;secPts.push([Math.sin(a)*l,apexY-Math.cos(a)*l]);}
+      items.push({type:'poly',pts:secPts,col:FACE_COLS[3],opacity:0.72});
+      items.push({type:'arc',cx:0,cy:apexY,r:l,angStart:startAng,angEnd:startAng+sectorAngle,col:DC_SOL,r2:0.014});
+      items.push({type:'text',val:'Cone (sector θ=r/l×360°)',x:0,y:apexY+0.2,col:'#ddd',scale:0.60});
+      // junction line
+      items.push({type:'line',x1:x0,y1:cy1,x2:x1,y2:cy1,col:'#CF2027',r:0.018,z:0.11});
+      items.push({type:'text',val:'─── Join seam ───',x:0,y:cy1+0.12,col:'#CF2027',scale:0.58});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 21
+    title:'Prism + Pyramid (Obelisk Cap)',
+    method:'PARALLEL-LINE + RADIAL-LINE (COMBINED)',
+    desc:'Square prism h=1.2 m topped by square pyramid h=1.0 m.\nSame base size. Develops as rectangle + 4 triangular faces.',
+    steps:'① Develop prism: rectangle S.O.L=4a, H=1.2m\n② Find pyramid slant height l\n③ Attach 4 triangles along top of rectangle\n④ Bases at bottom of rectangle',
+    formula:'Rectangle: 4a×h   |   Triangle height (slant) l=√(h_pyr²+(a/2)²)',
+    buildSolid:(rot)=>{
+      const pr=mkPrismSolid(4,0.82,1.2,rot,Math.PI/4);
+      const py=mkPyramidSolid(4,0.82,1.0,rot,Math.PI/4);
+      pr.verts.forEach(v=>{v.y-=0.5;});
+      py.verts.forEach(v=>{v.y+=0.6;});
+      return{verts:[...pr.verts,...py.verts],faces:[...pr.faces,...py.faces.slice(1)],edges:[...pr.edges,...py.edges],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const a=0.70, h1=1.2, h2=1.0;
+      const W=4*a, l=Math.sqrt(h2*h2+(a/2)*(a/2));
+      const items=[];
+      const y0=-h1/2-0.4, y1=-h1/2-0.4+h1;
+      for(let i=0;i<4;i++){
+        const x0=lerp(0,-W/2+i*a,t), x1=lerp(0,-W/2+(i+1)*a,t);
+        items.push({type:'poly',pts:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],col:FACE_COLS[i],opacity:0.82});
+        items.push({type:'line',x1:x0,y1:y0,x2:x0,y2:y1,col:'#fff',r:0.010});
+        // pyramid triangle on top of each face
+        const mx=(x0+x1)/2;
+        const tipY=lerp(0,y1+l,t);
+        items.push({type:'poly',pts:[[x0,y1],[x1,y1],[mx,tipY]],col:FACE_COLS[(i+4)%FACE_COLS.length],opacity:0.82});
+        items.push({type:'line',x1:x0,y1:y1,x2:mx,y2:tipY,col:'#fff',r:0.010});
+        items.push({type:'line',x1:x1,y1:y1,x2:mx,y2:tipY,col:'#fff',r:0.010});
+      }
+      items.push({type:'line',x1:-W/2,y1:y0,x2:W/2,y2:y0,col:DC_SOL,r:0.018,z:0.09});
+      items.push({type:'line',x1:-W/2,y1:y0,x2:-W/2,y2:y1,col:DC_SEAM,r:0.016});
+      items.push({type:'line',x1: W/2,y1:y0,x2: W/2,y2:y1,col:DC_SEAM,r:0.016});
+      items.push({type:'text',val:`S.O.L = 4a = ${W.toFixed(2)}`,x:0,y:y0-0.22,col:DC_SOL,scale:0.68});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 22
+    title:'Cylinder + Hemisphere',
+    method:'PARALLEL-LINE + RADIAL (ZONE METHOD)',
+    desc:'Cylinder h=1.2 m, r=0.6 m capped by hemisphere r=0.6 m.\nHemisphere developed using zone (lune) method — approximate.',
+    steps:'① Cylinder: standard πd×h rectangle\n② Hemisphere: divide into latitude zones\n③ Each zone approximated as frustum band\n④ Sum of frustum bands ≈ hemisphere surface',
+    formula:'Cylinder: πdh   |   Hemisphere: 2πr²   |   Zone method: each band = frustum dev',
+    buildSolid:(rot)=>{
+      const cy=mkCylSolid(0.72,1.2,rot);
+      // hemisphere approximated by upper frustum stack
+      const layers=4;
+      const r=0.72;
+      let fs={verts:[...cy.verts],faces:[...cy.faces],edges:[...cy.edges],labelVerts:[]};
+      for(let i=0;i<layers;i++){
+        const a1=(i/layers)*Math.PI/2, a2=((i+1)/layers)*Math.PI/2;
+        const r1=Math.cos(a1)*r, r2=Math.cos(a2)*r;
+        const y1=0.6+Math.sin(a1)*r, y2=0.6+Math.sin(a2)*r;
+        const fr=mkFrustumSolid(16,r1,r2,y2-y1,rot);
+        fr.verts.forEach(v=>{v.y+=y1+0.6;});
+        fs.verts=[...fs.verts,...fr.verts];
+        fs.faces=[...fs.faces,...fr.faces.slice(1)];
+      }
+      return fs;
+    },
+    buildDev:(t)=>{
+      const r=0.72, h=1.2;
+      const items=devCylinder(t,r,h);
+      // hemisphere bands stacked above
+      const layers=4;
+      let curY=lerp(0,h/2+0.1,t);
+      for(let i=0;i<layers;i++){
+        const a1=(i/layers)*Math.PI/2, a2=((i+1)/layers)*Math.PI/2;
+        const r1=Math.cos(a1)*r, r2=Math.cos(a2)*r;
+        const bandH=Math.sin(a2)*r-Math.sin(a1)*r;
+        const W1=2*Math.PI*r1, W2=2*Math.PI*r2;
+        const ww=Math.max(W1,W2);
+        items.push({type:'poly',pts:[[lerp(0,-W1/2,t),curY],[lerp(0,W1/2,t),curY],[lerp(0,W2/2,t),curY+lerp(0,bandH,t)],[lerp(0,-W2/2,t),curY+lerp(0,bandH,t)]],col:FACE_COLS[(i+6)%FACE_COLS.length],opacity:0.72});
+        curY+=lerp(0,bandH,t);
+      }
+      items.push({type:'text',val:'Hemisphere (zone/lune method)',x:0,y:curY+0.15,col:'#bbb',scale:0.60});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 23
+    title:'Tee-Junction (Two Cylinders Intersecting)',
+    method:'PARALLEL-LINE + INTERSECTION LINE',
+    desc:'Horizontal cylinder intersects vertical cylinder (T-pipe junction).\nDevelop both; intersection curve transfers between both developments.',
+    steps:'① Find curve of intersection in plan & elevation\n② Develop vertical cylinder: standard rectangle\n③ Transfer intersection curve heights from elevation\n④ Develop branch cylinder: cut edge from intersection curve',
+    formula:'Intersection curve → sinusoidal trace on development   |   Both S.O.L = πd',
+    buildSolid:(rot)=>{
+      const main=mkCylSolid(0.70,2.2,rot);
+      const branch=mkCylSolid(0.45,1.4,rot);
+      branch.verts.forEach(v=>{const tmp=v.y;v.y=v.z;v.z=tmp;v.x+=0;});
+      return{verts:[...main.verts,...branch.verts.map(v=>({...v,id:'B'+v.id}))],faces:[...main.faces,...branch.faces.slice(0,1)],edges:[...main.edges],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const items=devCylinder(t,0.70,2.2);
+      // overlay intersection curve
+      const W=2*Math.PI*0.70, h=2.2;
+      const pts=[];
+      const segs=24;
+      for(let i=0;i<=segs;i++){
+        const x=lerp(0,-W/2+(i/segs)*W,t);
+        const angle=(i/segs)*Math.PI*2;
+        const y=lerp(0,0+Math.sin(angle)*0.45,t);
+        pts.push([x,y]);
+      }
+      for(let i=0;i<pts.length-1;i++){
+        items.push({type:'line',x1:pts[i][0],y1:pts[i][1],x2:pts[i+1][0],y2:pts[i+1][1],col:'#FFD700',r:0.014,z:0.10});
+      }
+      items.push({type:'text',val:'Intersection curve',x:0,y:0.7,col:'#FFD700',scale:0.60});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 24
+    title:'Elbow / Mitre-Cut Pipe',
+    method:'PARALLEL-LINE DEVELOPMENT',
+    desc:'90° pipe elbow made from two mitre-cut cylinders.\nEach half develops with sinusoidal cut edge. Common method for HVAC ducts.',
+    steps:'① Cylinder cut at 45° → half-cylinder with sloped top\n② Development: S.O.L=πd, heights from each generator\n③ Cut-edge = half-sinusoidal curve\n④ Two halves joined at cut seam',
+    formula:'S.O.L = πd   |   y_i = r + r×cos(2πi/n) + h/2 (height at each generator)',
+    buildSolid:(rot)=>{
+      const s=mkCylSolid(0.70,1.8,rot);
+      // tilt top ring to make 45° cut
+      s.verts.forEach(v=>{if(v.id.startsWith('T'))v.y-=v.x*0.85;});
+      return s;
+    },
+    buildDev:(t)=>{
+      const r=0.70, h=1.8, W=2*Math.PI*r;
+      const items=devCylinder(t,r,h);
+      // full sine top edge
+      const pts=[];
+      for(let i=0;i<=24;i++){
+        const x=lerp(0,-W/2+(i/24)*W,t);
+        const ang=(i/24)*Math.PI*2;
+        const y=lerp(0,h/2+r*Math.cos(ang)*0.9,t);
+        pts.push([x,y]);
+      }
+      for(let i=0;i<pts.length-1;i++){
+        items.push({type:'line',x1:pts[i][0],y1:pts[i][1],x2:pts[i+1][0],y2:pts[i+1][1],col:'#FFD700',r:0.014,z:0.10});
+      }
+      items.push({type:'text',val:'Sine curve top edge (45° mitre)',x:0,y:lerp(0,h/2+r*1.1+0.2,t),col:'#FFD700',scale:0.58});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 25
+    title:'Square Pyramid Frustum',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Frustum of square pyramid. Base a=1.0 m, Top a=0.50 m, h=1.4 m.\nExtend to apex virtually; develop as annular sector with 4 trapezoidal strips.',
+    steps:'① Extend lateral edges to find virtual apex O\n② Find slant height l of full cone & l_top\n③ Draw two arcs (outer=l, inner=l_top) for each face\n④ Step off 4×a on outer arc; join to form 4 trapezia',
+    formula:'l_total = a×h/(a−a_top)   |   Each face: annular sector with chord = a or a_top',
+    buildSolid:(rot)=>mkFrustumSolid(4,0.85,0.43,1.4,rot,Math.PI/4),
+    buildDev:(t)=>devFrustum(t,0.80,0.40,1.4)
+  });
+
+  MODELS.push({ // 26
+    title:'Hexagonal Pyramid Frustum',
+    method:'RADIAL-LINE DEVELOPMENT',
+    desc:'Frustum of hexagonal pyramid. Base a=0.65 m, Top a=0.33 m, h=1.4 m.\nSix trapezoidal faces fan out. More complex annular sector calculation.',
+    steps:'① Extend to apex: l_total = a×h/(a−a_top)\n② Sector angle: θ = 6×a/l_total × (180/π)\n③ Six annular sectors arc-ed out\n④ Top and base hexagons attached',
+    formula:'l = √(h²+(a√3/2)²)   |   θ = (6a/l_total)×(180°/π)',
+    buildSolid:(rot)=>mkFrustumSolid(6,0.80,0.40,1.4,rot),
+    buildDev:(t)=>devFrustum(t,0.75,0.38,1.4)
+  });
+
+  MODELS.push({ // 27
+    title:'Transition Piece: Square→Circle',
+    method:'TRIANGULATION METHOD',
+    desc:'Connects square duct to circular pipe. All triangular panels have different sizes.\nIndustry-standard problem for HVAC and sheet metal fabrication.',
+    steps:'① Connect corners of square base to circle centre-points\n② Divide circle into 12 equal parts\n③ Triangulate: corner→point, point→adjacent point\n④ Find TL of each triangle side; build development',
+    formula:'TL of each side = √(plan_length² + height²)   |   Fan of 4 groups of triangles',
+    buildSolid:(rot)=>{
+      // approximate: pyramid-like hybrid shape
+      const n=12, r=0.55, h=1.6;
+      const cir=polyRing(n,r,h/2,'C');
+      const sqBot=[
+        {id:'S0',x:-0.80,y:-h/2,z:-0.80},
+        {id:'S1',x: 0.80,y:-h/2,z:-0.80},
+        {id:'S2',x: 0.80,y:-h/2,z: 0.80},
+        {id:'S3',x:-0.80,y:-h/2,z: 0.80},
+      ];
+      const ry=rot*DEG;
+      const allVerts=[...cir,...sqBot];
+      allVerts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+      const faces=[{verts:sqBot.map(v=>v.id).reverse(),col:'#1a3a8a'}];
+      for(let i=0;i<n;i++){
+        faces.push({verts:[`C${i}`,`C${(i+1)%n}`,`S${Math.floor(i*4/n)%4}`],col:FACE_COLS[i%FACE_COLS.length]});
+      }
+      return{verts:allVerts,faces,edges:[],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const items=[];
+      const groups=4, perGroup=3;
+      for(let g=0;g<groups;g++){
+        const gx=lerp(0,(g-1.5)*1.2,t);
+        for(let i=0;i<perGroup;i++){
+          const ang=(g*perGroup+i)/12*Math.PI*2;
+          const ax=gx+lerp(0,Math.cos(ang)*0.5,t), ay=lerp(0,Math.sin(ang)*0.5-0.8,t);
+          const ang2=(g*perGroup+i+1)/12*Math.PI*2;
+          const bx=gx+lerp(0,Math.cos(ang2)*0.5,t), by=lerp(0,Math.sin(ang2)*0.5-0.8,t);
+          const cx=gx+lerp(0,(i-1)*0.4,t), cy=lerp(0,0.9,t);
+          items.push({type:'poly',pts:[[ax,ay],[bx,by],[cx,cy]],col:FACE_COLS[(g*3+i)%FACE_COLS.length],opacity:0.80});
+          items.push({type:'line',x1:ax,y1:ay,x2:cx,y2:cy,col:'#fff',r:0.008});
+          items.push({type:'line',x1:bx,y1:by,x2:cx,y2:cy,col:'#fff',r:0.008});
+        }
+      }
+      items.push({type:'text',val:'Triangulated: Square→Circle transition',x:0,y:-1.4,col:DC_SOL,scale:0.62});
+      items.push({type:'text',val:'4 corner groups × 3 triangles = 12 faces',x:0,y:-1.65,col:DC_DIM,scale:0.58});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 28
+    title:'Transition Piece: Rectangle→Circle',
+    method:'TRIANGULATION METHOD',
+    desc:'Rectangular duct connected to circular pipe offset horizontally.\nAll 12+ triangular faces uniquely sized. Industry-critical problem.',
+    steps:'① Draw plan with rectangle corners & 12 circle points\n② Connect: each circle point to nearest corner or adjacent\n③ Compute TL for each edge\n④ Triangulate and fan-build development',
+    formula:'TL_edge = √(Δx²+Δy²+Δz²)   |   All edges individually measured',
+    buildSolid:(rot)=>{
+      const n=12, r=0.50, h=1.6;
+      const cir=polyRing(n,r,h/2,'C');
+      const recBot=[
+        {id:'R0',x:-0.90,y:-h/2,z:-0.60},{id:'R1',x:0.90,y:-h/2,z:-0.60},
+        {id:'R2',x:0.90,y:-h/2,z:0.60},{id:'R3',x:-0.90,y:-h/2,z:0.60},
+      ];
+      const ry=rot*DEG;
+      const allVerts=[...cir,...recBot];
+      allVerts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+      const faces=[{verts:recBot.map(v=>v.id).reverse(),col:'#1a3a8a'}];
+      for(let i=0;i<n;i++) faces.push({verts:[`C${i}`,`C${(i+1)%n}`,`R${Math.floor(i*4/n)%4}`],col:FACE_COLS[i%FACE_COLS.length]});
+      return{verts:allVerts,faces,edges:[],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const items=[];
+      // 4 corner fans of 3 triangles each
+      for(let g=0;g<4;g++){
+        for(let i=0;i<3;i++){
+          const ang=(g*3+i)/12*Math.PI*2-0.2;
+          const ang2=(g*3+i+1)/12*Math.PI*2-0.2;
+          const gx=lerp(0,(g-1.5)*1.3,t);
+          const ax=gx+lerp(0,Math.cos(ang)*0.5,t), ay=lerp(0,Math.sin(ang)*0.5-0.7,t);
+          const bx=gx+lerp(0,Math.cos(ang2)*0.5,t), by=lerp(0,Math.sin(ang2)*0.5-0.7,t);
+          const cx=gx+lerp(0,0,t), cy=lerp(0,0.85,t);
+          items.push({type:'poly',pts:[[ax,ay],[bx,by],[cx,cy]],col:FACE_COLS[(g*3+i)%FACE_COLS.length],opacity:0.80});
+          items.push({type:'line',x1:ax,y1:ay,x2:cx,y2:cy,col:'#fff',r:0.008});
+          items.push({type:'line',x1:bx,y1:by,x2:cx,y2:cy,col:'#fff',r:0.008});
+        }
+      }
+      items.push({type:'text',val:'Rectangle→Circle  (triangulation)',x:0,y:-1.35,col:DC_SOL,scale:0.62});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 29
+    title:'Hopper (Rectangular Frustum)',
+    method:'TRIANGULATION METHOD',
+    desc:'Rectangular hopper: top 1.6×0.8 m, bottom 0.8×0.4 m, h=1.2 m (offset centres).\nFour trapezoidal faces of different widths + 4 corner triangles.',
+    steps:'① Identify 4 trapezoidal faces & 4 triangular corner pieces\n② Find TL of each slant edge (8 edges total)\n③ Develop each face by triangulation\n④ Join faces in strip to form development',
+    formula:'Flat faces: parallelograms/trapezoids   |   Corners: triangles   |   TL method for all',
+    buildSolid:(rot)=>{
+      const h=1.4;
+      const bot=[{id:'A',x:-0.80,y:-h/2,z:-0.40},{id:'B',x:0.80,y:-h/2,z:-0.40},{id:'C',x:0.80,y:-h/2,z:0.40},{id:'D',x:-0.80,y:-h/2,z:0.40}];
+      const top=[{id:'E',x:-0.40,y:h/2,z:-0.20},{id:'F',x:0.40,y:h/2,z:-0.20},{id:'G',x:0.40,y:h/2,z:0.20},{id:'H',x:-0.40,y:h/2,z:0.20}];
+      const verts=[...bot,...top];
+      const faces=[
+        {verts:['A','B','C','D'].reverse(),col:'#1a3a8a'},
+        {verts:['E','F','G','H'],col:'#7a1a7a'},
+        {verts:['A','B','F','E'],col:FACE_COLS[0]},
+        {verts:['B','C','G','F'],col:FACE_COLS[1]},
+        {verts:['C','D','H','G'],col:FACE_COLS[2]},
+        {verts:['D','A','E','H'],col:FACE_COLS[3]},
+      ];
+      const ry=rot*DEG;
+      verts.forEach(v=>{const x2=v.x*Math.cos(ry)+v.z*Math.sin(ry);v.z=-v.x*Math.sin(ry)+v.z*Math.cos(ry);v.x=x2;});
+      const edges=[['A','B'],['B','C'],['C','D'],['D','A'],['E','F'],['F','G'],['G','H'],['H','E'],['A','E'],['B','F'],['C','G'],['D','H']];
+      return{verts,faces,edges,labelVerts:verts.map(v=>v.id)};
+    },
+    buildDev:(t)=>{
+      const items=[];
+      const panels=[
+        {pts:[[-1.6,-0.7],[-0.8,-0.7],[-0.4,0.7],[-0.8,0.7]],c:FACE_COLS[0]},
+        {pts:[[-0.8,-0.7],[0.0,-0.7],[ 0.0,0.7],[-0.4,0.7]], c:FACE_COLS[1]},
+        {pts:[[0.0,-0.7],[0.8,-0.7],[0.4,0.7],[0.0,0.7]],     c:FACE_COLS[2]},
+        {pts:[[0.8,-0.7],[1.6,-0.7],[0.8,0.7],[0.4,0.7]],      c:FACE_COLS[3]},
+      ];
+      panels.forEach(p=>{
+        const pts=p.pts.map(([x,y])=>[lerp(0,x,t),lerp(0,y,t)]);
+        items.push({type:'poly',pts,col:p.c,opacity:0.82});
+        for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];items.push({type:'line',x1:a[0],y1:a[1],x2:b[0],y2:b[1],col:'#fff',r:0.010});}
+      });
+      // corner triangles
+      const corners=[
+        [[-1.6,-0.7],[-0.8,0.7],[-1.6,0.7]],
+        [[0.8,-0.7],[1.6,-0.7],[1.6,0.7]],
+      ];
+      corners.forEach((pts,i)=>{
+        const p=pts.map(([x,y])=>[lerp(0,x,t),lerp(0,y,t)]);
+        items.push({type:'poly',pts:p,col:FACE_COLS[i+4],opacity:0.82});
+        for(let j=0;j<p.length;j++){const a=p[j],b=p[(j+1)%p.length];items.push({type:'line',x1:a[0],y1:a[1],x2:b[0],y2:b[1],col:'#fff',r:0.010});}
+      });
+      items.push({type:'line',x1:-1.6,y1:-0.7,x2:1.6,y2:-0.7,col:DC_SOL,r:0.016,z:0.09});
+      items.push({type:'text',val:'Rectangular Hopper (4 faces + 4 corner triangles)',x:0,y:-1.0,col:DC_SOL,scale:0.60});
+      return items;
+    }
+  });
+
+  MODELS.push({ // 30
+    title:'Complete Industrial Duct Assembly',
+    method:'ALL METHODS COMBINED',
+    desc:'ADVANCED: Cylinder → Transition Square → Rectangular Duct → Elbow → Cone.\nFull industrial HVAC duct unfolded in sequence. College-level capstone model.',
+    steps:'① Cylinder: parallel-line, πd rect\n② Transition: triangulation\n③ Rectangle duct: parallel-line, 4a rect\n④ Mitre elbow: sin-curve edge\n⑤ End cone: radial-line sector\nAll joined at seam lines',
+    formula:'Combine all methods: πd / 4a / triangulation / radial sector',
+    buildSolid:(rot)=>{
+      // multi-piece stacked solid
+      const h=0.7;
+      const cy=mkCylSolid(0.60,h,rot); cy.verts.forEach(v=>{v.y+=1.1;});
+      const pr=mkPrismSolid(4,0.72,h,rot,Math.PI/4); pr.verts.forEach(v=>{v.y+=0.35;});
+      const co=mkConeSolid(0.60,0.8,rot); co.verts.forEach(v=>{v.y-=0.7;});
+      return{verts:[...cy.verts,...pr.verts,...co.verts],faces:[...cy.faces,...pr.faces.slice(1),...co.faces.slice(1)],edges:[],labelVerts:[]};
+    },
+    buildDev:(t)=>{
+      const items=[];
+      // ① cylinder rect
+      const r=0.60, W=2*Math.PI*r, h1=0.70;
+      const x0=lerp(0,-W/2,t), x1=lerp(0,W/2,t);
+      const y_cy0=-2.5, y_cy1=y_cy0+h1;
+      items.push({type:'poly',pts:[[x0,y_cy0],[x1,y_cy0],[x1,y_cy1],[x0,y_cy1]],col:FACE_COLS[0],opacity:0.72});
+      items.push({type:'line',x1:x0,y1:y_cy0,x2:x1,y2:y_cy0,col:DC_SOL,r:0.016,z:0.09});
+      items.push({type:'text',val:'① Cylinder πd×h',x:0,y:y_cy0-0.18,col:DC_SOL,scale:0.55});
+      items.push({type:'line',x1:x0,y1:y_cy0,x2:x0,y2:y_cy1,col:DC_SEAM,r:0.014});
+      items.push({type:'line',x1:x1,y1:y_cy0,x2:x1,y2:y_cy1,col:DC_SEAM,r:0.014});
+
+      // ② transition (simplified triangle strip)
+      const y_t0=y_cy1+0.04, y_t1=y_t0+lerp(0,0.6,t);
+      const W2=4*0.60;
+      items.push({type:'poly',pts:[[lerp(0,-W2/2,t),y_t0],[lerp(0,W2/2,t),y_t0],[lerp(0,W/2,t),y_t1],[lerp(0,-W/2,t),y_t1]],col:FACE_COLS[3],opacity:0.72});
+      items.push({type:'text',val:'② Transition (triangulation)',x:0,y:y_t0-0.12,col:'#bbb',scale:0.52});
+
+      // ③ rectangle duct
+      const y_r0=y_t1+0.04, y_r1=y_r0+h1;
+      for(let i=0;i<4;i++){
+        const fx0=lerp(0,-W2/2+i*0.60,t), fx1=lerp(0,-W2/2+(i+1)*0.60,t);
+        items.push({type:'poly',pts:[[fx0,y_r0],[fx1,y_r0],[fx1,y_r1],[fx0,y_r1]],col:FACE_COLS[(i+4)%FACE_COLS.length],opacity:0.80});
+        items.push({type:'line',x1:fx0,y1:y_r0,x2:fx0,y2:y_r1,col:'#fff',r:0.009});
+      }
+      items.push({type:'text',val:'③ Rect duct 4a×h',x:0,y:y_r0-0.12,col:'#bbb',scale:0.52});
+
+      // ④ elbow (sine edge)
+      const y_e0=y_r1+0.04, y_e1=y_e0+h1;
+      items.push({type:'poly',pts:[[lerp(0,-W2/2,t),y_e0],[lerp(0,W2/2,t),y_e0],[lerp(0,W2/2,t),y_e1],[lerp(0,-W2/2,t),y_e1]],col:FACE_COLS[7],opacity:0.72});
+      const sinePts=[];
+      for(let i=0;i<=16;i++){const ex=lerp(0,-W2/2+(i/16)*W2,t);const ang=(i/16)*Math.PI*2;sinePts.push([ex,y_e1+lerp(0,0.28*Math.cos(ang),t)]);}
+      for(let i=0;i<sinePts.length-1;i++){items.push({type:'line',x1:sinePts[i][0],y1:sinePts[i][1],x2:sinePts[i+1][0],y2:sinePts[i+1][1],col:'#FFD700',r:0.012,z:0.10});}
+      items.push({type:'text',val:'④ Elbow (sin edge)',x:0,y:y_e0-0.12,col:'#bbb',scale:0.52});
+
+      // ⑤ cone sector
+      const l=Math.sqrt(r*r+0.8*0.8);
+      const sectorAngle=(r/l)*2*Math.PI;
+      const startAng=-sectorAngle/2;
+      const apexY=lerp(0,y_e1+l*0.6+0.1,t);
+      const secPts=[[0,apexY]];
+      for(let i=0;i<=32;i++){const a=startAng+(i/32)*sectorAngle;secPts.push([Math.sin(a)*l,apexY-Math.cos(a)*l]);}
+      items.push({type:'poly',pts:secPts,col:FACE_COLS[9],opacity:0.70});
+      items.push({type:'arc',cx:0,cy:apexY,r:l,angStart:startAng,angEnd:startAng+sectorAngle,col:DC_SOL,r2:0.013});
+      items.push({type:'text',val:'⑤ End cone sector',x:0,y:apexY+0.18,col:'#bbb',scale:0.52});
+      return items;
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════
+  //  RENDER ENGINE
+  // ══════════════════════════════════════════════════════════════════
+
+  const DS=1.15; // draw scale (3D solid)
+  const DEV_S=1.0; // dev scale (same for board)
+
+  // HELPER: make polygon string from 2D pts → board space (z=0.04)
+  function polyStr(pts,zz=0.04){return pts.map(([x,y])=>`${(x*DEV_S).toFixed(4)},${(y*DEV_S).toFixed(4)},${zz}`).join('|');}
+
+  // Draw a filled circle approximation (polygon)
+  function drawCirclePoly(parent,cx,cy,r,col,opacity,z=0.04,segs=32){
+    const pts=[];
+    for(let i=0;i<segs;i++){const a=(i/segs)*Math.PI*2;pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r]);}
+    parent.appendChild(mk('a-entity',{'draw-polygon':`vertices:${polyStr(pts,z)};color:${col};opacity:${opacity}`}));
+    // ring outline
+    for(let i=0;i<segs;i++){
+      const a1=(i/segs)*Math.PI*2, a2=((i+1)/segs)*Math.PI*2;
+      parent.appendChild(mk('a-entity',{'draw-line':`start:${cx+Math.cos(a1)*r} ${cy+Math.sin(a1)*r} ${z+0.005};end:${cx+Math.cos(a2)*r} ${cy+Math.sin(a2)*r} ${z+0.005};color:${col};radius:0.007`}));
+    }
+  }
+
+  // Draw an arc (polyline of segments)
+  function drawArcLine(parent,cx,cy,r,a0,a1,col,radius=0.014,z=0.05,segs=48){
+    const step=(a1-a0)/segs;
+    for(let i=0;i<segs;i++){
+      const aa=a0+i*step, ab=a0+(i+1)*step;
+      parent.appendChild(mk('a-entity',{'draw-line':`start:${cx+Math.sin(aa)*r} ${cy-Math.cos(aa)*r} ${z};end:${cx+Math.sin(ab)*r} ${cy-Math.cos(ab)*r} ${z};color:${col};radius:${radius}`}));
+    }
+  }
+
+  function render(){
+    const m=MODELS[currentModel];
+    const t=window.devUnfold;
+    const rot=window.devUserRotY||0;
+
+    // ── clear boards ────────────────────────────────
+    clearEl('solid-faces'); clearEl('solid-edges'); clearEl('solid-labels'); clearEl('solid-dims');
+    clearEl('dev-content'); clearEl('dev-sol-label');
+
+    // ── build 3D solid ──────────────────────────────
+    const solid=m.buildSolid(rot);
+    const vmap={};
+    solid.verts.forEach(v=>{vmap[v.id]=v;});
+
+    const elFaces=document.getElementById('solid-faces');
+    const elEdges=document.getElementById('solid-edges');
+    const elLabels=document.getElementById('solid-labels');
+
+    // Draw faces as polygons (front-face culling off via DoubleSide)
+    solid.faces.forEach(face=>{
+      const pts=face.verts.map(id=>{const v=vmap[id];return`${(v.x*DS).toFixed(4)},${(v.y*DS).toFixed(4)},${(v.z*DS).toFixed(4)}`;}).join('|');
+      elFaces.appendChild(mk('a-entity',{'draw-polygon':`vertices:${pts};color:${face.col};opacity:0.76`}));
+    });
+
+    // Draw edges
+    const edgeSet=new Set();
+    // From face loops
+    solid.faces.forEach(face=>{
+      const vk=face.verts;
+      for(let i=0;i<vk.length;i++){
+        const a=vk[i], b=vk[(i+1)%vk.length];
+        const key=[a,b].sort().join('~');
+        if(!edgeSet.has(key)){
+          edgeSet.add(key);
+          const va=vmap[a], vb=vmap[b];
+          if(va&&vb) elEdges.appendChild(mk('a-entity',{'draw-line':`start:${va.x*DS} ${va.y*DS} ${va.z*DS};end:${vb.x*DS} ${vb.y*DS} ${vb.z*DS};color:#ffffff;radius:0.011`}));
+        }
+      }
+    });
+
+    // Vertex labels (only first 8 to avoid clutter for cylinders)
+    const labelIds=solid.labelVerts||[];
+    const maxLabels=Math.min(labelIds.length, solid.verts.length>16?8:labelIds.length);
+    for(let i=0;i<maxLabels;i++){
+      const v=vmap[labelIds[i]]; if(!v)continue;
+      elLabels.appendChild(mk('a-sphere',{position:`${v.x*DS} ${v.y*DS} ${v.z*DS}`,radius:'0.036',color:'#111'}));
+      elLabels.appendChild(mk('a-text',{value:labelIds[i],position:`${v.x*DS+0.09} ${v.y*DS+0.09} ${v.z*DS}`,color:'#FFFFFF',align:'center',scale:'1.1 1.1 1.1',font:'roboto'}));
+    }
+
+    // ── build development ────────────────────────────
+    const elDev=document.getElementById('dev-content');
+    const devItems=m.buildDev(t);
+
+    devItems.forEach(item=>{
+      const z=item.z||0.04;
+      if(item.type==='poly'){
+        const pts=item.pts.map(([x,y])=>`${(x*DEV_S).toFixed(4)},${(y*DEV_S).toFixed(4)},${z}`).join('|');
+        if(pts&&pts.split('|').length>=3)
+          elDev.appendChild(mk('a-entity',{'draw-polygon':`vertices:${pts};color:${item.col};opacity:${item.opacity||0.82}`}));
+      } else if(item.type==='line'){
+        elDev.appendChild(mk('a-entity',{'draw-line':`start:${item.x1*DEV_S} ${item.y1*DEV_S} ${z};end:${item.x2*DEV_S} ${item.y2*DEV_S} ${z};color:${item.col};radius:${item.r||0.011}`}));
+      } else if(item.type==='text'){
+        elDev.appendChild(mk('a-text',{value:item.val,position:`${item.x*DEV_S} ${item.y*DEV_S} ${z+0.02}`,color:item.col||'#fff',align:'center',width:String((item.scale||0.65)*9),font:'roboto'}));
+      } else if(item.type==='circle'){
+        drawCirclePoly(elDev,item.cx*DEV_S,item.cy*DEV_S,item.r*DEV_S,item.col,item.opacity||0.75,z);
+      } else if(item.type==='arc'){
+        drawArcLine(elDev,item.cx*DEV_S,item.cy*DEV_S,item.r*DEV_S,item.angStart,item.angEnd,item.col,item.r2||0.014,z);
+      }
+    });
+
+    // ── update info panel ─────────────────────────────
+    document.getElementById('txt-level').setAttribute('value',`MODEL  ${currentModel+1}  /  ${MODELS.length}`);
+    document.getElementById('txt-title').setAttribute('value', m.title);
+    document.getElementById('txt-method').setAttribute('value','METHOD: '+m.method);
+    document.getElementById('txt-desc').setAttribute('value',  m.desc);
+    document.getElementById('txt-steps').setAttribute('value', m.steps);
+    document.getElementById('txt-nav').setAttribute('value',   `${currentModel+1} / ${MODELS.length}`);
+    document.getElementById('formula-text').setAttribute('value', m.formula);
+
+    // ── update unfold fill bar ─────────────────────────
+    const fill=document.getElementById('vr-unfold-fill');
+    const trackW=1.80;
+    const fw=Math.max(0.01,t*trackW);
+    fill.setAttribute('width',fw);
+    fill.setAttribute('position',`${-trackW/2+fw/2} 0 0.003`);
+
+    // ── sync desktop slider ────────────────────────────
+    const sl=document.getElementById('unfold-slider');
+    if(sl) sl.value=Math.round(t*100);
+    const info=document.getElementById('unfold-info');
+    if(info) info.textContent=`${Math.round(t*100)}%`;
+  }
+
+  // ── LOAD MODEL ───────────────────────────────────────────────────
+  function loadModel(idx){
+    if(idx<0)idx=0;
+    if(idx>=MODELS.length)idx=MODELS.length-1;
+    currentModel=idx;
+    window.devUnfold=0;
+    window.devUserRotY=0;
+    stopAnim();
+    render();
+  }
+
+  // ── ANIMATE UNFOLD ───────────────────────────────────────────────
+  function startAnim(toVal=1){
+    if(animHandle)clearInterval(animHandle);
+    const start=window.devUnfold, end=toVal, dur=1800;
+    const steps=60, stepTime=dur/steps;
+    let s=0;
+    animHandle=setInterval(()=>{
+      s++;
+      window.devUnfold=start+(end-start)*(s/steps);
+      render();
+      if(s>=steps){clearInterval(animHandle);animHandle=null;}
+    },stepTime);
+  }
+  function stopAnim(){ if(animHandle){clearInterval(animHandle);animHandle=null;} }
+
+  // ── SCENE READY ───────────────────────────────────────────────────
+  const scene=document.querySelector('a-scene');
+  scene.addEventListener('loaded',()=>{
+    document.getElementById('loading').style.display='none';
+  });
+
+  document.getElementById('start-btn').addEventListener('click',()=>{
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('hud').style.display='block';
+    document.getElementById('unfold-bar').style.display='flex';
+    AudioManager.start();
+    loadModel(0);
+  });
+
+  // PREV / NEXT
+  document.getElementById('btn-prev').addEventListener('click',()=>loadModel(currentModel-1));
+  document.getElementById('btn-next').addEventListener('click',()=>loadModel(currentModel+1));
+
+  // VR UNFOLD coarse buttons
+  document.getElementById('vr-unfold-left').addEventListener('click',()=>{window.devUnfold=Math.max(0,window.devUnfold-0.10);render();});
+  document.getElementById('vr-unfold-right').addEventListener('click',()=>{window.devUnfold=Math.min(1,window.devUnfold+0.10);render();});
+
+  // Unfold all / reset
+  document.getElementById('btn-unfold-full').addEventListener('click',()=>startAnim(1));
+  document.getElementById('btn-unfold-reset').addEventListener('click',()=>{stopAnim();window.devUnfold=0;render();});
+
+  // HOME
+  document.getElementById('btn-home-panel').addEventListener('click',()=>{AudioManager.stop();window.location.href='index.html';});
+  document.getElementById('btn-home-wall').addEventListener('click',()=>{AudioManager.stop();window.location.href='index.html';});
+
+  // Desktop slider
+  document.getElementById('unfold-slider').addEventListener('input',e=>{
+    stopAnim();
+    window.devUnfold=parseInt(e.target.value)/100;
+    render();
+  });
+
+  // Animate button
+  document.getElementById('unfold-btn').addEventListener('click',()=>{
+    if(window.devUnfold>=0.98) startAnim(0);
+    else startAnim(1);
+  });
+
+  // Keyboard
+  window.addEventListener('keydown',e=>{
+    if(document.getElementById('overlay').style.display!=='none')return;
+    if(e.key==='ArrowRight') loadModel(currentModel+1);
+    if(e.key==='ArrowLeft')  loadModel(currentModel-1);
+    if(e.key==='u'||e.key==='U'){
+      if(window.devUnfold>=0.98) startAnim(0);
+      else startAnim(1);
+    }
+  });
+
+  // Mouse drag (rotate solid)
+  let isDrag=false, prevMX=0;
+  const solidStage=document.getElementById('solid-stage');
+  solidStage.addEventListener('mousedown',e=>{
+    isDrag=true; prevMX=e.clientX; e.preventDefault();
+    const cam=document.getElementById('camera');
+    if(cam&&cam.components['look-controls']) cam.components['look-controls'].pause();
+  });
+  document.addEventListener('mouseup',()=>{
+    if(isDrag){
+      isDrag=false;
+      const cam=document.getElementById('camera');
+      if(cam&&cam.components['look-controls']) cam.components['look-controls'].play();
+    }
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!isDrag)return;
+    window.devUserRotY=(window.devUserRotY||0)+(e.clientX-prevMX)*1.8;
+    prevMX=e.clientX;
+    render();
+    e.preventDefault();
+  });
+
+  // Scroll zoom
+  window.addEventListener('wheel',e=>{
+    if(document.getElementById('overlay').style.display!=='none')return;
+    const st=document.getElementById('solid-stage');
+    const sc=st.object3D.scale;
+    const f=e.deltaY>0?0.92:1.09;
+    const ns=Math.max(0.30,Math.min(2.6,sc.x*f));
+    st.object3D.scale.set(ns,ns,ns);
+    e.preventDefault();
+  },{passive:false});
+
+  // VR joystick poll loop
+  scene.addEventListener('loaded',()=>{
+    (function loop(){
+      if(window._devRenderNeeded){window._devRenderNeeded=false;render();}
+      requestAnimationFrame(loop);
+    })();
+  });
+
+  // VR recenter
+  window.addEventListener('vr-recenter',()=>{
+    const cam=document.getElementById('camera'); if(!cam)return;
+    const cp=new THREE.Vector3(), cd=new THREE.Vector3();
+    cam.object3D.getWorldPosition(cp);
+    cam.object3D.getWorldDirection(cd);
+    cd.y=0; cd.normalize();
+    const panel=document.getElementById('info-panel');
+    if(panel){
+      const tgt=cp.clone().add(cd.multiplyScalar(4.5));
+      panel.object3D.position.copy(tgt);
+      panel.object3D.lookAt(cp);
+    }
+  });
+
+  </script>
+</body>
+</html>
