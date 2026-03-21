@@ -587,95 +587,95 @@
     </a-entity>
 
     <!-- ═══ INFO / CONTROL PANEL — far right, angled ═══
-         Panel is 5.2 wide × 12.5 tall — all sections visible, no clipping
+         Box: 6.5 wide × 14.0 tall. Half-height=7.0. Content: y=+6.6 to y=−5.8. All text width ≤ 6.0
     ═══ -->
-    <a-entity id="info-panel" position="15.5 2.4 -4.0" rotation="0 -28 0">
-      <a-box width="5.2" height="12.5" depth="0.09" src="#jute-tex" color="#aaa">
-        <a-plane width="5.15" height="12.45" position="0 0 0.046" color="#07070e" opacity="0.98"></a-plane>
+    <a-entity id="info-panel" position="15.5 3.8 -4.0" rotation="0 -28 0">
+      <a-box width="6.5" height="14.0" depth="0.09" src="#jute-tex" color="#aaa">
+        <a-plane width="6.45" height="13.95" position="0 0 0.046" color="#07070e" opacity="0.98"></a-plane>
 
-        <!-- ══ TITLE BAR  (top of panel, y near +6.0) ══ -->
-        <a-text value="DEVELOPMENT OF SURFACES" position="0 5.90 0.07" align="center" width="7.0" color="#CF2027" font="roboto"></a-text>
-        <a-plane width="4.9" height="0.010" position="0 5.62 0.07" color="#CF2027"></a-plane>
+        <!-- ══ TITLE BAR ══ -->
+        <a-text value="DEVELOPMENT OF SURFACES" position="0 6.50 0.07" align="center" width="6.0" color="#CF2027" font="roboto"></a-text>
+        <a-plane width="6.1" height="0.012" position="0 6.22 0.07" color="#CF2027"></a-plane>
 
         <!-- ══ MODEL COUNTER ══ -->
-        <a-text id="txt-level" value="MODEL  1 / 30" position="0 5.32 0.07" align="center" width="5.8" color="#666" font="roboto"></a-text>
+        <a-text id="txt-level" value="MODEL  1 / 30" position="0 5.88 0.07" align="center" width="5.5" color="#666" font="roboto"></a-text>
 
         <!-- ══ MODEL TITLE ══ -->
-        <a-text id="txt-title" value="Square Prism" position="0 4.88 0.07" align="center" width="6.4" color="#FFD700" font="roboto"></a-text>
+        <a-text id="txt-title" value="Square Prism" position="0 5.42 0.07" align="center" width="6.0" color="#FFD700" font="roboto"></a-text>
 
         <!-- ══ METHOD BADGE ══ -->
-        <a-plane position="0 4.40 0.07" width="4.8" height="0.46" color="#001830">
-          <a-text id="txt-method" value="METHOD: PARALLEL-LINE" position="0 0 0.016" align="center" width="6.2" color="#00bbf9" font="roboto"></a-text>
+        <a-plane position="0 4.90 0.07" width="6.0" height="0.50" color="#001830">
+          <a-text id="txt-method" value="METHOD: PARALLEL-LINE" position="0 0 0.016" align="center" width="5.8" color="#00bbf9" font="roboto"></a-text>
         </a-plane>
 
-        <a-plane width="4.9" height="0.007" position="0 4.08 0.07" color="#1a1a2a"></a-plane>
+        <a-plane width="6.1" height="0.007" position="0 4.56 0.07" color="#1a1a2a"></a-plane>
 
         <!-- ══ DESCRIPTION ══ -->
-        <a-text value="DESCRIPTION" position="0 3.82 0.07" align="center" width="6.0" color="#888" font="roboto"></a-text>
-        <a-text id="txt-desc" value="Loading…" position="0 3.22 0.07" align="center" width="5.8" color="#ddd" font="roboto" wrap-count="46"></a-text>
+        <a-text value="DESCRIPTION" position="0 4.28 0.07" align="center" width="5.5" color="#888" font="roboto"></a-text>
+        <a-text id="txt-desc" value="Loading…" position="0 3.56 0.07" align="center" width="5.8" color="#ddd" font="roboto" wrap-count="50"></a-text>
 
-        <a-plane width="4.9" height="0.007" position="0 2.64 0.07" color="#1a1a2a"></a-plane>
+        <a-plane width="6.1" height="0.007" position="0 2.88 0.07" color="#1a1a2a"></a-plane>
 
         <!-- ══ HOW TO DRAW ══ -->
-        <a-text value="HOW TO DRAW" position="0 2.40 0.07" align="center" width="6.0" color="#FFD700" font="roboto"></a-text>
-        <a-text id="txt-steps" value="" position="0 1.50 0.07" align="center" width="5.6" color="#bbb" font="roboto" wrap-count="50"></a-text>
+        <a-text value="HOW TO DRAW" position="0 2.60 0.07" align="center" width="5.5" color="#FFD700" font="roboto"></a-text>
+        <a-text id="txt-steps" value="" position="0 1.56 0.07" align="center" width="5.8" color="#bbb" font="roboto" wrap-count="55"></a-text>
 
-        <a-plane width="4.9" height="0.007" position="0 0.64 0.07" color="#1a1a2a"></a-plane>
+        <a-plane width="6.1" height="0.007" position="0 0.60 0.07" color="#1a1a2a"></a-plane>
 
         <!-- ══ UNFOLD PROGRESS ══ -->
-        <a-text value="UNFOLD PROGRESS" position="0 0.38 0.07" align="center" width="6.0" color="#CF2027" font="roboto"></a-text>
-        <a-text value="Right trigger + stick ↑↓  |  Desktop: slider below" position="0 0.06 0.07" align="center" width="5.8" color="#555" font="roboto"></a-text>
+        <a-text value="UNFOLD PROGRESS" position="0 0.32 0.07" align="center" width="5.5" color="#CF2027" font="roboto"></a-text>
+        <a-text value="Right trigger + stick ↑↓  |  Desktop: slider below" position="0 -0.04 0.07" align="center" width="5.8" color="#555" font="roboto"></a-text>
 
-        <!-- Unfold ◀◀ track ▶▶ -->
-        <a-plane class="interactive" id="vr-unfold-left"  position="-1.80 -0.36 0.08" width="0.70" height="0.52" color="#2B2B88">
+        <!-- Unfold ◀◀  track  ▶▶ -->
+        <a-plane class="interactive" id="vr-unfold-left"  position="-2.20 -0.52 0.08" width="0.80" height="0.56" color="#2B2B88">
           <a-text value="◀◀" align="center" width="4.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-plane id="vr-unfold-track" position="0 -0.36 0.08" width="2.20" height="0.28" color="#111428">
-          <a-plane id="vr-unfold-fill" position="-1.10 0 0.003" width="0.01" height="0.25" color="#CF2027"></a-plane>
+        <a-plane id="vr-unfold-track" position="0 -0.52 0.08" width="2.80" height="0.30" color="#111428">
+          <a-plane id="vr-unfold-fill" position="-1.40 0 0.003" width="0.01" height="0.27" color="#CF2027"></a-plane>
         </a-plane>
-        <a-plane class="interactive" id="vr-unfold-right" position="1.80 -0.36 0.08" width="0.70" height="0.52" color="#2B2B88">
+        <a-plane class="interactive" id="vr-unfold-right" position="2.20 -0.52 0.08" width="0.80" height="0.56" color="#2B2B88">
           <a-text value="▶▶" align="center" width="4.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
         </a-plane>
 
         <!-- Unfold ALL / RESET -->
-        <a-plane class="interactive" id="btn-unfold-full"  position="-1.05 -1.02 0.08" width="1.70" height="0.50" color="#1a1060">
-          <a-text value="⬛ UNFOLD ALL" align="center" width="5.8" position="0 0 0.016" color="#c77aff" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-unfold-full"  position="-1.30 -1.22 0.08" width="2.10" height="0.54" color="#1a1060">
+          <a-text value="⬛ UNFOLD ALL" align="center" width="5.5" position="0 0 0.016" color="#c77aff" font="roboto"></a-text>
         </a-plane>
-        <a-plane class="interactive" id="btn-unfold-reset" position=" 1.22 -1.02 0.08" width="1.40" height="0.50" color="#1a0010">
-          <a-text value="↺ RESET" align="center" width="5.2" position="0 0 0.016" color="#ff8888" font="roboto"></a-text>
-        </a-plane>
-
-        <a-plane width="4.9" height="0.007" position="0 -1.40 0.07" color="#1a1a2a"></a-plane>
-
-        <!-- ══ ROTATE MODEL — with clickable ◀ ▶ arrows ══ -->
-        <a-text value="ROTATE  3-D SOLID" position="0 -1.66 0.07" align="center" width="6.0" color="#44CCFF" font="roboto"></a-text>
-        <a-text value="Drag mouse  |  trigger + stick ◀▶" position="0 -1.96 0.07" align="center" width="5.6" color="#2a5566" font="roboto"></a-text>
-
-        <!-- Rotate left / right click buttons -->
-        <a-plane class="interactive" id="btn-rot-left"  position="-1.60 -2.38 0.08" width="1.55" height="0.52" color="#0a1f2a">
-          <a-text value="◀  ROTATE" align="center" width="5.5" position="0 0 0.016" color="#44CCFF" font="roboto"></a-text>
-        </a-plane>
-        <a-plane class="interactive" id="btn-rot-right" position=" 1.60 -2.38 0.08" width="1.55" height="0.52" color="#0a1f2a">
-          <a-text value="ROTATE  ▶" align="center" width="5.5" position="0 0 0.016" color="#44CCFF" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-unfold-reset" position=" 1.52 -1.22 0.08" width="1.70" height="0.54" color="#1a0010">
+          <a-text value="↺ RESET" align="center" width="5.0" position="0 0 0.016" color="#ff8888" font="roboto"></a-text>
         </a-plane>
 
-        <a-plane width="4.9" height="0.007" position="0 -2.76 0.07" color="#1a1a2a"></a-plane>
+        <a-plane width="6.1" height="0.007" position="0 -1.68 0.07" color="#1a1a2a"></a-plane>
 
-        <!-- ══ PREV / NEXT MODEL ══ -->
-        <a-text value="MODELS" position="0 -3.00 0.07" align="center" width="6.0" color="#aaa" font="roboto"></a-text>
-        <a-plane class="interactive" id="btn-prev" position="-1.40 -3.48 0.08" width="2.00" height="0.60" color="#181828">
-          <a-text value="◀  PREV" align="center" width="6.2" position="0 0 0.016" color="#fff" font="roboto"></a-text>
-        </a-plane>
-        <a-plane class="interactive" id="btn-next" position=" 1.40 -3.48 0.08" width="2.00" height="0.60" color="#181828">
-          <a-text value="NEXT  ▶" align="center" width="6.2" position="0 0 0.016" color="#fff" font="roboto"></a-text>
-        </a-plane>
-        <a-text id="txt-nav" value="1 / 30" position="0 -3.48 0.08" align="center" width="2.5" color="#333" font="roboto"></a-text>
+        <!-- ══ ROTATE MODEL ══ -->
+        <a-text value="ROTATE  3-D SOLID" position="0 -1.96 0.07" align="center" width="5.5" color="#44CCFF" font="roboto"></a-text>
+        <a-text value="Drag mouse  |  trigger + stick ◀▶  |  buttons below" position="0 -2.30 0.07" align="center" width="5.8" color="#2a5566" font="roboto"></a-text>
 
-        <a-plane width="4.9" height="0.007" position="0 -3.90 0.07" color="#1a1a2a"></a-plane>
+        <!-- Rotate ◀  ▶ buttons -->
+        <a-plane class="interactive" id="btn-rot-left"  position="-1.85 -2.76 0.08" width="2.10" height="0.58" color="#0a1f2a">
+          <a-text value="◀  ROTATE LEFT" align="center" width="5.5" position="0 0 0.016" color="#44CCFF" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-rot-right" position=" 1.85 -2.76 0.08" width="2.10" height="0.58" color="#0a1f2a">
+          <a-text value="ROTATE RIGHT  ▶" align="center" width="5.5" position="0 0 0.016" color="#44CCFF" font="roboto"></a-text>
+        </a-plane>
+
+        <a-plane width="6.1" height="0.007" position="0 -3.22 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ PREV / NEXT ══ -->
+        <a-text value="BROWSE MODELS" position="0 -3.50 0.07" align="center" width="5.5" color="#aaa" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-prev" position="-1.70 -4.08 0.08" width="2.40" height="0.66" color="#181828">
+          <a-text value="◀  PREV MODEL" align="center" width="5.8" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-next" position=" 1.70 -4.08 0.08" width="2.40" height="0.66" color="#181828">
+          <a-text value="NEXT MODEL  ▶" align="center" width="5.8" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-text id="txt-nav" value="1 / 30" position="0 -4.08 0.08" align="center" width="2.5" color="#333" font="roboto"></a-text>
+
+        <a-plane width="6.1" height="0.007" position="0 -4.56 0.07" color="#1a1a2a"></a-plane>
 
         <!-- ══ HOME ══ -->
-        <a-plane class="interactive" id="btn-home-panel" position="0 -4.28 0.08" width="4.0" height="0.60" color="#280008">
-          <a-text value="⬅  MAIN MENU" align="center" width="6.8" position="0 0 0.016" color="#FF8888" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-home-panel" position="0 -5.00 0.08" width="5.4" height="0.66" color="#280008">
+          <a-text value="⬅  MAIN MENU" align="center" width="5.8" position="0 0 0.016" color="#FF8888" font="roboto"></a-text>
         </a-plane>
 
       </a-box>
@@ -1844,7 +1844,7 @@
 
     // ── update unfold fill bar ─────────────────────────
     const fill=document.getElementById('vr-unfold-fill');
-    const trackW=2.20;
+    const trackW=2.80;
     const fw=Math.max(0.01,t*trackW);
     fill.setAttribute('width',fw);
     fill.setAttribute('position',`${-trackW/2+fw/2} 0 0.003`);
