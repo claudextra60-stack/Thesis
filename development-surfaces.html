@@ -27,20 +27,77 @@
 
     #overlay {
       position:fixed; inset:0; z-index:100;
-      background:linear-gradient(135deg,rgba(8,8,20,0.98) 0%,rgba(25,15,55,0.97) 100%);
+      background:linear-gradient(135deg,rgba(6,6,16,0.99) 0%,rgba(20,10,48,0.98) 100%);
       display:flex; flex-direction:column; justify-content:center; align-items:center;
-      color:#fff; text-align:center; padding:24px; overflow-y:auto;
+      color:#fff; text-align:center; padding:20px 24px; overflow-y:auto;
     }
+    #guide-pages { width:100%; max-width:860px; }
+    .guide-page { animation:gpfadein 0.35s ease; }
+    @keyframes gpfadein { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
     #overlay h1 {
-      font-size:3.2rem; font-weight:700; letter-spacing:6px; text-transform:uppercase; margin-bottom:6px;
+      font-size:3rem; font-weight:700; letter-spacing:6px; text-transform:uppercase; margin-bottom:6px;
       background:linear-gradient(90deg,#CF2027,#8a2be2,#00bbf9); -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
-    #overlay .tagline { color:#6a6a9a; font-weight:300; font-size:1rem; letter-spacing:3px; margin-bottom:26px; text-transform:uppercase; }
-    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:760px; width:100%; margin-bottom:28px; text-align:left; }
-    .info-cell { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:14px 18px; }
-    .info-cell .label { font-size:0.68rem; color:#CF2027; letter-spacing:2px; text-transform:uppercase; font-weight:700; margin-bottom:5px; }
-    .info-cell .val { font-size:0.92rem; color:#ccc; font-weight:400; line-height:1.6; }
-    .btn { padding:15px 56px; font-size:1.15rem; font-family:'Rajdhani',sans-serif; background:#CF2027; color:#fff; border:none; border-radius:5px; cursor:pointer; font-weight:700; letter-spacing:4px; text-transform:uppercase; transition:background 0.2s,box-shadow 0.2s; }
+    #overlay .tagline { color:#6a6a9a; font-weight:300; font-size:0.92rem; letter-spacing:3px; margin-bottom:20px; text-transform:uppercase; }
+
+    /* ── PAGE 1: concept box ── */
+    .guide-concept-box { display:flex; gap:24px; align-items:flex-start; text-align:left; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:18px 20px; }
+    .gc-left { flex:0 0 260px; }
+    .gc-right { flex:1; }
+    .gc-title { font-size:1.1rem; font-weight:700; color:#FFD700; letter-spacing:1px; margin-bottom:8px; }
+    .gc-para { font-size:0.88rem; color:#bbb; line-height:1.65; margin-bottom:8px; }
+    .gc-para strong { color:#fff; }
+    .gc-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .chip { padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600; letter-spacing:1px; }
+    .chip-r{background:rgba(207,32,39,0.25);border:1px solid #CF2027;color:#ff8888;}
+    .chip-b{background:rgba(58,134,255,0.2);border:1px solid #3A86FF;color:#9bc9ff;}
+    .chip-g{background:rgba(6,214,160,0.2);border:1px solid #06D6A0;color:#7fffda;}
+    .chip-y{background:rgba(255,190,11,0.2);border:1px solid #FFBE0B;color:#ffe577;}
+    .chip-p{background:rgba(131,56,236,0.2);border:1px solid #8338EC;color:#cc9fff;}
+
+    /* ── PAGE 2: layout guide ── */
+    .layout-guide { display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; }
+    .lg-zone { background:rgba(255,255,255,0.03); border:1px solid; border-radius:10px; padding:12px 16px; }
+    .lg-zone-label { font-size:0.85rem; font-weight:700; letter-spacing:1px; margin-bottom:7px; }
+    .lg-list { list-style:none; padding:0; margin:0; }
+    .lg-list li { font-size:0.82rem; color:#ccc; padding:3px 0 3px 14px; position:relative; line-height:1.5; }
+    .lg-list li::before { content:'›'; position:absolute; left:0; color:#CF2027; }
+    .lg-list li strong { color:#fff; }
+
+    /* ── PAGE 3: methods grid ── */
+    .methods-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; text-align:left; }
+    .method-card { background:rgba(255,255,255,0.03); border:1px solid; border-radius:10px; padding:14px; }
+    .method-title { font-size:1rem; font-weight:700; letter-spacing:2px; margin-bottom:2px; }
+    .method-subtitle { font-size:0.75rem; color:#888; letter-spacing:1px; margin-bottom:6px; }
+    .method-list { list-style:none; padding:0; margin:0; }
+    .method-list li { font-size:0.80rem; color:#ccc; padding:3px 0 3px 14px; position:relative; line-height:1.5; }
+    .method-list li::before { content:'→'; position:absolute; left:0; color:#555; }
+    .method-list li strong { color:#fff; }
+
+    /* ── PAGE 4: controls grid ── */
+    .controls-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; text-align:left; }
+    .ctrl-section { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:14px 16px; }
+    .ctrl-heading { font-size:0.88rem; font-weight:700; color:#FFD700; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase; }
+    .ctrl-table { width:100%; border-collapse:collapse; font-size:0.80rem; }
+    .ctrl-table tr { border-bottom:1px solid rgba(255,255,255,0.05); }
+    .ctrl-table td { padding:5px 4px; color:#ccc; vertical-align:top; }
+    .ctrl-table td:first-child { color:#fff; font-weight:600; min-width:140px; padding-right:10px; }
+    kbd { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:1px 6px; font-size:0.78rem; font-family:'Rajdhani',sans-serif; }
+    .tips-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .tip-card { background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 12px; font-size:0.80rem; color:#ccc; line-height:1.55; }
+    .tip-card strong { color:#FFD700; }
+
+    /* ── Guide navigation ── */
+    .guide-nav { display:flex; align-items:center; gap:16px; margin-top:18px; justify-content:center; }
+    .guide-nav-btn { padding:9px 24px; font-size:0.92rem; font-family:'Rajdhani',sans-serif; font-weight:700; letter-spacing:2px; background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; cursor:pointer; transition:background 0.2s; }
+    .guide-nav-btn:hover:not(:disabled) { background:rgba(255,255,255,0.16); }
+    .guide-nav-btn:disabled { opacity:0.3; cursor:default; }
+    .guide-dots { display:flex; gap:8px; align-items:center; }
+    .gdot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.2); transition:background 0.2s,transform 0.2s; }
+    .gdot-active { background:#CF2027; transform:scale(1.3); }
+
+    .btn { padding:13px 48px; font-size:1.05rem; font-family:'Rajdhani',sans-serif; background:#CF2027; color:#fff; border:none; border-radius:5px; cursor:pointer; font-weight:700; letter-spacing:4px; text-transform:uppercase; transition:background 0.2s,box-shadow 0.2s; }
     .btn:hover { background:#2B2B88; box-shadow:0 0 28px rgba(43,43,136,0.7); }
 
     /* Desktop unfold progress bar */
@@ -192,28 +249,242 @@
   </div>
 
   <div id="overlay">
-    <h1>DEVELOPMENT OF SURFACES</h1>
-    <div class="tagline">Sheet Metal Unfolding Lab &nbsp;·&nbsp; 30 Progressive Models</div>
-    <div class="info-grid">
-      <div class="info-cell">
-        <div class="label">What You'll Master</div>
-        <div class="val">Parallel-line, radial-line &amp; triangulation methods for prisms, cylinders, pyramids, cones, frustums &amp; composite solids</div>
+
+    <!-- PAGE INDICATOR -->
+    <div id="guide-pages" style="width:100%;max-width:860px;">
+
+      <!-- ══ PAGE 1: What is this module? ══ -->
+      <div class="guide-page" id="gp-1">
+        <h1>DEVELOPMENT OF SURFACES</h1>
+        <div class="tagline">Sheet Metal Unfolding Lab &nbsp;·&nbsp; 30 Progressive Models</div>
+        <div class="guide-concept-box">
+          <div class="gc-left">
+            <!-- SVG diagram: cube unfolding to net -->
+            <svg viewBox="0 0 260 180" width="260" height="180" style="display:block;margin:0 auto;">
+              <defs>
+                <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="#CF2027"/>
+                </marker>
+              </defs>
+              <!-- 3D box (isometric sketch) -->
+              <g opacity="0.9">
+                <polygon points="60,40 120,20 120,80 60,100" fill="#3A86FF" opacity="0.7" stroke="#fff" stroke-width="1.2"/>
+                <polygon points="120,20 180,40 180,100 120,80" fill="#FF006E" opacity="0.7" stroke="#fff" stroke-width="1.2"/>
+                <polygon points="60,100 120,80 180,100 120,120" fill="#FFBE0B" opacity="0.7" stroke="#fff" stroke-width="1.2"/>
+                <text x="90" y="65" fill="#fff" font-size="9" font-family="Rajdhani,sans-serif" text-anchor="middle">LEFT</text>
+                <text x="150" y="65" fill="#fff" font-size="9" font-family="Rajdhani,sans-serif" text-anchor="middle">FRONT</text>
+                <text x="120" y="108" fill="#fff" font-size="9" font-family="Rajdhani,sans-serif" text-anchor="middle">TOP</text>
+              </g>
+              <!-- arrow -->
+              <line x1="195" y1="75" x2="220" y2="75" stroke="#CF2027" stroke-width="2.5" marker-end="url(#arr)"/>
+              <text x="207" y="68" fill="#CF2027" font-size="9" font-family="Rajdhani,sans-serif" text-anchor="middle">UNFOLD</text>
+              <!-- Flat net -->
+              <g transform="translate(225,35)" opacity="0.9">
+                <rect x="-5" y="0"  width="30" height="30" fill="#3A86FF" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <rect x="25" y="0"  width="30" height="30" fill="#FF006E" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <rect x="55" y="0"  width="30" height="30" fill="#FB5607" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <rect x="85" y="0"  width="30" height="30" fill="#8338EC" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <rect x="25" y="30" width="30" height="30" fill="#FFBE0B" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <rect x="25" y="-30" width="30" height="30" fill="#06D6A0" opacity="0.75" stroke="#fff" stroke-width="1.2"/>
+                <!-- seam marker -->
+                <line x1="-5" y1="0" x2="-5" y2="30" stroke="#CF2027" stroke-width="2.5" stroke-dasharray="4,2"/>
+                <text x="10" y="18" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">L</text>
+                <text x="40" y="18" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">F</text>
+                <text x="70" y="18" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">R</text>
+                <text x="100" y="18" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">B</text>
+                <text x="40" y="48" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">BOT</text>
+                <text x="40" y="-12" fill="#fff" font-size="7" font-family="Rajdhani,sans-serif" text-anchor="middle">TOP</text>
+              </g>
+              <!-- seam label -->
+              <text x="228" y="155" fill="#CF2027" font-size="9" font-family="Rajdhani,sans-serif">SEAM LINE (cut edge)</text>
+              <line x1="228" y1="148" x2="228" y2="138" stroke="#CF2027" stroke-width="1.5"/>
+              <!-- SOL label -->
+              <line x1="220" y1="130" x2="355" y2="130" stroke="#FFD700" stroke-width="2" marker-end="url(#arr)"/>
+              <text x="287" y="125" fill="#FFD700" font-size="9" font-family="Rajdhani,sans-serif" text-anchor="middle">STRETCH-OUT LINE (S.O.L)</text>
+            </svg>
+          </div>
+          <div class="gc-right">
+            <div class="gc-title">What is Development of Surfaces?</div>
+            <p class="gc-para">When a 3-D solid surface is <strong>cut along one edge (seam)</strong> and laid completely flat, the resulting 2-D shape is called its <strong>Development</strong> or <em>flat pattern</em>.</p>
+            <p class="gc-para">This is fundamental to <strong>sheet metal work, HVAC ducting, packaging design</strong> and fabrication — anywhere a flat sheet must be bent into a 3-D shape.</p>
+            <div class="gc-chips">
+              <span class="chip chip-r">Prisms</span>
+              <span class="chip chip-b">Cylinders</span>
+              <span class="chip chip-g">Pyramids</span>
+              <span class="chip chip-y">Cones</span>
+              <span class="chip chip-p">Composites</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="info-cell">
-        <div class="label">Key Concepts</div>
-        <div class="val">Stretch-out line · Generator lines · True lengths · Seam line · Base circles · Slant height arcs · Triangulation</div>
+
+      <!-- ══ PAGE 2: What's on screen? Layout guide ══ -->
+      <div class="guide-page" id="gp-2" style="display:none;">
+        <h1 style="font-size:2.2rem;">WHAT YOU'LL SEE ON SCREEN</h1>
+        <div class="tagline" style="margin-bottom:18px;">Every element explained before you enter</div>
+        <div class="layout-guide">
+          <!-- Left zone -->
+          <div class="lg-zone" style="border-color:#FFD700;">
+            <div class="lg-zone-label" style="color:#FFD700;">① 3-D SOLID  <span style="color:#555">(Left side)</span></div>
+            <ul class="lg-list">
+              <li>The actual solid — coloured faces so you can track each face into the development</li>
+              <li>Vertex labels: <strong>A, B, C… / T0, T1…</strong> (base ring = B, top ring = T)</li>
+              <li>White lines = visible edges</li>
+              <li><strong>Drag to rotate</strong> it freely; scroll to zoom</li>
+            </ul>
+          </div>
+          <!-- Right zone -->
+          <div class="lg-zone" style="border-color:#5599dd;">
+            <div class="lg-zone-label" style="color:#5599dd;">② DEVELOPMENT BOARD  <span style="color:#555">(Right side)</span></div>
+            <ul class="lg-list">
+              <li><strong style="color:#FFD700;">Gold line at bottom</strong> = Stretch-Out Line (S.O.L) — the baseline you draw first</li>
+              <li><strong style="color:#CF2027;">Red dashed lines</strong> = Seam lines (where you cut the solid)</li>
+              <li>Same colour = same face on the solid and in the development</li>
+              <li>Labels show key dimensions: h, r, a, l (slant height), θ</li>
+            </ul>
+          </div>
+          <!-- Bottom zone -->
+          <div class="lg-zone" style="border-color:#FFD700;grid-column:1/-1;">
+            <div class="lg-zone-label" style="color:#FFD700;">③ FORMULA STRIP  <span style="color:#555">(Below the development board)</span></div>
+            <ul class="lg-list" style="columns:2;gap:24px;">
+              <li>Key formula for the current model's method</li>
+              <li>S.O.L formula · Lateral area · Sector angle θ</li>
+            </ul>
+          </div>
+          <!-- Panel zone -->
+          <div class="lg-zone" style="border-color:#CF2027;grid-column:1/-1;">
+            <div class="lg-zone-label" style="color:#CF2027;">④ CONTROL PANEL  <span style="color:#555">(Far right, angled toward you)</span></div>
+            <ul class="lg-list" style="columns:2;gap:24px;">
+              <li>Model title, method name, description</li>
+              <li><strong>HOW TO DRAW</strong> — step-by-step procedure</li>
+              <li>◀ ▶ buttons to step through 30 models</li>
+              <li>UNFOLD ◀ ▶ buttons + progress bar</li>
+            </ul>
+          </div>
+        </div>
       </div>
-      <div class="info-cell">
-        <div class="label">Desktop Controls</div>
-        <div class="val">Drag solid = rotate · Scroll = zoom · Slider below = unfold progress · ← → keys = prev / next model · U = toggle unfold</div>
+
+      <!-- ══ PAGE 3: Methods explained ══ -->
+      <div class="guide-page" id="gp-3" style="display:none;">
+        <h1 style="font-size:2.2rem;">THE THREE STANDARD METHODS</h1>
+        <div class="tagline" style="margin-bottom:18px;">As taught in all B.Tech Engineering Drawing syllabi (N.D. Bhatt standard)</div>
+        <div class="methods-grid">
+          <div class="method-card" style="border-color:#3A86FF;">
+            <div class="method-title" style="color:#3A86FF;">① PARALLEL-LINE</div>
+            <div class="method-subtitle">For Prisms &amp; Cylinders</div>
+            <svg viewBox="0 0 120 80" width="120" height="80" style="display:block;margin:8px auto;">
+              <rect x="10" y="10" width="25" height="55" fill="#3A86FF" opacity="0.7" stroke="#fff" stroke-width="1"/>
+              <rect x="35" y="10" width="25" height="55" fill="#FF006E" opacity="0.7" stroke="#fff" stroke-width="1"/>
+              <rect x="60" y="10" width="25" height="55" fill="#FFBE0B" opacity="0.7" stroke="#fff" stroke-width="1"/>
+              <rect x="85" y="10" width="25" height="55" fill="#8338EC" opacity="0.7" stroke="#fff" stroke-width="1"/>
+              <line x1="10" y1="65" x2="110" y2="65" stroke="#FFD700" stroke-width="2.5"/>
+              <line x1="10" y1="10" x2="10" y2="65" stroke="#CF2027" stroke-width="2" stroke-dasharray="3,2"/>
+              <line x1="110" y1="10" x2="110" y2="65" stroke="#CF2027" stroke-width="2" stroke-dasharray="3,2"/>
+              <text x="60" y="76" fill="#FFD700" font-size="8" text-anchor="middle" font-family="Rajdhani,sans-serif">S.O.L = Perimeter</text>
+            </svg>
+            <ul class="method-list">
+              <li>All lateral edges are <strong>parallel</strong></li>
+              <li>S.O.L = total perimeter of cross-section</li>
+              <li>Each face becomes a <strong>rectangle</strong></li>
+              <li>Models 1–10 in this lab</li>
+            </ul>
+          </div>
+          <div class="method-card" style="border-color:#FB5607;">
+            <div class="method-title" style="color:#FB5607;">② RADIAL-LINE</div>
+            <div class="method-subtitle">For Pyramids &amp; Cones</div>
+            <svg viewBox="0 0 120 90" width="120" height="90" style="display:block;margin:8px auto;">
+              <polygon points="60,8 15,78 45,78" fill="#FB5607" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <polygon points="60,8 45,78 75,78" fill="#FFBE0B" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <polygon points="60,8 75,78 105,78" fill="#3A86FF" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <path d="M15,78 A50,50 0 0,1 105,78" fill="none" stroke="#FFD700" stroke-width="2.5"/>
+              <line x1="60" y1="8" x2="15" y2="78" stroke="#CF2027" stroke-width="2" stroke-dasharray="3,2"/>
+              <line x1="60" y1="8" x2="105" y2="78" stroke="#CF2027" stroke-width="2" stroke-dasharray="3,2"/>
+              <text x="60" y="90" fill="#FFD700" font-size="8" text-anchor="middle" font-family="Rajdhani,sans-serif">Arc = Perimeter of base</text>
+              <text x="60" y="5" fill="#aaa" font-size="8" text-anchor="middle" font-family="Rajdhani,sans-serif">O (apex)</text>
+            </svg>
+            <ul class="method-list">
+              <li>All edges radiate from apex <strong>O</strong></li>
+              <li>Sector radius = <strong>slant height l</strong></li>
+              <li>Sector angle θ = (R/l) × 360°</li>
+              <li>Models 11–19 in this lab</li>
+            </ul>
+          </div>
+          <div class="method-card" style="border-color:#06D6A0;">
+            <div class="method-title" style="color:#06D6A0;">③ TRIANGULATION</div>
+            <div class="method-subtitle">For Oblique &amp; Transition Pieces</div>
+            <svg viewBox="0 0 120 90" width="120" height="90" style="display:block;margin:8px auto;">
+              <polygon points="20,75 50,75 35,20" fill="#06D6A0" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <polygon points="50,75 80,75 65,25" fill="#F72585" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <polygon points="80,75 110,75 95,30" fill="#4CC9F0" opacity="0.75" stroke="#fff" stroke-width="1"/>
+              <line x1="20" y1="75" x2="50" y2="75" stroke="#fff" stroke-width="1.2"/>
+              <line x1="35" y1="20" x2="65" y2="25" stroke="#aaa" stroke-width="1" stroke-dasharray="2,2"/>
+              <line x1="65" y1="25" x2="95" y2="30" stroke="#aaa" stroke-width="1" stroke-dasharray="2,2"/>
+              <text x="60" y="90" fill="#06D6A0" font-size="8" text-anchor="middle" font-family="Rajdhani,sans-serif">TL of each edge found separately</text>
+            </svg>
+            <ul class="method-list">
+              <li>Surface divided into <strong>triangles</strong></li>
+              <li>True Length (TL) found for every edge</li>
+              <li>Used when no parallel/radial lines exist</li>
+              <li>Models 20–30 in this lab</li>
+            </ul>
+          </div>
+        </div>
       </div>
-      <div class="info-cell">
-        <div class="label">VR Controls (Meta Quest 2)</div>
-        <div class="val">Right trigger + stick ↑↓ = Unfold · Left/Right trigger + stick ◀▶ = Rotate model · Left stick (free) = Move · Right grip = Recentre panel</div>
+
+      <!-- ══ PAGE 4: Controls ══ -->
+      <div class="guide-page" id="gp-4" style="display:none;">
+        <h1 style="font-size:2.2rem;">CONTROLS &amp; HOW TO USE</h1>
+        <div class="tagline" style="margin-bottom:18px;">Desktop + Meta Quest 2 VR</div>
+        <div class="controls-grid">
+          <div class="ctrl-section">
+            <div class="ctrl-heading">🖥️ DESKTOP</div>
+            <table class="ctrl-table">
+              <tr><td><kbd>← →</kbd></td><td>Previous / Next model</td></tr>
+              <tr><td><kbd>U</kbd></td><td>Animate unfold / refold</td></tr>
+              <tr><td><kbd>Drag</kbd> on solid</td><td>Rotate the 3-D solid</td></tr>
+              <tr><td><kbd>Scroll wheel</kbd></td><td>Zoom in / out</td></tr>
+              <tr><td>Bottom slider</td><td>Manual unfold progress 0–100%</td></tr>
+              <tr><td>▶ ANIMATE button</td><td>Auto-animate unfold</td></tr>
+            </table>
+          </div>
+          <div class="ctrl-section">
+            <div class="ctrl-heading">🥽 META QUEST 2 VR</div>
+            <table class="ctrl-table">
+              <tr><td><strong style="color:#CF2027;">Right trigger</strong> + stick <strong>↑↓</strong></td><td>Unfold progress</td></tr>
+              <tr><td><strong style="color:#44CCFF;">Either trigger</strong> + stick <strong>◀▶</strong></td><td>Rotate 3-D solid</td></tr>
+              <tr><td><strong>Left stick</strong> (free)</td><td>Walk / strafe</td></tr>
+              <tr><td><strong>Right grip</strong></td><td>Recentre panel toward you</td></tr>
+              <tr><td><strong>◀ ▶ buttons</strong> on panel</td><td>Prev / Next model</td></tr>
+              <tr><td>Raycaster laser</td><td>Point &amp; trigger to click buttons</td></tr>
+            </table>
+          </div>
+          <div class="ctrl-section" style="grid-column:1/-1;">
+            <div class="ctrl-heading">💡 PRO TIPS</div>
+            <div class="tips-row">
+              <div class="tip-card">Use <strong>UNFOLD ALL</strong> first to see the complete development, then hit <strong>↺ RESET</strong> and watch it unfold slowly to understand each step.</div>
+              <div class="tip-card">The <strong>colour of each face</strong> on the solid matches its panel in the development — track them as they unfold.</div>
+              <div class="tip-card">In VR: stand back ~2 m from the boards for the best view of both solid and development simultaneously.</div>
+            </div>
+          </div>
+        </div>
       </div>
+
+    </div><!-- /guide-pages -->
+
+    <!-- Navigation between guide pages -->
+    <div class="guide-nav">
+      <button class="guide-nav-btn" id="gprev-btn" onclick="guidePage(-1)" disabled>◀ BACK</button>
+      <div class="guide-dots">
+        <span class="gdot gdot-active" id="gd-0"></span>
+        <span class="gdot" id="gd-1"></span>
+        <span class="gdot" id="gd-2"></span>
+        <span class="gdot" id="gd-3"></span>
+      </div>
+      <button class="guide-nav-btn" id="gnext-btn" onclick="guidePage(1)">NEXT ▶</button>
+      <button class="btn" id="start-btn" style="display:none;margin-left:18px;">ENTER LAB</button>
     </div>
-    <button class="btn" id="start-btn">ENTER LAB</button>
-  </div>
+
+  </div><!-- /overlay -->
 
   <!-- Desktop unfold control bar -->
   <div id="unfold-bar">
@@ -253,25 +524,25 @@
 
     <!--
       LAYOUT  (z = -5.5 from camera at z=2)
-      ┌─────────────────────┬──────────────────────┐
-      │  3-D SOLID           │  DEVELOPMENT (flat)  │
-      │  x = -3.5  y = 2.2  │  x = +4.5  y = 2.2  │
-      └─────────────────────┴──────────────────────┘
-      Info panel: x=+12, angled -30°  (never overlaps)
+      ┌──────────────────────┬─────────────────────────┐
+      │  3-D SOLID            │  DEVELOPMENT (flat)     │
+      │  x = -5.0  y = 2.2   │  x = +6.0  y = 2.2     │
+      └──────────────────────┴─────────────────────────┘
+      Info panel: x=+15.5, angled -28°  (clears dev board)
     -->
 
-    <!-- ═══ REFERENCE AXIS LINE (x-y ground, behind solid) ═══ -->
-    <a-entity position="0 2.1 -5.5">
-      <a-cylinder radius="0.014" height="14" rotation="0 0 90" color="#CF2027" opacity="0.4" position="0 0 0.01"></a-cylinder>
-      <a-cylinder radius="0.014" height="5.5" color="#CF2027" opacity="0.4" position="0 0 0.01"></a-cylinder>
-      <a-text value="X" position="-7.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
-      <a-text value="X" position=" 7.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
-      <a-text value="Y" position="0.05 2.9 0.1"  align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+    <!-- ═══ REFERENCE AXIS LINE ═══ -->
+    <a-entity position="0.5 2.1 -5.5">
+      <a-cylinder radius="0.014" height="20" rotation="0 0 90" color="#CF2027" opacity="0.35" position="0 0 0.01"></a-cylinder>
+      <a-cylinder radius="0.014" height="6.5" color="#CF2027" opacity="0.35" position="0 0 0.01"></a-cylinder>
+      <a-text value="X" position="-10.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+      <a-text value="X" position=" 10.2 0.05 0.1" align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
+      <a-text value="Y" position="0.05 3.4 0.1"  align="center" color="#CF2027" scale="1.8 1.8 1.8"></a-text>
     </a-entity>
 
     <!-- ═══ SOLID STAGE (left) ═══ -->
-    <a-entity id="solid-stage" position="-3.5 2.2 -5.5">
-      <a-text value="3-D SOLID" position="0 2.8 0.05" align="center" width="7" color="#FFD700" font="roboto"></a-text>
+    <a-entity id="solid-stage" position="-5.0 2.2 -5.5">
+      <a-text value="3-D SOLID" position="0 3.4 0.05" align="center" width="8" color="#FFD700" font="roboto"></a-text>
       <a-entity id="solid-root">
         <a-entity id="solid-faces"></a-entity>
         <a-entity id="solid-edges"></a-entity>
@@ -281,99 +552,111 @@
     </a-entity>
 
     <!-- ═══ DEVELOPMENT BOARD (right) ═══ -->
-    <a-entity id="dev-board" position="4.5 2.2 -5.5">
-      <!-- Board background -->
-      <a-plane width="7.0" height="6.0" color="#08101C" opacity="0.97" side="double"></a-plane>
+    <a-entity id="dev-board" position="6.0 2.2 -5.5">
+      <!-- Board background: 9.5 wide × 7.5 tall -->
+      <a-plane width="9.5" height="7.5" color="#08101C" opacity="0.97" side="double"></a-plane>
       <!-- Border -->
-      <a-entity draw-line="start:-3.5 3.0 0.02;end:3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
-      <a-entity draw-line="start:-3.5 -3.0 0.02;end:3.5 -3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
-      <a-entity draw-line="start:-3.5 -3.0 0.02;end:-3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
-      <a-entity draw-line="start:3.5 -3.0 0.02;end:3.5 3.0 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:-4.75 3.75 0.02;end:4.75 3.75 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:-4.75 -3.75 0.02;end:4.75 -3.75 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:-4.75 -3.75 0.02;end:-4.75 3.75 0.02;color:#3366aa;radius:0.011"></a-entity>
+      <a-entity draw-line="start:4.75 -3.75 0.02;end:4.75 3.75 0.02;color:#3366aa;radius:0.011"></a-entity>
       <!-- Title -->
-      <a-text value="DEVELOPMENT  (Flat Pattern)" position="0 2.72 0.04" align="center" width="9" color="#5599dd" font="roboto"></a-text>
-      <a-plane width="6.6" height="0.008" position="0 2.52 0.03" color="#3366aa" opacity="0.7"></a-plane>
+      <a-text value="DEVELOPMENT  (Flat Pattern)" position="0 3.44 0.04" align="center" width="12" color="#5599dd" font="roboto"></a-text>
+      <a-plane width="9.0" height="0.009" position="0 3.18 0.03" color="#3366aa" opacity="0.7"></a-plane>
       <!-- Content injected here -->
       <a-entity id="dev-content"></a-entity>
-      <!-- Stretch-out line label (shown by render fn) -->
       <a-entity id="dev-sol-label"></a-entity>
     </a-entity>
 
     <!-- ═══ FORMULA STRIP (below dev board) ═══ -->
-    <a-entity id="formula-board" position="4.5 -1.2 -5.5">
-      <a-plane width="7.0" height="1.6" color="#080C18" opacity="0.95" side="double"></a-plane>
-      <a-entity draw-line="start:-3.5 0.8 0.02;end:3.5 0.8 0.02;color:#ffcc00;radius:0.009"></a-entity>
-      <a-text value="KEY FORMULAE" position="0 0.58 0.04" align="center" width="8" color="#FFD700" font="roboto"></a-text>
-      <a-text id="formula-text" value="" position="0 0.08 0.04" align="center" width="8.5" color="#cccccc" font="roboto" wrap-count="60"></a-text>
+    <a-entity id="formula-board" position="6.0 -2.0 -5.5">
+      <a-plane width="9.5" height="1.8" color="#080C18" opacity="0.95" side="double"></a-plane>
+      <a-entity draw-line="start:-4.75 0.9 0.02;end:4.75 0.9 0.02;color:#ffcc00;radius:0.009"></a-entity>
+      <a-text value="KEY FORMULAE" position="0 0.64 0.04" align="center" width="10" color="#FFD700" font="roboto"></a-text>
+      <a-text id="formula-text" value="" position="0 0.10 0.04" align="center" width="11" color="#cccccc" font="roboto" wrap-count="75"></a-text>
     </a-entity>
 
-    <!-- ═══ INFO / CONTROL PANEL — far right, angled ═══ -->
-    <a-entity id="info-panel" position="12.0 2.2 -4.5" rotation="0 -32 0">
-      <a-box width="4.2" height="7.5" depth="0.08" src="#jute-tex" color="#aaa">
-        <a-plane width="4.15" height="7.45" position="0 0 0.041" color="#08080f" opacity="0.98"></a-plane>
+    <!-- ═══ INFO / CONTROL PANEL — far right, angled ═══
+         Panel is 5.0 wide × 9.0 tall — generous spacing, no overlap
+    ═══ -->
+    <a-entity id="info-panel" position="15.5 2.4 -4.0" rotation="0 -28 0">
+      <a-box width="5.0" height="9.2" depth="0.09" src="#jute-tex" color="#aaa">
+        <a-plane width="4.95" height="9.15" position="0 0 0.046" color="#07070e" opacity="0.98"></a-plane>
 
-        <!-- ── Title ── -->
-        <a-text value="DEVELOPMENT OF SURFACES" position="0 3.47 0.06" align="center" width="5.8" color="#CF2027" font="roboto"></a-text>
-        <a-plane width="3.9" height="0.009" position="0 3.26 0.06" color="#CF2027"></a-plane>
+        <!-- ══ TITLE BAR ══ -->
+        <a-text value="DEVELOPMENT OF SURFACES" position="0 4.22 0.07" align="center" width="6.8" color="#CF2027" font="roboto"></a-text>
+        <a-plane width="4.7" height="0.010" position="0 3.98 0.07" color="#CF2027"></a-plane>
 
-        <!-- ── Model counter ── -->
-        <a-text id="txt-level" value="MODEL  1 / 30" position="0 3.06 0.06" align="center" width="4.8" color="#777" font="roboto"></a-text>
+        <!-- ══ MODEL COUNTER  e.g. MODEL 3 / 30 ══ -->
+        <a-text id="txt-level" value="MODEL  1 / 30" position="0 3.72 0.07" align="center" width="5.5" color="#666" font="roboto"></a-text>
 
-        <!-- ── Model title ── -->
-        <a-text id="txt-title" value="Square Prism" position="0 2.74 0.06" align="center" width="5.2" color="#FFD700" font="roboto"></a-text>
+        <!-- ══ MODEL TITLE  (large, gold) ══ -->
+        <a-text id="txt-title" value="Square Prism" position="0 3.36 0.07" align="center" width="6.2" color="#FFD700" font="roboto"></a-text>
 
-        <!-- ── Method badge ── -->
-        <a-text id="txt-method" value="METHOD: PARALLEL-LINE" position="0 2.48 0.06" align="center" width="4.8" color="#00bbf9" font="roboto"></a-text>
-
-        <!-- ── Description ── -->
-        <a-text id="txt-desc" value="Loading…" position="0 2.08 0.06" align="center" width="4.6" color="#ddd" font="roboto" wrap-count="38"></a-text>
-
-        <a-plane width="3.9" height="0.006" position="0 1.60 0.06" color="#222"></a-plane>
-
-        <!-- ── How to solve ── -->
-        <a-text value="HOW TO DRAW" position="0 1.44 0.06" align="center" width="5.2" color="#FFD700" font="roboto"></a-text>
-        <a-text id="txt-steps" value="" position="0 0.82 0.06" align="center" width="4.4" color="#bbb" font="roboto" wrap-count="42"></a-text>
-
-        <a-plane width="3.9" height="0.006" position="0 0.26 0.06" color="#222"></a-plane>
-
-        <!-- ── UNFOLD controls ── -->
-        <a-text value="UNFOLD  (right trigger + stick ↑↓)" position="0 0.10 0.06" align="center" width="5.0" color="#CF2027" font="roboto"></a-text>
-        <a-plane class="interactive" id="vr-unfold-left"  position="-1.30 -0.20 0.07" width="0.55" height="0.40" color="#2B2B88">
-          <a-text value="◀" align="center" width="3.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
-        </a-plane>
-        <a-plane id="vr-unfold-track" position="0 -0.20 0.07" width="1.80" height="0.22" color="#111428">
-          <a-plane id="vr-unfold-fill" position="-0.90 0 0.003" width="0.01" height="0.20" color="#CF2027"></a-plane>
-        </a-plane>
-        <a-plane class="interactive" id="vr-unfold-right" position="1.30 -0.20 0.07" width="0.55" height="0.40" color="#2B2B88">
-          <a-text value="▶" align="center" width="3.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        <!-- ══ METHOD BADGE ══ -->
+        <a-plane position="0 2.98 0.07" width="4.4" height="0.42" color="#001830">
+          <a-text id="txt-method" value="METHOD: PARALLEL-LINE" position="0 0 0.016" align="center" width="6.0" color="#00bbf9" font="roboto"></a-text>
         </a-plane>
 
-        <!-- ── Unfold full / reset ── -->
-        <a-plane class="interactive" id="btn-unfold-full"  position="-0.70 -0.68 0.07" width="1.20" height="0.40" color="#1a1060">
-          <a-text value="⬛ UNFOLD ALL" align="center" width="5.2" position="0 0 0.016" color="#c77aff" font="roboto"></a-text>
+        <a-plane width="4.7" height="0.007" position="0 2.70 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ DESCRIPTION  (3 lines max, wrap-count keeps it inside) ══ -->
+        <a-text value="DESCRIPTION" position="0 2.50 0.07" align="center" width="5.8" color="#888" font="roboto"></a-text>
+        <a-text id="txt-desc" value="Loading…" position="0 2.00 0.07" align="center" width="5.6" color="#ddd" font="roboto" wrap-count="44"></a-text>
+
+        <a-plane width="4.7" height="0.007" position="0 1.52 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ HOW TO DRAW ══ -->
+        <a-text value="HOW TO DRAW" position="0 1.32 0.07" align="center" width="5.8" color="#FFD700" font="roboto"></a-text>
+        <a-text id="txt-steps" value="" position="0 0.60 0.07" align="center" width="5.4" color="#bbb" font="roboto" wrap-count="48"></a-text>
+
+        <a-plane width="4.7" height="0.007" position="0 -0.10 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ UNFOLD SECTION HEADER ══ -->
+        <a-text value="UNFOLD PROGRESS" position="0 -0.32 0.07" align="center" width="5.8" color="#CF2027" font="roboto"></a-text>
+        <a-text value="Right trigger + stick ↑↓" position="0 -0.60 0.07" align="center" width="5.0" color="#554" font="roboto"></a-text>
+
+        <!-- Unfold coarse buttons + progress bar -->
+        <a-plane class="interactive" id="vr-unfold-left"  position="-1.60 -0.96 0.08" width="0.65" height="0.48" color="#2B2B88">
+          <a-text value="◀◀" align="center" width="4.0" position="0 0 0.016" color="#fff" font="roboto"></a-text>
         </a-plane>
-        <a-plane class="interactive" id="btn-unfold-reset" position=" 0.90 -0.68 0.07" width="1.10" height="0.40" color="#1a0010">
-          <a-text value="↺ RESET" align="center" width="4.5" position="0 0 0.016" color="#ff8888" font="roboto"></a-text>
+        <a-plane id="vr-unfold-track" position="0 -0.96 0.08" width="2.00" height="0.26" color="#111428">
+          <a-plane id="vr-unfold-fill" position="-1.00 0 0.003" width="0.01" height="0.23" color="#CF2027"></a-plane>
+        </a-plane>
+        <a-plane class="interactive" id="vr-unfold-right" position="1.60 -0.96 0.08" width="0.65" height="0.48" color="#2B2B88">
+          <a-text value="▶▶" align="center" width="4.0" position="0 0 0.016" color="#fff" font="roboto"></a-text>
         </a-plane>
 
-        <!-- ── Rotate info ── -->
-        <a-text value="ROTATE  (trigger + stick ◀▶)" position="0 -1.12 0.06" align="center" width="5.0" color="#44CCFF" font="roboto"></a-text>
-
-        <a-plane width="3.9" height="0.006" position="0 -1.38 0.06" color="#222"></a-plane>
-
-        <!-- ── PREV / NEXT ── -->
-        <a-plane class="interactive" id="btn-prev" position="-1.10 -1.66 0.07" width="1.55" height="0.48" color="#181828">
-          <a-text value="◀  PREV" align="center" width="5.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        <!-- Unfold ALL / RESET -->
+        <a-plane class="interactive" id="btn-unfold-full"  position="-0.90 -1.52 0.08" width="1.55" height="0.48" color="#1a1060">
+          <a-text value="UNFOLD ALL" align="center" width="5.5" position="0 0 0.016" color="#c77aff" font="roboto"></a-text>
         </a-plane>
-        <a-plane class="interactive" id="btn-next" position=" 1.10 -1.66 0.07" width="1.55" height="0.48" color="#181828">
-          <a-text value="NEXT  ▶" align="center" width="5.5" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        <a-plane class="interactive" id="btn-unfold-reset" position=" 1.12 -1.52 0.08" width="1.30" height="0.48" color="#1a0010">
+          <a-text value="↺ RESET" align="center" width="5.0" position="0 0 0.016" color="#ff8888" font="roboto"></a-text>
         </a-plane>
-        <a-text id="txt-nav" value="1 / 30" position="0 -1.66 0.07" align="center" width="2.2" color="#444" font="roboto"></a-text>
 
-        <a-plane width="3.9" height="0.006" position="0 -1.98 0.06" color="#222"></a-plane>
+        <a-plane width="4.7" height="0.007" position="0 -1.90 0.07" color="#1a1a2a"></a-plane>
 
-        <!-- ── HOME ── -->
-        <a-plane class="interactive" id="btn-home-panel" position="0 -2.30 0.07" width="3.2" height="0.48" color="#280008">
-          <a-text value="⬅  MAIN MENU" align="center" width="6.0" position="0 0 0.016" color="#FF8888" font="roboto"></a-text>
+        <!-- ══ ROTATE NOTE ══ -->
+        <a-text value="ROTATE MODEL" position="0 -2.10 0.07" align="center" width="5.8" color="#44CCFF" font="roboto"></a-text>
+        <a-text value="trigger + stick ◀▶  (either hand)" position="0 -2.38 0.07" align="center" width="5.0" color="#336677" font="roboto"></a-text>
+
+        <a-plane width="4.7" height="0.007" position="0 -2.72 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ PREV / NEXT ══ -->
+        <a-plane class="interactive" id="btn-prev" position="-1.35 -3.04 0.08" width="1.85" height="0.56" color="#181828">
+          <a-text value="◀  PREV MODEL" align="center" width="6.0" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-plane class="interactive" id="btn-next" position=" 1.35 -3.04 0.08" width="1.85" height="0.56" color="#181828">
+          <a-text value="NEXT MODEL  ▶" align="center" width="6.0" position="0 0 0.016" color="#fff" font="roboto"></a-text>
+        </a-plane>
+        <a-text id="txt-nav" value="1 / 30" position="0 -3.04 0.08" align="center" width="2.5" color="#333" font="roboto"></a-text>
+
+        <a-plane width="4.7" height="0.007" position="0 -3.44 0.07" color="#1a1a2a"></a-plane>
+
+        <!-- ══ HOME ══ -->
+        <a-plane class="interactive" id="btn-home-panel" position="0 -3.80 0.08" width="3.8" height="0.56" color="#280008">
+          <a-text value="⬅  MAIN MENU" align="center" width="6.5" position="0 0 0.016" color="#FF8888" font="roboto"></a-text>
         </a-plane>
 
       </a-box>
@@ -1434,8 +1717,8 @@
   //  RENDER ENGINE
   // ══════════════════════════════════════════════════════════════════
 
-  const DS=1.15; // draw scale (3D solid)
-  const DEV_S=1.0; // dev scale (same for board)
+  const DS=1.55;    // draw scale for 3D solid (was 1.15)
+  const DEV_S=1.35; // draw scale for development board (was 1.0)
 
   // HELPER: make polygon string from 2D pts → board space (z=0.04)
   function polyStr(pts,zz=0.04){return pts.map(([x,y])=>`${(x*DEV_S).toFixed(4)},${(y*DEV_S).toFixed(4)},${zz}`).join('|');}
@@ -1542,7 +1825,7 @@
 
     // ── update unfold fill bar ─────────────────────────
     const fill=document.getElementById('vr-unfold-fill');
-    const trackW=1.80;
+    const trackW=2.00;
     const fw=Math.max(0.01,t*trackW);
     fill.setAttribute('width',fw);
     fill.setAttribute('position',`${-trackW/2+fw/2} 0 0.003`);
@@ -1579,6 +1862,21 @@
     },stepTime);
   }
   function stopAnim(){ if(animHandle){clearInterval(animHandle);animHandle=null;} }
+
+  // ── GUIDE PAGE NAVIGATION ─────────────────────────────────────────
+  const TOTAL_GUIDE_PAGES=4;
+  let guideCurrentPage=0;
+  function guidePage(dir){
+    document.getElementById('gp-'+(guideCurrentPage+1)).style.display='none';
+    document.getElementById('gd-'+guideCurrentPage).classList.remove('gdot-active');
+    guideCurrentPage=Math.max(0,Math.min(TOTAL_GUIDE_PAGES-1,guideCurrentPage+dir));
+    document.getElementById('gp-'+(guideCurrentPage+1)).style.display='';
+    document.getElementById('gd-'+guideCurrentPage).classList.add('gdot-active');
+    document.getElementById('gprev-btn').disabled=(guideCurrentPage===0);
+    const isLast=(guideCurrentPage===TOTAL_GUIDE_PAGES-1);
+    document.getElementById('gnext-btn').style.display=isLast?'none':'';
+    document.getElementById('start-btn').style.display=isLast?'':'none';
+  }
 
   // ── SCENE READY ───────────────────────────────────────────────────
   const scene=document.querySelector('a-scene');
@@ -1663,7 +1961,7 @@
     const st=document.getElementById('solid-stage');
     const sc=st.object3D.scale;
     const f=e.deltaY>0?0.92:1.09;
-    const ns=Math.max(0.30,Math.min(2.6,sc.x*f));
+    const ns=Math.max(0.30,Math.min(2.8,sc.x*f));
     st.object3D.scale.set(ns,ns,ns);
     e.preventDefault();
   },{passive:false});
@@ -1685,7 +1983,7 @@
     cd.y=0; cd.normalize();
     const panel=document.getElementById('info-panel');
     if(panel){
-      const tgt=cp.clone().add(cd.multiplyScalar(4.5));
+      const tgt=cp.clone().add(cd.multiplyScalar(5.5));
       panel.object3D.position.copy(tgt);
       panel.object3D.lookAt(cp);
     }
